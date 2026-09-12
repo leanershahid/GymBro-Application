@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "GymManagementApp",
+    "slug": "gymmanagementsystem",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.shahidleaner.GymManagementApp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.shahidleaner.GymManagementApp"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f7e74454-196f-4be9-b52c-04e3a45610ad"
+      }
+    },
+    "owner": "shahidleaners-organization",
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}

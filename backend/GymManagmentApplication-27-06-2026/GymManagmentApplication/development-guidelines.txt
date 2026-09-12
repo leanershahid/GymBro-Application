@@ -1,0 +1,273 @@
+.NET Web API Project Structure Standards
+Enterprise Architecture & Development Guidelines
+
+================================================================================
+1. Purpose
+================================================================================
+This document defines the standard project structure, naming conventions,
+request/response models, service layer organization, and development practices
+for enterprise-grade .NET Web API applications.
+
+The objective is to ensure:
+  - Maintainability
+  - Scalability
+  - Separation of concerns
+  - Testability
+  - Consistent coding standards
+  - Ease of onboarding new developers
+
+================================================================================
+2. Solution Architecture
+================================================================================
+The application follows a layered architecture.
+
+Solution
+├── API
+├── Application
+├── Domain
+├── Infrastructure
+└── Tests
+
+Each layer has a specific responsibility and must not violate dependency rules.
+
+================================================================================
+3. Layer Responsibilities
+================================================================================
+
+3.1 API Layer
+Responsible for:
+  - HTTP Endpoints
+  - Authentication & Authorization
+  - Request Validation
+  - Middleware
+  - API Documentation
+  - Dependency Injection Configuration
+
+  API
+  ├── Controllers
+  ├── Middleware
+  ├── Filters
+  ├── Extensions
+  ├── Configurations
+  ├── Program.cs
+  └── appsettings.json
+
+  Controllers should remain thin and contain no business logic.
+
+--------------------------------------------------------------------------------
+3.2 Application Layer
+Responsible for business logic, DTOs, service interfaces, validation rules,
+and mappings.
+
+  Application
+  ├── Interfaces
+  ├── Services
+  ├── DTOs
+  ├── Validators
+  └── Mappings
+
+--------------------------------------------------------------------------------
+3.3 Domain Layer
+Responsible for business entities, enums, constants, and domain rules.
+
+  public class Employee
+  {
+      public int EmployeeId { get; set; }
+      public string EmployeeCode { get; set; }
+      public string FirstName { get; set; }
+      public string LastName { get; set; }
+  }
+
+--------------------------------------------------------------------------------
+3.4 Infrastructure Layer
+Responsible for database access, repositories, external integrations, storage,
+identity, and email services.
+
+  Infrastructure
+  ├── Data
+  ├── Repositories
+  ├── Identity
+  └── ExternalServices
+
+--------------------------------------------------------------------------------
+3.5 Test Layer
+Responsible for unit testing, integration testing, and mocking services.
+
+  Tests
+  ├── UnitTests
+  └── IntegrationTests
+
+================================================================================
+4. DTO Standards
+================================================================================
+DTOs must be separated into Requests and Responses.
+
+Request DTO Example:
+  public class CreateEmployeeRequest
+  {
+      public string EmployeeCode { get; set; }
+      public string FirstName { get; set; }
+      public string LastName { get; set; }
+      public string Email { get; set; }
+  }
+
+Response DTO Example:
+  public class EmployeeResponse
+  {
+      public int EmployeeId { get; set; }
+      public string EmployeeCode { get; set; }
+      public string EmployeeName { get; set; }
+  }
+
+================================================================================
+5. Common Response Models
+================================================================================
+  public class ApiResponse<T>
+  {
+      public bool Success { get; set; }
+      public string Message { get; set; }
+      public T? Data { get; set; }
+      public List<string>? Errors { get; set; }
+  }
+
+================================================================================
+6. Pagination Standard
+================================================================================
+  public class PagedResponse<T>
+  {
+      public IEnumerable<T> Items { get; set; }
+      public int PageNumber { get; set; }
+      public int PageSize { get; set; }
+      public int TotalRecords { get; set; }
+      public int TotalPages { get; set; }
+  }
+
+================================================================================
+7. Service Layer Standard
+================================================================================
+  public interface IEmployeeService
+  {
+      Task<EmployeeResponse> CreateAsync(CreateEmployeeRequest request);
+      Task<EmployeeResponse?> GetByIdAsync(int employeeId);
+  }
+
+================================================================================
+8. Repository Pattern Standard
+================================================================================
+  public interface IEmployeeRepository
+  {
+      Task<Employee?> GetByIdAsync(int employeeId);
+      Task<List<Employee>> GetAllAsync();
+  }
+
+================================================================================
+9. Controller Standard
+================================================================================
+  [ApiController]
+  [Route("api/[controller]")]
+  public class EmployeeController : ControllerBase
+  {
+      private readonly IEmployeeService _service;
+  }
+
+================================================================================
+10. Naming Conventions
+================================================================================
+  Type            Convention
+  --------------- --------------------------
+  Entity          Employee
+  Request         CreateEmployeeRequest
+  Response        EmployeeResponse
+  Service         EmployeeService
+  Interface       IEmployeeService
+  Repository      EmployeeRepository
+  Controller      EmployeeController
+
+================================================================================
+11. Validation Standard
+================================================================================
+Use FluentValidation for request validation.
+
+  public class CreateEmployeeValidator : AbstractValidator<CreateEmployeeRequest>
+  {
+      public CreateEmployeeValidator()
+      {
+          RuleFor(x => x.EmployeeCode).NotEmpty();
+          RuleFor(x => x.Email).EmailAddress();
+      }
+  }
+
+================================================================================
+12. Exception Handling
+================================================================================
+Use global exception middleware for centralized handling and consistent
+error formatting.
+
+  app.UseMiddleware<ExceptionMiddleware>();
+
+================================================================================
+13. Logging Standard
+================================================================================
+Recommended logging stack:
+  - Serilog
+  - ILogger
+  - Application Insights
+
+Do not log passwords, tokens, or sensitive user information.
+
+================================================================================
+14. Dependency Injection
+================================================================================
+  builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+  builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+
+================================================================================
+15. Enterprise Folder Structure per Feature
+================================================================================
+  Employee
+  ├── Requests
+  │   ├── CreateEmployeeRequest.cs
+  │   ├── UpdateEmployeeRequest.cs
+  │   └── EmployeeSearchRequest.cs
+  ├── Responses
+  │   ├── EmployeeResponse.cs
+  │   ├── EmployeeDetailsResponse.cs
+  │   └── EmployeeListResponse.cs
+  ├── Validators
+  ├── Services
+  └── Repositories
+
+================================================================================
+16. Recommended Enterprise Technologies
+================================================================================
+  Area                Technology
+  ------------------- --------------------
+  Framework           ASP.NET Core
+  ORM                 Entity Framework Core
+  Validation          FluentValidation
+  Mapping             AutoMapper
+  Logging             Serilog
+  Authentication      JWT
+  Documentation       Swagger/OpenAPI
+  Unit Testing        xUnit
+  Mocking             Moq
+  Database            SQL Server
+  Caching             Redis
+  Background Jobs     Hangfire
+
+================================================================================
+17. Summary
+================================================================================
+  1.  Keep Controllers Thin
+  2.  Put Business Logic in Services
+  3.  Put Data Access in Repositories
+  4.  Separate Request and Response DTOs
+  5.  Use Standard API Response Wrappers (ApiResponse<T>)
+  6.  Use FluentValidation for all Requests
+  7.  Use Global Exception Handling Middleware
+  8.  Follow Consistent Naming Conventions
+  9.  Maintain Layered Architecture
+  10. Write Unit and Integration Tests
+
+Following these standards ensures a scalable, maintainable, and
+enterprise-ready .NET Web API application.

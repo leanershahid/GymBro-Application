@@ -1,0 +1,11 @@
+# Local secrets — copy appsettings.Development.json.example to this path and fill in real values.
+# Never commit this file; it holds the live DB connection string and JWT signing key.
+backend/GymManagmentApplication-27-06-2026/GymManagmentApplication/appsettings.Development.json
+
+# Claude Code local session/tool state — machine-specific, not for sharing.
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# OS cruft
+.DS_Store
+Thumbs.db
