@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: gymbro-api
+    runtime: docker
+    rootDir: backend/GymManagmentApplication-27-06-2026
+    dockerfilePath: GymManagmentApplication/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /swagger
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: Jwt__Key
+        sync: false
+      - key: Jwt__Issuer
+        value: GymManagmentApplication
+      - key: Jwt__Audience
+        value: GymManagmentApplication
