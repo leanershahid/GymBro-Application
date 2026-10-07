@@ -3,6 +3,7 @@ namespace GymManagmentApplication.Application.Onboarding.Requests;
 public class StartOnboardingRequest
 {
     public ulong MemberId { get; set; }
+    /// <summary>Ignored — the member's own gym is used.</summary>
     public ulong TenantId { get; set; }
     public ulong? TemplateId { get; set; }
 }
@@ -23,6 +24,7 @@ public class SubmitAssessmentRequest
 
 public class CreateOnboardingTemplateRequest
 {
+    /// <summary>Only honoured for super admins; everyone else creates in their own gym.</summary>
     public ulong TenantId { get; set; }
     public string Name { get; set; } = default!;
     public string? Description { get; set; }

@@ -2,6 +2,8 @@ namespace GymManagmentApplication.Application.Trainer.Requests;
 
 public class CreateTrainerRequest
 {
+    /// <summary>Only honoured for super admins; everyone else creates in their own gym.</summary>
+    public ulong? TenantId { get; set; }
     public ulong BranchId { get; set; }
 
     // Basic Info

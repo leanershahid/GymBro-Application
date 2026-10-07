@@ -7,7 +7,6 @@ public class SetModuleAccessValidator : AbstractValidator<SetModuleAccessRequest
 {
     public SetModuleAccessValidator()
     {
-        RuleFor(x => x.TenantId).GreaterThan(0ul).WithMessage("TenantId is required.");
         RuleFor(x => x.RoleId).GreaterThan(0ul).WithMessage("RoleId is required.");
         RuleFor(x => x.Module)
             .NotEmpty().WithMessage("Module is required.")
@@ -19,7 +18,6 @@ public class BulkSetModuleAccessValidator : AbstractValidator<BulkSetModuleAcces
 {
     public BulkSetModuleAccessValidator()
     {
-        RuleFor(x => x.TenantId).GreaterThan(0ul).WithMessage("TenantId is required.");
         RuleFor(x => x.RoleId).GreaterThan(0ul).WithMessage("RoleId is required.");
         RuleFor(x => x.Modules)
             .NotEmpty().WithMessage("At least one module entry is required.")

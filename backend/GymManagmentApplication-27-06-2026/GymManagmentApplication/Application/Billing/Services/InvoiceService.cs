@@ -9,10 +9,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Billing.Services;
 
-public class InvoiceService(AppDbContext db) : IInvoiceService
+public class InvoiceService(AppDbContext db, ICurrentUser currentUser) : IInvoiceService
 {
     public async Task<PagedResponse<InvoiceResponse>> GetAllAsync(InvoiceListRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
         var q = db.Invoices.AsQueryable();
         if (request.TenantId.HasValue) q = q.Where(i => i.TenantId == request.TenantId);
         if (request.MemberId.HasValue) q = q.Where(i => i.UserId == request.MemberId);
@@ -32,6 +33,8 @@ public class InvoiceService(AppDbContext db) : IInvoiceService
 
     public async Task<InvoiceResponse> GenerateAsync(GenerateInvoiceRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
+        await db.EnsureUserAsync(request.MemberId, request.TenantId);
         decimal subtotal = request.Items.Sum(i => i.UnitPrice * i.Quantity);
         var invoice = new Invoice
         {
@@ -92,5 +95,5 @@ public class InvoiceService(AppDbContext db) : IInvoiceService
     };
 
     private async Task<ulong> NextIdAsync() =>
-        (await db.Invoices.MaxAsync(i => (ulong?)i.Id) ?? 0) + 1;
+        (await db.Invoices.IgnoreQueryFilters().MaxAsync(i => (ulong?)i.Id) ?? 0) + 1;
 }

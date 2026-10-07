@@ -7,12 +7,15 @@ using GymManagmentApplication.Domain.Enums;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
+using GymManagmentApplication.Application.Common;
+
 namespace GymManagmentApplication.Application.Billing.Services;
 
-public class MembershipPlanService(AppDbContext db) : IMembershipPlanService
+public class MembershipPlanService(AppDbContext db, ICurrentUser currentUser) : IMembershipPlanService
 {
     public async Task<List<MembershipPlanResponse>> GetAllAsync(ulong tenantId)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var plans = await db.MembershipPlans
             .Where(p => p.TenantId == tenantId && p.IsActive)
             .OrderBy(p => p.Price).ToListAsync();
@@ -21,10 +24,13 @@ public class MembershipPlanService(AppDbContext db) : IMembershipPlanService
 
     public async Task<MembershipPlanResponse> CreateAsync(CreateMembershipPlanRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
+        await db.EnsureBranchAsync(request.BranchId, request.TenantId);
         var plan = new MembershipPlan
         {
             Id = await NextIdAsync(),
             TenantId = request.TenantId,
+            BranchId = request.BranchId is > 0 ? request.BranchId : null,
             Name = request.Name,
             Description = request.Description,
             Price = request.Price,
@@ -114,5 +120,5 @@ public class MembershipPlanService(AppDbContext db) : IMembershipPlanService
     }
 
     private async Task<ulong> NextIdAsync() =>
-        (await db.MembershipPlans.MaxAsync(p => (ulong?)p.Id) ?? 0) + 1;
+        (await db.MembershipPlans.IgnoreQueryFilters().MaxAsync(p => (ulong?)p.Id) ?? 0) + 1;
 }

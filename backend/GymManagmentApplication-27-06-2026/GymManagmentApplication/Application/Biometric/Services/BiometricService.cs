@@ -4,6 +4,7 @@ using System.Text.Json;
 using GymManagmentApplication.Application.Biometric.Interfaces;
 using GymManagmentApplication.Application.Biometric.Requests;
 using GymManagmentApplication.Application.Biometric.Responses;
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Facility;
 using GymManagmentApplication.Domain.Enums;
 using GymManagmentApplication.Infrastructure.Data;
@@ -11,11 +12,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Biometric.Services;
 
-public class BiometricService(AppDbContext db) : IBiometricService
+public class BiometricService(AppDbContext db, ICurrentUser currentUser) : IBiometricService
 {
     public async Task<BiometricEnrollResponse> EnrollFaceAsync(EnrollFaceRequest request)
     {
-        var user = await db.Users.FindAsync(request.UserId);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == request.UserId && u.DeletedAt == null);
         if (user is null)
             return new BiometricEnrollResponse { UserId = request.UserId, BiometricType = "Face", Success = false };
 
@@ -23,8 +24,6 @@ public class BiometricService(AppDbContext db) : IBiometricService
         user.FaceEncoding = JsonDocument.Parse(JsonSerializer.Serialize(new { hash = Hash(request.FaceImageBase64) }));
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
-
-        await LogAccessEventAsync(request.UserId, AccessEventType.Entry, AccessMethod.Face, 1.0m);
 
         return new BiometricEnrollResponse
         {
@@ -35,13 +34,16 @@ public class BiometricService(AppDbContext db) : IBiometricService
 
     public async Task<BiometricVerifyResponse> VerifyFaceAsync(VerifyFaceRequest request)
     {
+        var tenantId = currentUser.ResolveTenantId(request.TenantId);
+        var device = await ResolveDeviceAsync(request.DeviceId, tenantId);
+
         // Find any user in the tenant with a face encoding (mock match)
         var user = await db.Users
-            .Where(u => u.TenantId == request.TenantId && u.FaceEncoding != null && u.DeletedAt == null)
+            .Where(u => u.TenantId == tenantId && u.FaceEncoding != null && u.DeletedAt == null)
             .FirstOrDefaultAsync();
 
         var verified = user is not null;
-        await LogAccessEventAsync(user?.Id, AccessEventType.Entry, AccessMethod.Face, verified ? 0.97m : 0.0m);
+        await LogAccessEventAsync(device, user?.Id, verified, AccessMethod.Face, verified ? 0.97m : 0.0m);
 
         return new BiometricVerifyResponse
         {
@@ -52,7 +54,7 @@ public class BiometricService(AppDbContext db) : IBiometricService
 
     public async Task<bool> DeleteBiometricAsync(ulong userId)
     {
-        var user = await db.Users.FindAsync(userId);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
         if (user is null) return false;
 
         var hadData = user.FaceEncoding != null || user.BiometricHash != null;
@@ -65,6 +67,7 @@ public class BiometricService(AppDbContext db) : IBiometricService
 
     public async Task<List<EntryLogResponse>> GetEntryLogsAsync(ulong tenantId, int pageNumber, int pageSize)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var events = await db.AccessEvents
             .Include(e => e.User)
             .Include(e => e.Device).ThenInclude(d => d.Branch)
@@ -80,13 +83,15 @@ public class BiometricService(AppDbContext db) : IBiometricService
             UserId       = e.UserId ?? 0,
             EntryType    = e.Method.ToString(),
             AccessGranted = e.EventType == AccessEventType.Entry,
+            DeviceId     = e.DeviceId,
+            BranchId     = e.Device.BranchId,
             Timestamp    = e.CreatedAt
         }).ToList();
     }
 
     public async Task<BiometricEnrollResponse> EnrollFingerprintAsync(EnrollFingerprintRequest request)
     {
-        var user = await db.Users.FindAsync(request.UserId);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == request.UserId && u.DeletedAt == null);
         if (user is null)
             return new BiometricEnrollResponse { UserId = request.UserId, BiometricType = "Fingerprint", Success = false };
 
@@ -103,13 +108,16 @@ public class BiometricService(AppDbContext db) : IBiometricService
 
     public async Task<BiometricVerifyResponse> VerifyFingerprintAsync(VerifyFingerprintRequest request)
     {
+        var tenantId = currentUser.ResolveTenantId(request.TenantId);
+        var device = await ResolveDeviceAsync(request.DeviceId, tenantId);
+
         var hash = Hash(request.FingerprintData);
         var user = await db.Users
-            .Where(u => u.TenantId == request.TenantId && u.BiometricHash == hash && u.DeletedAt == null)
+            .Where(u => u.TenantId == tenantId && u.BiometricHash == hash && u.DeletedAt == null)
             .FirstOrDefaultAsync();
 
         var verified = user is not null;
-        await LogAccessEventAsync(user?.Id, AccessEventType.Entry, AccessMethod.Biometric, verified ? 0.99m : 0.0m);
+        await LogAccessEventAsync(device, user?.Id, verified, AccessMethod.Biometric, verified ? 0.99m : 0.0m);
 
         return new BiometricVerifyResponse
         {
@@ -120,17 +128,28 @@ public class BiometricService(AppDbContext db) : IBiometricService
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    private async Task LogAccessEventAsync(ulong? userId, AccessEventType eventType, AccessMethod method, decimal confidence)
+    /// <summary>The scanner must belong to a branch of the same gym.</summary>
+    private async Task<AccessDevice?> ResolveDeviceAsync(ulong? deviceId, ulong tenantId)
     {
-        // Use device Id=1 as default — real deployment uses the actual device FK
-        var defaultDevice = await db.AccessDevices.FirstOrDefaultAsync();
-        if (defaultDevice is null) return;
+        if (deviceId is null) return null;
+        return await db.AccessDevices.Include(d => d.Branch)
+                   .FirstOrDefaultAsync(d => d.Id == deviceId && d.Branch.TenantId == tenantId)
+               ?? throw new ArgumentException($"Access device {deviceId} does not belong to this gym.");
+    }
 
-        var maxId = await db.AccessEvents.MaxAsync(e => (ulong?)e.Id) ?? 0;
+    /// <summary>
+    /// Records the scan against the device that captured it. Without a device there is no
+    /// branch to attribute the entry to, so nothing is logged (previously every event was
+    /// pinned to whichever device happened to be first in the table).
+    /// </summary>
+    private async Task LogAccessEventAsync(AccessDevice? device, ulong? userId, bool granted, AccessMethod method, decimal confidence)
+    {
+        if (device is null) return;
+
         db.AccessEvents.Add(new AccessEvent
         {
-            Id = maxId + 1, DeviceId = defaultDevice.Id,
-            UserId = userId, EventType = eventType,
+            DeviceId = device.Id,
+            UserId = userId, EventType = granted ? AccessEventType.Entry : AccessEventType.Denied,
             Method = method, Confidence = confidence,
             CreatedAt = DateTime.UtcNow
         });

@@ -42,7 +42,7 @@ public class UserModulesService(AppDbContext db) : IUserModulesService
     {
         var modules = await db.Modules.ToDictionaryAsync(m => m.Key, StringComparer.OrdinalIgnoreCase);
         var existing = await db.UserModuleAccesses.Where(a => a.UserId == userId).ToListAsync();
-        var nextId = (await db.UserModuleAccesses.MaxAsync(a => (ulong?)a.Id) ?? 0) + 1;
+        var nextId = (await db.UserModuleAccesses.IgnoreQueryFilters().MaxAsync(a => (ulong?)a.Id) ?? 0) + 1;
 
         foreach (var toggle in request.Modules)
         {

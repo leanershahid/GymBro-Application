@@ -8,12 +8,13 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("billing")]
 [Route("api/membership-plans")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class MembershipPlanController(IMembershipPlanService service) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<object>>> GetAll([FromQuery] ulong tenantId)
+    public async Task<ActionResult<ApiResponse<object>>> GetAll([FromQuery] ulong tenantId = 0)
         => Ok(ApiResponse<object>.Ok(await service.GetAllAsync(tenantId)));
 
     [HttpPost]

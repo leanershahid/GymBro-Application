@@ -8,16 +8,18 @@ using GymManagmentApplication.Infrastructure.Repositories.WorkoutAutomation;
 
 namespace GymManagmentApplication.Application.WorkoutAutomation.Services;
 
-public class WorkoutAutomationService(IWorkoutAutomationRepository repository) : IWorkoutAutomationService
+public class WorkoutAutomationService(IWorkoutAutomationRepository repository, ICurrentUser currentUser) : IWorkoutAutomationService
 {
     public async Task<List<AutomationRuleResponse>> GetRulesAsync(ulong tenantId)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var rules = await repository.GetRulesAsync(tenantId);
         return rules.Select(MapRule).ToList();
     }
 
     public async Task<AutomationRuleResponse> CreateRuleAsync(CreateAutomationRuleRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
         var rule = new WorkoutAutomationRule
         {
             TenantId = request.TenantId,

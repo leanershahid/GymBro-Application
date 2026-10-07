@@ -23,5 +23,7 @@ public class EntryLogResponse
     public ulong UserId { get; set; }
     public string EntryType { get; set; } = default!; // Face, Fingerprint
     public bool AccessGranted { get; set; }
+    public ulong DeviceId { get; set; }
+    public ulong BranchId { get; set; }
     public DateTime Timestamp { get; set; }
 }

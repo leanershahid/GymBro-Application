@@ -9,6 +9,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("onboarding")]
 [Route("api/onboarding")]
 [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
 public class OnboardingController(IOnboardingService service, IValidator<StartOnboardingRequest> validator) : ControllerBase
@@ -45,7 +46,7 @@ public class OnboardingController(IOnboardingService service, IValidator<StartOn
 
     [HttpGet("templates")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
-    public async Task<ActionResult<ApiResponse<object>>> GetTemplates([FromQuery] ulong tenantId)
+    public async Task<ActionResult<ApiResponse<object>>> GetTemplates([FromQuery] ulong tenantId = 0)
         => Ok(ApiResponse<object>.Ok(await service.GetTemplatesAsync(tenantId)));
 
     [HttpPost("templates")]

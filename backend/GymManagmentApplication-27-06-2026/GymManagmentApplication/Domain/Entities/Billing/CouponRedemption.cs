@@ -3,6 +3,8 @@ namespace GymManagmentApplication.Domain.Entities.Billing;
 public class CouponRedemption
 {
     public ulong Id { get; set; }
+    /// <summary>Owning gym (nullable: rows written before this was mapped have none).</summary>
+    public ulong? TenantId { get; set; }
     public ulong CouponId { get; set; }
     public ulong UserId { get; set; }
     public ulong? InvoiceId { get; set; }

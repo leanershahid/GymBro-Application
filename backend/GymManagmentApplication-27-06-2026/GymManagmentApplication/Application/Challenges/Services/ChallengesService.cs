@@ -6,9 +6,11 @@ using GymManagmentApplication.Domain.Enums;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
+using GymManagmentApplication.Application.Common;
+
 namespace GymManagmentApplication.Application.Challenges.Services;
 
-public class ChallengesService(AppDbContext db) : IChallengesService
+public class ChallengesService(AppDbContext db, ICurrentUser currentUser) : IChallengesService
 {
     public async Task<List<ChallengeAdminResponse>> GetAllAsync()
     {
@@ -40,6 +42,7 @@ public class ChallengesService(AppDbContext db) : IChallengesService
 
     public async Task<ChallengeAdminResponse> CreateAsync(CreateChallengeRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
         JsonDocument? prizes = null;
         if (!string.IsNullOrWhiteSpace(request.PrizeLabel))
             prizes = JsonDocument.Parse(JsonSerializer.Serialize(new { label = request.PrizeLabel }));
@@ -102,7 +105,7 @@ public class ChallengesService(AppDbContext db) : IChallengesService
     }
 
     private async Task<ulong> NextIdAsync() =>
-        (await db.Challenges.MaxAsync(c => (ulong?)c.Id) ?? 0) + 1;
+        (await db.Challenges.IgnoreQueryFilters().MaxAsync(c => (ulong?)c.Id) ?? 0) + 1;
 
     public async Task<List<ActiveChallengeResponse>> GetActiveAsync(ulong userId)
     {

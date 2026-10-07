@@ -9,6 +9,7 @@ public interface ITrainerService
     Task<PagedResponse<TrainerResponse>> GetAllAsync(int pageNumber, int pageSize);
     Task<TrainerResponse> CreateAsync(CreateTrainerRequest request);
     Task<TrainerResponse?> GetByIdAsync(ulong id);
+    Task<TrainerResponse?> GetByUserIdAsync(ulong userId);
     Task<TrainerResponse?> UpdateAsync(ulong id, UpdateTrainerRequest request);
     Task<List<TrainerClientResponse>> GetClientsAsync(ulong id);
     Task<TrainerClientResponse> AssignClientAsync(ulong id, AssignClientRequest request);

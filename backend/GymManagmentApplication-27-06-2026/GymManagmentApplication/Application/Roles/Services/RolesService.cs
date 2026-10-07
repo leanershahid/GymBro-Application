@@ -1,14 +1,18 @@
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Roles.Interfaces;
 using GymManagmentApplication.Application.Roles.Requests;
 using GymManagmentApplication.Application.Roles.Responses;
+using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Roles.Services;
 
-public class RolesService(AppDbContext db) : IRolesService
+public class RolesService(AppDbContext db, ICurrentUser currentUser) : IRolesService
 {
+    private static string ToSlug(string name) => name.Trim().ToLower().Replace(" ", "-");
+
     public async Task<List<RoleResponse>> GetAllRolesAsync()
     {
         var roles = await db.Roles.Include(r => r.RolePermissions).ThenInclude(rp => rp.Permission).ToListAsync();
@@ -17,13 +21,18 @@ public class RolesService(AppDbContext db) : IRolesService
 
     public async Task<RoleResponse> CreateRoleAsync(CreateRoleRequest request)
     {
-        var maxId = await db.Roles.MaxAsync(r => (ulong?)r.Id) ?? 0;
-        var tenantId = await db.Tenants.OrderBy(t => t.Id).Select(t => t.Id).FirstOrDefaultAsync();
+        var tenantId = currentUser.ResolveTenantId();
+        var slug = ToSlug(request.Name);
+        if (RoleNames.IsBuiltIn(slug) || slug == RoleNames.Staff)
+            throw new ArgumentException($"'{request.Name}' is a reserved role name.");
+        if (await db.Roles.AnyAsync(r => r.TenantId == tenantId && r.Slug == slug))
+            throw new ArgumentException($"A role named '{request.Name}' already exists in this gym.");
+
         var role = new Role
         {
-            Id = maxId + 1, TenantId = tenantId,
+            TenantId = tenantId,
             Name = request.Name,
-            Slug = request.Name.ToLower().Replace(" ", "-"),
+            Slug = slug,
             Description = request.Description,
             IsSystem = false, CreatedAt = DateTime.UtcNow
         };
@@ -44,9 +53,22 @@ public class RolesService(AppDbContext db) : IRolesService
     public async Task<RoleResponse?> UpdateRoleAsync(string id, UpdateRoleRequest request)
     {
         if (!ulong.TryParse(id, out var uid)) return null;
-        var role = await db.Roles.FindAsync(uid);
+        var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == uid);
         if (role is null) return null;
-        if (request.Name is not null) { role.Name = request.Name; role.Slug = request.Name.ToLower().Replace(" ", "-"); }
+        if (request.Name is not null)
+        {
+            role.Name = request.Name;
+            // System roles keep their slug: authorization is keyed on it.
+            if (!role.IsSystem)
+            {
+                var slug = ToSlug(request.Name);
+                if (RoleNames.IsBuiltIn(slug) || slug == RoleNames.Staff)
+                    throw new ArgumentException($"'{request.Name}' is a reserved role name.");
+                if (await db.Roles.AnyAsync(r => r.TenantId == role.TenantId && r.Slug == slug && r.Id != role.Id))
+                    throw new ArgumentException($"A role named '{request.Name}' already exists in this gym.");
+                role.Slug = slug;
+            }
+        }
         if (request.Description is not null) role.Description = request.Description;
         await db.SaveChangesAsync();
         return Map(role);
@@ -55,8 +77,11 @@ public class RolesService(AppDbContext db) : IRolesService
     public async Task<bool> DeleteRoleAsync(string id)
     {
         if (!ulong.TryParse(id, out var uid)) return false;
-        var role = await db.Roles.FindAsync(uid);
+        var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == uid);
         if (role is null || role.IsSystem) return false;
+        if (await db.Users.AnyAsync(u => u.RoleId == uid && u.DeletedAt == null))
+            throw new ArgumentException("Role is still assigned to users. Reassign them first.");
+        db.ModuleAccesses.RemoveRange(db.ModuleAccesses.Where(m => m.RoleId == uid));
         db.Roles.Remove(role);
         await db.SaveChangesAsync();
         return true;
@@ -65,6 +90,7 @@ public class RolesService(AppDbContext db) : IRolesService
     public async Task<List<string>> GetRolePermissionsAsync(string id)
     {
         if (!ulong.TryParse(id, out var uid)) return [];
+        if (!await db.Roles.AnyAsync(r => r.Id == uid)) return []; // tenant-filtered
         return await db.RolePermissions
             .Where(rp => rp.RoleId == uid)
             .Include(rp => rp.Permission)
@@ -75,7 +101,7 @@ public class RolesService(AppDbContext db) : IRolesService
     public async Task<RoleResponse?> UpdateRolePermissionsAsync(string id, UpdateRolePermissionsRequest request)
     {
         if (!ulong.TryParse(id, out var uid)) return null;
-        var role = await db.Roles.FindAsync(uid);
+        var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == uid);
         if (role is null) return null;
 
         // Remove existing
@@ -128,10 +154,18 @@ public class RolesService(AppDbContext db) : IRolesService
     public async Task<bool> AssignRoleToUserAsync(ulong userId, AssignRoleRequest request)
     {
         if (!ulong.TryParse(request.RoleId, out var roleId)) return false;
-        var role = await db.Roles.FindAsync(roleId);
+        var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == roleId);
         if (role is null) return false;
-        var user = await db.Users.FindAsync(userId);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null);
         if (user is null) return false;
+
+        // A user can only hold a role from their own gym.
+        if (role.TenantId != user.TenantId)
+            throw new ArgumentException("That role belongs to a different gym than the user.");
+        if (role.Slug == RoleNames.SuperAdmin && !currentUser.IsSuperAdmin)
+            throw new UnauthorizedAccessException("Only a super admin can grant the super admin role.");
+        if (user.Id == currentUser.UserId)
+            throw new ArgumentException("You cannot change your own role.");
         user.RoleId    = roleId;
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
@@ -141,11 +175,15 @@ public class RolesService(AppDbContext db) : IRolesService
     public async Task<bool> RevokeRoleFromUserAsync(ulong userId, string roleId)
     {
         if (!ulong.TryParse(roleId, out var rid)) return false;
-        var user = await db.Users.FindAsync(userId);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null);
         if (user is null || user.RoleId != rid) return false;
-        // Revert to default client role
-        var clientRole = await db.Roles.FirstOrDefaultAsync(r => r.Slug == "client");
-        user.RoleId    = clientRole?.Id ?? 0;
+        if (user.Id == currentUser.UserId)
+            throw new ArgumentException("You cannot change your own role.");
+        // Revert to the client role of the user's own gym
+        var clientRole = await db.Roles.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.Slug == RoleNames.Client && r.TenantId == user.TenantId)
+            ?? throw new InvalidOperationException("This gym has no client role.");
+        user.RoleId    = clientRole.Id;
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return true;
@@ -153,7 +191,7 @@ public class RolesService(AppDbContext db) : IRolesService
 
     private static RoleResponse Map(Role r) => new()
     {
-        Id = r.Id.ToString(), Name = r.Name, Description = r.Description,
+        Id = r.Id.ToString(), Name = r.Name, Slug = r.Slug, IsSystem = r.IsSystem, Description = r.Description,
         Permissions = r.RolePermissions
             .Select(rp => $"{rp.Permission?.Module}.{rp.Permission?.Action}")
             .Where(s => !s.StartsWith('.'))

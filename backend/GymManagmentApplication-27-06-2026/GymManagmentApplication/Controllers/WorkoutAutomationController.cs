@@ -9,6 +9,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("workout-automation")]
 [Route("api/workout-automation")]
 [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
 public class WorkoutAutomationController(
@@ -17,7 +18,7 @@ public class WorkoutAutomationController(
     IValidator<TriggerAutomationRequest> triggerValidator) : ControllerBase
 {
     [HttpGet("rules")]
-    public async Task<ActionResult<ApiResponse<object>>> GetRules([FromQuery] ulong tenantId)
+    public async Task<ActionResult<ApiResponse<object>>> GetRules([FromQuery] ulong tenantId = 0)
         => Ok(ApiResponse<object>.Ok(await service.GetRulesAsync(tenantId)));
 
     [HttpPost("rules")]

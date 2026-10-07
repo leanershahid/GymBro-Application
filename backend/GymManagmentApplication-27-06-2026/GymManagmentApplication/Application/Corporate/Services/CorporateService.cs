@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using GymManagmentApplication.Infrastructure.Data;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Corporate.Interfaces;
 using GymManagmentApplication.Application.Corporate.Requests;
@@ -8,7 +10,7 @@ using GymManagmentApplication.Infrastructure.Repositories.Corporate;
 
 namespace GymManagmentApplication.Application.Corporate.Services;
 
-public class CorporateService(ICorporateRepository repository) : ICorporateService
+public class CorporateService(ICorporateRepository repository, ICurrentUser currentUser, AppDbContext db) : ICorporateService
 {
     public async Task<PagedResponse<CorporateAccountResponse>> GetAllAsync(CorporateAccountListRequest request)
     {
@@ -24,6 +26,7 @@ public class CorporateService(ICorporateRepository repository) : ICorporateServi
 
     public async Task<CorporateAccountResponse> CreateAsync(CreateCorporateAccountRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
         var account = new CorporateAccount
         {
             TenantId = request.TenantId,
@@ -70,13 +73,20 @@ public class CorporateService(ICorporateRepository repository) : ICorporateServi
 
     public async Task<CorporateMemberResponse> AddMemberAsync(ulong id, AddCorporateMemberRequest request)
     {
-        var account = await repository.GetByIdAsync(id);
+        var account = await repository.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException($"Corporate account {id} not found.");
+        await db.EnsureUserAsync(request.UserId, account.TenantId);
+        await db.EnsureMembershipPlanAsync(request.PlanId, account.TenantId);
+        if (account.MaxMembers is { } max &&
+            await db.GymMemberships.CountAsync(m => m.CorporateId == id && m.Status == MembershipStatus.Active) >= max)
+            throw new ArgumentException($"This corporate account is limited to {max} members.");
+
         var membership = new GymMembership
         {
             CorporateId = id,
             UserId = request.UserId,
             PlanId = request.PlanId,
-            TenantId = account?.TenantId ?? 0,
+            TenantId = account.TenantId,
             StartsAt = request.StartsAt,
             Status = MembershipStatus.Active,
             Source = MembershipSource.Admin

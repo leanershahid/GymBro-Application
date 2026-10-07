@@ -8,6 +8,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("ai-insights")]
 [Route("api/ai-coach")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class AiCoachController(IAiCoachSettingsService service) : ControllerBase

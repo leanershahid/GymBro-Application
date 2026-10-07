@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Billing.Services;
 
-public class PaymentService(AppDbContext db) : IPaymentService
+public class PaymentService(AppDbContext db, ICurrentUser currentUser) : IPaymentService
 {
     // In-memory payment method store until a dedicated table is added
     private static readonly List<(ulong MemberId, PaymentMethodResponse Method)> _methods = [];
@@ -17,8 +17,10 @@ public class PaymentService(AppDbContext db) : IPaymentService
 
     public async Task<PaymentResponse> ChargeAsync(ChargeRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
+        await db.EnsureUserAsync(request.MemberId, request.TenantId);
         // Create draft invoice then payment
-        var invoiceId = (await db.Invoices.MaxAsync(i => (ulong?)i.Id) ?? 0) + 1;
+        var invoiceId = (await db.Invoices.IgnoreQueryFilters().MaxAsync(i => (ulong?)i.Id) ?? 0) + 1;
         var invoice = new Invoice
         {
             Id = invoiceId, TenantId = request.TenantId,
@@ -29,7 +31,7 @@ public class PaymentService(AppDbContext db) : IPaymentService
         };
         db.Invoices.Add(invoice);
 
-        var paymentId = (await db.Payments.MaxAsync(p => (ulong?)p.Id) ?? 0) + 1;
+        var paymentId = (await db.Payments.IgnoreQueryFilters().MaxAsync(p => (ulong?)p.Id) ?? 0) + 1;
         var payment = new Payment
         {
             Id = paymentId, TenantId = request.TenantId,
@@ -62,6 +64,7 @@ public class PaymentService(AppDbContext db) : IPaymentService
 
     public async Task<PagedResponse<PaymentResponse>> GetHistoryAsync(ulong tenantId, ulong? memberId, int page, int size)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var query = db.Payments.Include(p => p.Invoice)
             .Where(p => p.TenantId == tenantId);
         if (memberId.HasValue)

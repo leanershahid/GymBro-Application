@@ -17,6 +17,13 @@ public class ModuleAccessController(
     IValidator<BulkSetModuleAccessRequest> bulkValidator,
     IValidator<CheckModuleAccessRequest> checkValidator) : ControllerBase
 {
+    // ── GET api/module-access/me ──────────────────────────────────────────
+    /// <summary>The caller's own module grants — any signed-in role may read its own.</summary>
+    [HttpGet("me")]
+    [AuthorizeRoles]
+    public async Task<ActionResult<ApiResponse<object>>> GetMine()
+        => Ok(ApiResponse<object>.Ok(await service.GetMyAccessAsync()));
+
     // ── GET api/module-access/modules ─────────────────────────────────────
     /// <summary>List all platform module keys available for access configuration.</summary>
     [HttpGet("modules")]
@@ -30,8 +37,8 @@ public class ModuleAccessController(
         [FromQuery] ulong tenantId,
         [FromQuery] ulong roleId)
     {
-        if (tenantId == 0 || roleId == 0)
-            return BadRequest(ApiResponse<object>.Fail("tenantId and roleId are required."));
+        if (roleId == 0)
+            return BadRequest(ApiResponse<object>.Fail("roleId is required."));
 
         var result = await service.GetByRoleAsync(tenantId, roleId);
         return Ok(ApiResponse<object>.Ok(result));
@@ -40,11 +47,8 @@ public class ModuleAccessController(
     // ── GET api/module-access/matrix?tenantId=1 ───────────────────────────
     /// <summary>Get the full module access matrix for all roles in a tenant.</summary>
     [HttpGet("matrix")]
-    public async Task<ActionResult<ApiResponse<object>>> GetMatrix([FromQuery] ulong tenantId)
+    public async Task<ActionResult<ApiResponse<object>>> GetMatrix([FromQuery] ulong tenantId = 0)
     {
-        if (tenantId == 0)
-            return BadRequest(ApiResponse<object>.Fail("tenantId is required."));
-
         var result = await service.GetMatrixAsync(tenantId);
         return Ok(ApiResponse<object>.Ok(result));
     }
@@ -82,9 +86,6 @@ public class ModuleAccessController(
         [FromQuery] ulong tenantId,
         [FromBody] CheckModuleAccessRequest request)
     {
-        if (tenantId == 0)
-            return BadRequest(ApiResponse<object>.Fail("tenantId is required."));
-
         var v = await checkValidator.ValidateAsync(request);
         if (!v.IsValid)
             return BadRequest(ApiResponse<object>.Fail("Validation failed.", v.Errors.Select(e => e.ErrorMessage).ToList()));
@@ -101,8 +102,8 @@ public class ModuleAccessController(
         [FromQuery] ulong roleId,
         [FromQuery] string module)
     {
-        if (tenantId == 0 || roleId == 0 || string.IsNullOrWhiteSpace(module))
-            return BadRequest(ApiResponse<object>.Fail("tenantId, roleId and module are required."));
+        if (roleId == 0 || string.IsNullOrWhiteSpace(module))
+            return BadRequest(ApiResponse<object>.Fail("roleId and module are required."));
 
         var ok = await service.RevokeAsync(tenantId, roleId, module);
         return ok
@@ -117,8 +118,8 @@ public class ModuleAccessController(
         [FromQuery] ulong tenantId,
         [FromQuery] ulong roleId)
     {
-        if (tenantId == 0 || roleId == 0)
-            return BadRequest(ApiResponse<object>.Fail("tenantId and roleId are required."));
+        if (roleId == 0)
+            return BadRequest(ApiResponse<object>.Fail("roleId is required."));
 
         var ok = await service.RevokeAllForRoleAsync(tenantId, roleId);
         return ok

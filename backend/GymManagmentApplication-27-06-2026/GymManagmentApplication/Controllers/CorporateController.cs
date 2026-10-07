@@ -9,6 +9,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("corporate")]
 [Route("api/corporate/accounts")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class CorporateController(ICorporateService service, IValidator<CreateCorporateAccountRequest> validator) : ControllerBase

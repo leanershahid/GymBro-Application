@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace GymManagmentApplication.Application.Exercise.Services;
 
-public class ExerciseService(IExerciseRepository repository) : IExerciseService
+public class ExerciseService(IExerciseRepository repository, ICurrentUser currentUser) : IExerciseService
 {
     public async Task<PagedResponse<ExerciseResponse>> GetAllAsync(ExerciseListRequest request)
     {
@@ -24,6 +24,7 @@ public class ExerciseService(IExerciseRepository repository) : IExerciseService
 
     public async Task<ExerciseResponse> CreateAsync(ulong userId, CreateExerciseRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
         var slug = request.Name.ToLower().Replace(" ", "-");
         var tags = request.Tags is not null
             ? JsonDocument.Parse(JsonSerializer.Serialize(request.Tags))

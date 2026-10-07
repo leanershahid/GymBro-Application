@@ -8,9 +8,11 @@ using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
+using GymManagmentApplication.Application.Common;
+
 namespace GymManagmentApplication.Application.SSO.Services;
 
-public class SsoService(AppDbContext db, IAuthService authService) : ISsoService
+public class SsoService(AppDbContext db, IAuthService authService, ICurrentUser currentUser) : ISsoService
 {
     public Task<SsoInitResponse> InitAsync(SsoInitRequest request)
     {
@@ -43,6 +45,7 @@ public class SsoService(AppDbContext db, IAuthService authService) : ISsoService
 
     public async Task<List<SsoProviderResponse>> GetProvidersAsync(ulong tenantId)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var providers = await db.SsoProviders
             .Where(p => p.TenantId == tenantId && p.IsActive)
             .ToListAsync();
@@ -57,20 +60,19 @@ public class SsoService(AppDbContext db, IAuthService authService) : ISsoService
 
     public async Task<SsoProviderResponse?> ConfigureProviderAsync(string id, ConfigureSsoProviderRequest request)
     {
-        // Try to find existing by provider name in first tenant (simplified)
+        // Existing provider (by id or name) within the caller's gym — queries are tenant-filtered.
+        var tenantId = currentUser.ResolveTenantId();
         SsoProvider? provider;
         if (ulong.TryParse(id, out var pid))
-            provider = await db.SsoProviders.FindAsync(pid);
+            provider = await db.SsoProviders.FirstOrDefaultAsync(p => p.Id == pid && p.TenantId == tenantId);
         else
-            provider = await db.SsoProviders.FirstOrDefaultAsync(p => p.Provider.ToLower() == id.ToLower());
+            provider = await db.SsoProviders.FirstOrDefaultAsync(p => p.TenantId == tenantId && p.Provider.ToLower() == id.ToLower());
 
         if (provider is null)
         {
-            var maxId = await db.SsoProviders.MaxAsync(p => (ulong?)p.Id) ?? 0;
-            var tenantId = await db.Tenants.OrderBy(t => t.Id).Select(t => t.Id).FirstOrDefaultAsync();
             provider = new SsoProvider
             {
-                Id = maxId + 1, TenantId = tenantId, Provider = id,
+                TenantId = tenantId, Provider = id,
                 ClientId = request.ClientId,
                 ClientSecretEnc = request.ClientSecret,
                 IsActive = request.IsEnabled

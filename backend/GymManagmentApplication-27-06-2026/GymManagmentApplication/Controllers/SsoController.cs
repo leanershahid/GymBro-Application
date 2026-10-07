@@ -9,6 +9,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("integrations")]
 [Route("api/auth/sso")]
 public class SsoController(
     ISsoService service,
@@ -37,7 +38,7 @@ public class SsoController(
 
     [HttpGet("providers")]
     [AuthorizeRoles(RoleNames.Admin)]
-    public async Task<ActionResult<ApiResponse<object>>> GetProviders([FromQuery] ulong tenantId)
+    public async Task<ActionResult<ApiResponse<object>>> GetProviders([FromQuery] ulong tenantId = 0)
         => Ok(ApiResponse<object>.Ok(await service.GetProvidersAsync(tenantId)));
 
     [HttpPut("providers/{id}")]

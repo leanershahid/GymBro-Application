@@ -8,12 +8,15 @@ using GymManagmentApplication.Domain.Enums;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
+using GymManagmentApplication.Application.Common;
+
 namespace GymManagmentApplication.Application.Billing.Services;
 
-public class PricingService(AppDbContext db) : IPricingService
+public class PricingService(AppDbContext db, ICurrentUser currentUser) : IPricingService
 {
     public async Task<List<PricingRuleResponse>> GetRulesAsync(ulong tenantId)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var rules = await db.PricingRules
             .Where(r => r.TenantId == tenantId && r.IsActive)
             .OrderBy(r => r.Priority).ToListAsync();
@@ -22,7 +25,8 @@ public class PricingService(AppDbContext db) : IPricingService
 
     public async Task<PricingRuleResponse> CreateRuleAsync(CreatePricingRuleRequest request)
     {
-        var id = (await db.PricingRules.MaxAsync(r => (ulong?)r.Id) ?? 0) + 1;
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
+        var id = (await db.PricingRules.IgnoreQueryFilters().MaxAsync(r => (ulong?)r.Id) ?? 0) + 1;
         var rule = new PricingRule
         {
             Id = id, TenantId = request.TenantId, Name = request.Name,
@@ -64,6 +68,7 @@ public class PricingService(AppDbContext db) : IPricingService
 
     public async Task<CalculatedPriceResponse> CalculateAsync(CalculatePriceRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
         var plan = await db.MembershipPlans.FindAsync(request.PlanId);
         decimal original = plan?.Price ?? 0;
         decimal final = original;
@@ -108,6 +113,7 @@ public class PricingService(AppDbContext db) : IPricingService
 
     public async Task<List<DiscountResponse>> GetDiscountsAsync(ulong tenantId)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var coupons = await db.Coupons
             .Where(c => c.TenantId == tenantId && c.IsActive)
             .ToListAsync();
@@ -116,7 +122,8 @@ public class PricingService(AppDbContext db) : IPricingService
 
     public async Task<DiscountResponse> CreateDiscountAsync(CreateDiscountRequest request)
     {
-        var id = (await db.Coupons.MaxAsync(c => (ulong?)c.Id) ?? 0) + 1;
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
+        var id = (await db.Coupons.IgnoreQueryFilters().MaxAsync(c => (ulong?)c.Id) ?? 0) + 1;
         var coupon = new Coupon
         {
             Id = id, TenantId = request.TenantId, Code = request.Code.ToUpper(),
@@ -133,6 +140,7 @@ public class PricingService(AppDbContext db) : IPricingService
 
     public async Task<ValidateDiscountResponse> ValidateDiscountAsync(ValidateDiscountRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
         var plan = await db.MembershipPlans.FindAsync(request.PlanId);
         decimal original = plan?.Price ?? 0;
 

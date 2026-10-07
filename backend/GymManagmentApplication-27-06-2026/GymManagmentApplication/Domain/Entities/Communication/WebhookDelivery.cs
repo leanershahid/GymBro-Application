@@ -6,6 +6,8 @@ namespace GymManagmentApplication.Domain.Entities.Communication;
 public class WebhookDelivery
 {
     public ulong Id { get; set; }
+    /// <summary>Owning gym (nullable: rows written before this was mapped have none).</summary>
+    public ulong? TenantId { get; set; }
     public ulong WebhookId { get; set; }
     public string EventType { get; set; } = default!;
     public JsonDocument? Payload { get; set; }

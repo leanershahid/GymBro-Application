@@ -5,9 +5,11 @@ using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
+using GymManagmentApplication.Application.Common;
+
 namespace GymManagmentApplication.Application.ModuleAccess.Services;
 
-public class ModuleAccessService(AppDbContext db) : IModuleAccessService
+public class ModuleAccessService(AppDbContext db, ICurrentUser currentUser) : IModuleAccessService
 {
     // All module keys the platform exposes — used for validation and matrix generation
     private static readonly List<string> _availableModules =
@@ -27,10 +29,60 @@ public class ModuleAccessService(AppDbContext db) : IModuleAccessService
         "settings"
     ];
 
+    /// <summary>
+    /// Modules that can never be delegated to staff/custom roles through the matrix — granting
+    /// them would let a non-admin create gyms or hand themselves the admin role.
+    /// </summary>
+    private static readonly HashSet<string> _adminOnlyModules = ["tenants", "roles", "settings"];
+
     public List<string> GetAvailableModules() => _availableModules;
+
+    public async Task<bool> IsAllowedAsync(ulong tenantId, string roleSlug, string module, string action)
+    {
+        if (_adminOnlyModules.Contains(module)) return false;
+
+        var role = await db.Roles.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.TenantId == tenantId && r.Slug == roleSlug);
+        if (role is null) return false;
+
+        var entry = await db.ModuleAccesses.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.TenantId == tenantId && m.RoleId == role.Id && m.Module == module && m.IsActive);
+        var byMatrix = entry is not null && action switch
+        {
+            "view"   => entry.CanView,
+            "create" => entry.CanCreate,
+            "edit"   => entry.CanEdit,
+            "delete" => entry.CanDelete,
+            "export" => entry.CanExport,
+            _        => false
+        };
+        if (byMatrix) return true;
+
+        // Fine-grained role permissions ("module.action") also grant access.
+        return await db.RolePermissions
+            .AnyAsync(rp => rp.RoleId == role.Id && rp.Permission.Module == module && rp.Permission.Action == action);
+    }
+
+    public async Task<List<ModuleAccessResponse>> GetMyAccessAsync()
+    {
+        var tenantId = currentUser.ResolveTenantId();
+        var role = await db.Roles.FirstOrDefaultAsync(r => r.TenantId == tenantId && r.Slug == currentUser.Role);
+        if (role is null) return [];
+
+        // Built-in admins implicitly have everything.
+        if (currentUser.IsAdmin)
+            return _availableModules.Select(m => new ModuleAccessResponse
+            {
+                TenantId = tenantId, RoleId = role.Id, RoleName = role.Name, Module = m,
+                CanView = true, CanCreate = true, CanEdit = true, CanDelete = true, CanExport = true, IsActive = true
+            }).ToList();
+
+        return await GetByRoleAsync(tenantId, role.Id);
+    }
 
     public async Task<List<ModuleAccessResponse>> GetByRoleAsync(ulong tenantId, ulong roleId)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var entries = await db.ModuleAccesses
             .Include(m => m.Role)
             .Where(m => m.TenantId == tenantId && m.RoleId == roleId && m.IsActive)
@@ -42,6 +94,7 @@ public class ModuleAccessService(AppDbContext db) : IModuleAccessService
 
     public async Task<ModuleAccessMatrixResponse> GetMatrixAsync(ulong tenantId)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var entries = await db.ModuleAccesses
             .Include(m => m.Role)
             .Where(m => m.TenantId == tenantId && m.IsActive)
@@ -69,6 +122,11 @@ public class ModuleAccessService(AppDbContext db) : IModuleAccessService
 
     public async Task<ModuleAccessResponse> SetAsync(SetModuleAccessRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
+        if (!await db.Roles.AnyAsync(r => r.Id == request.RoleId && r.TenantId == request.TenantId))
+            throw new ArgumentException($"Role {request.RoleId} does not belong to this gym.");
+        if (!_availableModules.Contains(request.Module))
+            throw new ArgumentException($"Unknown module '{request.Module}'.");
         var existing = await db.ModuleAccesses
             .Include(m => m.Role)
             .FirstOrDefaultAsync(m =>
@@ -105,6 +163,7 @@ public class ModuleAccessService(AppDbContext db) : IModuleAccessService
 
     public async Task<List<ModuleAccessResponse>> BulkSetAsync(BulkSetModuleAccessRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
         var results = new List<ModuleAccessResponse>();
         foreach (var entry in request.Modules)
         {
@@ -126,6 +185,7 @@ public class ModuleAccessService(AppDbContext db) : IModuleAccessService
 
     public async Task<bool> RevokeAsync(ulong tenantId, ulong roleId, string module)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var entry = await db.ModuleAccesses
             .FirstOrDefaultAsync(m => m.TenantId == tenantId && m.RoleId == roleId && m.Module == module);
 
@@ -138,6 +198,7 @@ public class ModuleAccessService(AppDbContext db) : IModuleAccessService
 
     public async Task<bool> RevokeAllForRoleAsync(ulong tenantId, ulong roleId)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var entries = await db.ModuleAccesses
             .Where(m => m.TenantId == tenantId && m.RoleId == roleId)
             .ToListAsync();
@@ -151,6 +212,7 @@ public class ModuleAccessService(AppDbContext db) : IModuleAccessService
 
     public async Task<CheckAccessResponse> CheckAsync(ulong tenantId, CheckModuleAccessRequest request)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var entry = await db.ModuleAccesses
             .FirstOrDefaultAsync(m =>
                 m.TenantId == tenantId &&
@@ -201,7 +263,7 @@ public class ModuleAccessService(AppDbContext db) : IModuleAccessService
 
     private async Task<ulong> NextIdAsync()
     {
-        var max = await db.ModuleAccesses.MaxAsync(m => (ulong?)m.Id) ?? 0;
+        var max = await db.ModuleAccesses.IgnoreQueryFilters().MaxAsync(m => (ulong?)m.Id) ?? 0;
         return max + 1;
     }
 }

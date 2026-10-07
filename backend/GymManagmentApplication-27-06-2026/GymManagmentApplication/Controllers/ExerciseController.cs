@@ -10,6 +10,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("exercises")]
 [Route("api/exercises")]
 [RequireModule("exercises")]
 public class ExerciseController(

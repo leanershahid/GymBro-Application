@@ -5,6 +5,8 @@ namespace GymManagmentApplication.Domain.Entities.AI;
 public class PoseLog
 {
     public ulong Id { get; set; }
+    /// <summary>Owning gym (nullable: rows written before this was mapped have none).</summary>
+    public ulong? TenantId { get; set; }
     public ulong LogId { get; set; }
     public ulong ExerciseId { get; set; }
     public DateTime CapturedAt { get; set; }

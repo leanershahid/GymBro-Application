@@ -238,10 +238,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
             .OnDelete(DeleteBehavior.Cascade);
 
         // Indexes
+        // Email stays globally unique on purpose: it is the login key, and login happens
+        // before we know which gym the user belongs to.
         modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
         modelBuilder.Entity<User>().HasIndex(u => u.Uuid).IsUnique();
         modelBuilder.Entity<Tenant>().HasIndex(t => t.Slug).IsUnique();
-        modelBuilder.Entity<Exercise>().HasIndex(e => e.Slug).IsUnique();
+        // Per-gym uniqueness: two gyms may each have a "squat" exercise or a "MAIN" branch.
+        modelBuilder.Entity<Exercise>().HasIndex(e => new { e.TenantId, e.Slug }).IsUnique();
+        modelBuilder.Entity<Branch>().HasIndex(b => new { b.TenantId, b.Code }).IsUnique();
+        modelBuilder.Entity<Role>().HasIndex(r => new { r.TenantId, r.Slug }).IsUnique();
+
+        // Tenant FKs that were previously plain columns
+        modelBuilder.Entity<ScheduledTask>().HasOne<Tenant>().WithMany().HasForeignKey(t => t.TenantId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<AuditLog>().HasOne<Tenant>().WithMany().HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<FoodItem>().HasOne<Tenant>().WithMany().HasForeignKey(f => f.TenantId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Equipment>().HasOne<Tenant>().WithMany().HasForeignKey(e => e.TenantId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SearchIndexCache>().HasOne<Tenant>().WithMany().HasForeignKey(c => c.TenantId).OnDelete(DeleteBehavior.Cascade);
+
+        // Branch FKs that were previously plain columns (history survives branch removal)
+        modelBuilder.Entity<PtSession>().HasOne<Branch>().WithMany().HasForeignKey(p => p.BranchId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<WorkoutLog>().HasOne<Branch>().WithMany().HasForeignKey(l => l.BranchId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<AnalyticsDaily>().HasOne<Branch>().WithMany().HasForeignKey(a => a.BranchId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<PosOrder>().HasOne<Branch>().WithMany().HasForeignKey(o => o.BranchId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<PosProduct>().HasOne<Branch>().WithMany().HasForeignKey(p => p.BranchId).OnDelete(DeleteBehavior.SetNull);
 
         // Prevent cascade delete cycles
         modelBuilder.Entity<WorkoutProgression>()
@@ -317,8 +336,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
         modelBuilder.Entity<Notification>().HasOne(n => n.Tenant).WithMany().HasForeignKey(n => n.TenantId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<PayrollConfig>().HasOne(p => p.Tenant).WithMany().HasForeignKey(p => p.TenantId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<DietPlan>().HasOne(d => d.Tenant).WithMany().HasForeignKey(d => d.TenantId).OnDelete(DeleteBehavior.Restrict);
-        //modelBuilder.Entity<TrainerProfile>().HasOne(t => t.Tenant).WithMany().HasForeignKey(t => t.TenantId).OnDelete(DeleteBehavior.Restrict);
-        //modelBuilder.Entity<TrainerClientAssignment>().HasOne(t => t.Tenant).WithMany().HasForeignKey(t => t.TenantId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<TrainerProfile>().HasOne(t => t.Tenant).WithMany().HasForeignKey(t => t.TenantId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<TrainerClientAssignment>().HasOne(t => t.Tenant).WithMany().HasForeignKey(t => t.TenantId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<WorkoutLog>().HasOne(l => l.Tenant).WithMany().HasForeignKey(l => l.TenantId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<WorkoutPlanAssignment>().HasOne(a => a.Tenant).WithMany().HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ClassBooking>().HasOne(b => b.Tenant).WithMany().HasForeignKey(b => b.TenantId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<OnboardingStep>().HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<OnboardingStep>().HasIndex(s => new { s.UserId, s.StepKey }).IsUnique();
         modelBuilder.Entity<WorkoutTemplate>().HasOne(w => w.Tenant).WithMany().HasForeignKey(w => w.TenantId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<WorkoutPlan>().HasOne(w => w.Tenant).WithMany().HasForeignKey(w => w.TenantId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<WorkoutAutomationRule>().HasOne(w => w.Tenant).WithMany().HasForeignKey(w => w.TenantId).OnDelete(DeleteBehavior.Restrict);

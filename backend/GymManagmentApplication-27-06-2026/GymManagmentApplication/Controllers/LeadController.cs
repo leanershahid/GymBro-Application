@@ -9,6 +9,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("leads")]
 [Route("api/leads")]
 [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
 public class LeadController(ILeadService service, IValidator<CreateLeadRequest> validator) : ControllerBase
@@ -67,7 +68,7 @@ public class LeadController(ILeadService service, IValidator<CreateLeadRequest> 
 
     [HttpGet("sources")]
     [AuthorizeRoles(RoleNames.Admin)]
-    public async Task<ActionResult<ApiResponse<object>>> GetSources([FromQuery] ulong tenantId)
+    public async Task<ActionResult<ApiResponse<object>>> GetSources([FromQuery] ulong tenantId = 0)
         => Ok(ApiResponse<object>.Ok(await service.GetSourceBreakdownAsync(tenantId)));
 
     [HttpPost("import")]

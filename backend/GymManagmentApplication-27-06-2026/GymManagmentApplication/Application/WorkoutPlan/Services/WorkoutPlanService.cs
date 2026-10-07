@@ -1,3 +1,4 @@
+using GymManagmentApplication.Infrastructure.Data;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.WorkoutPlan.Interfaces;
 using GymManagmentApplication.Application.WorkoutPlan.Requests;
@@ -8,7 +9,7 @@ using GymManagmentApplication.Infrastructure.Repositories.WorkoutPlan;
 
 namespace GymManagmentApplication.Application.WorkoutPlan.Services;
 
-public class WorkoutPlanService(IWorkoutPlanRepository repository) : IWorkoutPlanService
+public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser currentUser, AppDbContext db) : IWorkoutPlanService
 {
     public async Task<PagedResponse<PlanResponse>> GetAllAsync(PlanListRequest request)
     {
@@ -24,6 +25,7 @@ public class WorkoutPlanService(IWorkoutPlanRepository repository) : IWorkoutPla
 
     public async Task<PlanResponse> CreateAsync(ulong userId, CreatePlanRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
         var plan = new Domain.Entities.Training.WorkoutPlan
         {
             TenantId = request.TenantId,
@@ -103,11 +105,17 @@ public class WorkoutPlanService(IWorkoutPlanRepository repository) : IWorkoutPla
 
     public async Task<List<PlanMemberResponse>> AssignAsync(ulong id, AssignPlanRequest request)
     {
+        var plan = await repository.GetByIdAsync(id) ?? throw new KeyNotFoundException($"Plan {id} not found.");
+        var memberIds = request.MemberIds.Distinct().ToList();
+        foreach (var memberId in memberIds)
+            await db.EnsureUserAsync(memberId, plan.TenantId);
+
         var results = new List<PlanMemberResponse>();
-        foreach (var memberId in request.MemberIds)
+        foreach (var memberId in memberIds)
         {
             var assignment = new WorkoutPlanAssignment
             {
+                TenantId = plan.TenantId,
                 PlanId = id,
                 ClientId = memberId,
                 TrainerId = request.TrainerId,

@@ -35,6 +35,11 @@ public class RequireModuleAttribute(string moduleKey) : Attribute, IAsyncAuthori
             role.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase))
             return; // Admins bypass module gating entirely.
 
+        // Staff/custom roles are governed by the role/module matrix in AuthorizeRoles instead
+        // of these per-member feature toggles.
+        if (!RoleNames.IsBuiltIn(role))
+            return;
+
         if (!ulong.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
         {
             context.Result = new JsonResult(ApiResponse<object>.Fail("Unauthorized. Token is missing or invalid."))

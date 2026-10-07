@@ -6,9 +6,11 @@ using GymManagmentApplication.Domain.Entities.Core;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
+using GymManagmentApplication.Application.Common;
+
 namespace GymManagmentApplication.Application.AiCoach.Services;
 
-public class AiCoachSettingsService(AppDbContext db) : IAiCoachSettingsService
+public class AiCoachSettingsService(AppDbContext db, ICurrentUser currentUser) : IAiCoachSettingsService
 {
     private const string SettingKey = "ai-coach-tips";
 
@@ -85,9 +87,10 @@ public class AiCoachSettingsService(AppDbContext db) : IAiCoachSettingsService
              : settings.LowTip;
     }
 
+    // The caller's gym; background/anonymous callers fall back to the platform tenant.
     private async Task<ulong> DefaultTenantIdAsync() =>
-        await db.Tenants.OrderBy(t => t.Id).Select(t => t.Id).FirstAsync();
+        currentUser.TenantId ?? await db.Tenants.OrderBy(t => t.Id).Select(t => t.Id).FirstAsync();
 
     private async Task<ulong> NextIdAsync() =>
-        (await db.TenantSettings.MaxAsync(s => (ulong?)s.Id) ?? 0) + 1;
+        (await db.TenantSettings.IgnoreQueryFilters().MaxAsync(s => (ulong?)s.Id) ?? 0) + 1;
 }

@@ -8,5 +8,6 @@ public class UpdateLeadRequest
     public string? Phone { get; set; }
     public string? Source { get; set; }
     public string? Status { get; set; }
+    public ulong? BranchId { get; set; }
     public string? Notes { get; set; }
 }

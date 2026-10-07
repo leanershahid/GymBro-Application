@@ -23,6 +23,12 @@ public interface ICurrentUser
     bool IsAdmin { get; }
 
     /// <summary>
+    /// Staff or a custom role, authorised per module by the access matrix. Once past that gate
+    /// they act on records like an admin would (not limited to "their own").
+    /// </summary>
+    bool IsDelegatedRole { get; }
+
+    /// <summary>
     /// The tenant a write should be stamped with. Super admins may target another tenant
     /// via <paramref name="requested"/>; everyone else is pinned to their own tenant.
     /// </summary>
@@ -52,6 +58,8 @@ public class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser
     public bool IsSuperAdmin => Role.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase);
 
     public bool IsAdmin => IsSuperAdmin || Role.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase);
+
+    public bool IsDelegatedRole => IsAuthenticated && Role.Length > 0 && !RoleNames.IsBuiltIn(Role);
 
     public ulong ResolveTenantId(ulong? requested = null)
     {

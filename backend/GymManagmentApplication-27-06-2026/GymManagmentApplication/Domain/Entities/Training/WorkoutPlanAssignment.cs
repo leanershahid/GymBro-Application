@@ -5,6 +5,7 @@ namespace GymManagmentApplication.Domain.Entities.Training;
 public class WorkoutPlanAssignment
 {
     public ulong Id { get; set; }
+    public ulong TenantId { get; set; }
     public ulong PlanId { get; set; }
     public ulong ClientId { get; set; }
     public ulong? TrainerId { get; set; }
@@ -14,4 +15,6 @@ public class WorkoutPlanAssignment
 
     public WorkoutPlan Plan { get; set; } = default!;
     public Identity.User Client { get; set; } = default!;
+
+    public Core.Tenant Tenant { get; set; } = default!;
 }

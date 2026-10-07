@@ -9,15 +9,6 @@ namespace GymManagmentApplication.Infrastructure.Repositories;
 
 public class TrainerRepository(AppDbContext db) : ITrainerRepository
 {
-    public async Task<User> CreateUserAsync(User user)
-    {
-        user.CreatedAt = DateTime.UtcNow;
-        user.UpdatedAt = DateTime.UtcNow;
-        db.Users.Add(user);
-        await db.SaveChangesAsync();
-        return user;
-    }
-
     public async Task<(List<TrainerProfile> Items, int Total)> GetAllAsync(int pageNumber, int pageSize)
     {
         var total = await db.TrainerProfiles.CountAsync();
@@ -53,10 +44,11 @@ public class TrainerRepository(AppDbContext db) : ITrainerRepository
             .Where(a => a.TrainerId == trainerId && a.Status == TrainerAssignmentStatus.Active)
             .ToListAsync();
 
+    public Task<TrainerProfile?> GetByUserIdAsync(ulong userId) =>
+        db.TrainerProfiles.FirstOrDefaultAsync(t => t.UserId == userId);
+
     public async Task<TrainerClientAssignment> AddClientAssignmentAsync(TrainerClientAssignment assignment)
     {
-        var maxId = await db.TrainerClientAssignments.MaxAsync(a => (ulong?)a.Id) ?? 0;
-        assignment.Id = maxId + 1;
         assignment.AssignedAt = DateTime.UtcNow;
         db.TrainerClientAssignments.Add(assignment);
         await db.SaveChangesAsync();

@@ -5,6 +5,7 @@ namespace GymManagmentApplication.Domain.Entities.Training;
 public class WorkoutLog
 {
     public ulong Id { get; set; }
+    public ulong TenantId { get; set; }
     public ulong? AssignmentId { get; set; }
     public ulong ClientId { get; set; }
     public ulong? TemplateId { get; set; }
@@ -25,4 +26,6 @@ public class WorkoutLog
     public Identity.User Client { get; set; } = default!;
     public WorkoutTemplate? Template { get; set; }
     public ICollection<WorkoutLogSet> Sets { get; set; } = [];
+
+    public Core.Tenant Tenant { get; set; } = default!;
 }

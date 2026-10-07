@@ -68,7 +68,7 @@ public class WorkoutBuilderService(AppDbContext db) : IWorkoutBuilderService
         SectionType type, byte rounds, ushort? restSeconds)
     {
         var sortOrder = (byte)await db.WorkoutSections.CountAsync(s => s.TemplateId == workoutId);
-        var maxId = await db.WorkoutSections.MaxAsync(s => (ulong?)s.Id) ?? 0;
+        var maxId = await db.WorkoutSections.IgnoreQueryFilters().MaxAsync(s => (ulong?)s.Id) ?? 0;
 
         var section = new WorkoutSection
         {

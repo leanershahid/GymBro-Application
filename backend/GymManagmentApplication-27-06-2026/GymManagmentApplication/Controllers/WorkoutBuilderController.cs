@@ -8,6 +8,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("workouts")]
 [Route("api/workouts")]
 [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
 public class WorkoutBuilderController(IWorkoutBuilderService service) : ControllerBase

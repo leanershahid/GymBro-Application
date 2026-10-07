@@ -32,7 +32,7 @@ public class ExerciseRepository(AppDbContext db) : IExerciseRepository
 
     public async Task<ExerciseEntity> CreateAsync(ExerciseEntity exercise)
     {
-        var maxId = await db.Exercises.MaxAsync(e => (ulong?)e.Id) ?? 0;
+        var maxId = await db.Exercises.IgnoreQueryFilters().MaxAsync(e => (ulong?)e.Id) ?? 0;
         exercise.Id        = maxId + 1;
         exercise.CreatedAt = DateTime.UtcNow;
         db.Exercises.Add(exercise);

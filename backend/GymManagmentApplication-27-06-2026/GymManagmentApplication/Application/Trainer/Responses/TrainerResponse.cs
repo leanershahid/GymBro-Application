@@ -3,7 +3,11 @@ namespace GymManagmentApplication.Application.Trainer.Responses;
 public class TrainerResponse
 {
     public ulong Id { get; set; }
+    public ulong TenantId { get; set; }
     public ulong? UserId { get; set; }
+
+    /// <summary>Only set on create — the one-time sign-in password to hand to the trainer.</summary>
+    public string? TemporaryPassword { get; set; }
     public ulong? BranchId { get; set; }
 
     public string? TrainerCode { get; set; }

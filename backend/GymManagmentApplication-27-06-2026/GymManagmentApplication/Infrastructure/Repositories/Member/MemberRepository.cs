@@ -34,7 +34,7 @@ public class MemberRepository(AppDbContext db) : IMemberRepository
 
     public async Task<User> CreateAsync(User user)
     {
-        var maxId = await db.Users.MaxAsync(u => (ulong?)u.Id) ?? 0;
+        var maxId = await db.Users.IgnoreQueryFilters().MaxAsync(u => (ulong?)u.Id) ?? 0;
         user.Id        = maxId + 1;
         user.CreatedAt = DateTime.UtcNow;
         user.UpdatedAt = DateTime.UtcNow;
@@ -60,7 +60,7 @@ public class MemberRepository(AppDbContext db) : IMemberRepository
 
     public async Task<bool> SoftDeleteAsync(ulong id)
     {
-        var user = await db.Users.FindAsync(id);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id);
         if (user is null || user.DeletedAt != null) return false;
         user.DeletedAt = DateTime.UtcNow;
         user.UpdatedAt = DateTime.UtcNow;

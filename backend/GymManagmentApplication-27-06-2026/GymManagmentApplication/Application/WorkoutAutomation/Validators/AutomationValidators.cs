@@ -8,7 +8,6 @@ public class CreateAutomationRuleValidator : AbstractValidator<CreateAutomationR
     public CreateAutomationRuleValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.TenantId).GreaterThan(0ul);
         RuleFor(x => x.TriggerEvent).NotEmpty();
         RuleFor(x => x.Actions).NotNull();
     }

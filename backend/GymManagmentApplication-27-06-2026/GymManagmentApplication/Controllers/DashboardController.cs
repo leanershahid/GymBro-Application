@@ -7,6 +7,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("analytics")]
 [Route("api/dashboard")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class DashboardController(IDashboardService service) : ControllerBase

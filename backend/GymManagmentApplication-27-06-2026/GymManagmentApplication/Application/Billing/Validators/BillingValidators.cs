@@ -7,7 +7,6 @@ public class CreateMembershipPlanValidator : AbstractValidator<CreateMembershipP
 {
     public CreateMembershipPlanValidator()
     {
-        RuleFor(x => x.TenantId).GreaterThan(0ul).WithMessage("TenantId is required.");
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Description).MaximumLength(2000);
         RuleFor(x => x.Price).GreaterThanOrEqualTo(0);
@@ -45,7 +44,6 @@ public class CreateSubscriptionValidator : AbstractValidator<CreateSubscriptionR
 {
     public CreateSubscriptionValidator()
     {
-        RuleFor(x => x.TenantId).GreaterThan(0ul).WithMessage("TenantId is required.");
         RuleFor(x => x.MemberId).GreaterThan(0ul).WithMessage("MemberId is required.");
         RuleFor(x => x.PlanId).GreaterThan(0ul).WithMessage("PlanId is required.");
         RuleFor(x => x.StartDate).NotEmpty();
@@ -78,7 +76,6 @@ public class ChargeValidator : AbstractValidator<ChargeRequest>
 {
     public ChargeValidator()
     {
-        RuleFor(x => x.TenantId).GreaterThan(0ul).WithMessage("TenantId is required.");
         RuleFor(x => x.MemberId).GreaterThan(0ul).WithMessage("MemberId is required.");
         RuleFor(x => x.Amount).GreaterThan(0);
         RuleFor(x => x.Currency).NotEmpty().Length(3);
@@ -114,7 +111,6 @@ public class CreatePaymentIntentValidator : AbstractValidator<CreatePaymentInten
 {
     public CreatePaymentIntentValidator()
     {
-        RuleFor(x => x.TenantId).GreaterThan(0ul).WithMessage("TenantId is required.");
         RuleFor(x => x.MemberId).GreaterThan(0ul).WithMessage("MemberId is required.");
         RuleFor(x => x.Amount).GreaterThan(0);
         RuleFor(x => x.Currency).NotEmpty().Length(3);
