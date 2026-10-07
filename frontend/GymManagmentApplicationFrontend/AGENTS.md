@@ -28,4 +28,4 @@ Axios instance (`src/api/axios.ts`) with request interceptor for Bearer JWT; tok
 | `npm run web` | Start on Web |
 | `npx tsc --noEmit` | Type-check manually |
 
-No linter, formatter, or test scripts exist. `src/config/` directory is empty. Two `LoginPage.tsx` files exist — use `src/features/auth/components/LoginPage.tsx` (production, wired to `useLogin`), not the stale mock in `src/features/common/`.
+No linter, formatter, or test scripts exist. `src/config/` directory is empty. Shared UI lives in `src/features/common/components/` (Screen, ScreenHeader, BackButton, PrimaryButton, SearchBar, SegmentedTabs, StatusPill, BottomTabBar, LoadingState, Skeleton, PaginationFooter) plus `EmptyState` (dashboard/components) and `FormFields`; use `useLayout()` from `src/utils/useLayout.ts` for responsive sizes.

@@ -243,7 +243,7 @@ export default function LoginPage({
           ]}
         >
           {/* Headline */}
-          <Text style={styles.headline}>Welcome Our GYM</Text>
+          <Text style={styles.headline}>Welcome to the gym</Text>
 
           {/* Sign In tab */}
           <View style={styles.tabRow}>

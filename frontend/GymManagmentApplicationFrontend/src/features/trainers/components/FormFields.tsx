@@ -18,11 +18,13 @@ interface FieldProps {
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   autoCorrect?: boolean;
   error?: string;
+  editable?: boolean;
 }
 
 export function Field({
   label, value, onChangeText, placeholder, keyboardType,
   multiline, secureTextEntry, rightElement, autoCapitalize, autoCorrect, error,
+  editable = true,
 }: FieldProps) {
   const [focused, setFocused] = useState(false);
   const hasError = !!error;
@@ -51,6 +53,9 @@ export function Field({
             autoCorrect={autoCorrect ?? true}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
+            editable={editable}
+            accessibilityLabel={label}
+            accessibilityHint={error}
           />
           {rightElement}
         </View>
@@ -63,6 +68,7 @@ export function Field({
           style={
             hasError    ? { borderColor: T.err } :
             focused     ? { borderColor: T.textDisabled, backgroundColor: T.bgInputActive } :
+            !editable   ? { borderColor: T.bgInputActive, color: T.textSub } :
             { borderColor: T.line }
           }
           value={value}
@@ -77,6 +83,9 @@ export function Field({
           autoCorrect={autoCorrect ?? true}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
+          editable={editable}
+          accessibilityLabel={label}
+          accessibilityHint={error}
         />
       )}
       {hasError && (
@@ -96,10 +105,14 @@ export function SwitchRow({
   return (
     <TouchableOpacity
       className={`flex-row items-center justify-between px-4 py-[14px] mb-4 rounded-xl border ${
-        value ? 'border-[rgba(126,211,33,0.25)] bg-[rgba(126,211,33,0.10)]' : 'border-line bg-input'
+        value ? 'border-brand/25 bg-brand/10' : 'border-line bg-input'
       }`}
       onPress={() => onValueChange(!value)}
       activeOpacity={0.7}
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityHint={description}
+      accessibilityState={{ checked: value }}
     >
       <View className="flex-1 mr-3">
         <Text className={`text-[15px] font-normal ${value ? 'text-white' : 'text-sub'}`}>
@@ -110,6 +123,9 @@ export function SwitchRow({
         )}
       </View>
       <Switch
+        // The row is the accessible control; hide the inner switch from screen readers.
+        importantForAccessibility="no-hide-descendants"
+        accessibilityElementsHidden
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: T.line, true: T.brand }}
