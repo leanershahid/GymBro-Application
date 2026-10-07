@@ -170,7 +170,7 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
               {!!profile?.branchId && (
                 <View style={{ backgroundColor: 'rgba(167,139,250,0.10)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.25)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                   <Feather name="map-pin" size={12} color="#A78BFA" />
-                  <Text style={{ color: '#A78BFA', fontSize: 11, fontWeight: '700' }}>Branch #{profile.branchId}</Text>
+                  <Text style={{ color: '#A78BFA', fontSize: 11, fontWeight: '700' }}>{profile.branchName ?? `Branch #${profile.branchId}`}</Text>
                 </View>
               )}
             </View>

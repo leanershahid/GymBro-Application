@@ -14,6 +14,8 @@ export interface DashboardStatsRaw {
   totalBranches: number;
   newSignupsToday: number;
   trainersOnline: number;
+  totalTrainers: number;
+  totalTenants: number;
 }
 
 export interface RevenueTrendPointRaw {

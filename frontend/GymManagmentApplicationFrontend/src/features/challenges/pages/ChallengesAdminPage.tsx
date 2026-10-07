@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { currentTenantId } from '../../../api/session';
 import {
   View, Text, ScrollView, Pressable, TextInput,
   StatusBar, Platform, ActivityIndicator, Alert,
@@ -10,7 +11,7 @@ import EmptyState from '../../dashboard/components/EmptyState';
 import { useChallenges, useCreateChallenge, useUpdateChallengeStatus } from '../api/challengeQueries';
 import { ChallengeAdminResponse, ChallengeStatus, CreateChallengePayload } from '../types/challenge.types';
 
-const TENANT_ID = 1; // hardcoded until tenant context is available
+
 
 interface Props { onBack?: () => void; }
 
@@ -63,7 +64,7 @@ function CreateChallengeForm({ onClose }: { onClose: () => void }) {
       return;
     }
     const payload: CreateChallengePayload = {
-      tenantId: TENANT_ID,
+      tenantId: currentTenantId(),
       title: title.trim(),
       description: description.trim() || undefined,
       targetValue: targetValue.trim() ? Number(targetValue.trim()) : undefined,

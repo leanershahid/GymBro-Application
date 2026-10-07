@@ -19,7 +19,8 @@ import { useDashboardStats }  from '../hooks/useDashboardStats';
 import AdminModuleDevelopmentDashboard from './AdminModuleDevelopmentDashboard';
 import MoreActionsPage        from './MoreActionsPage';
 import StatsStrip, { StatStripItem }   from '../../common/StatsStrip';
-import { ADMIN_ACTIONS } from '../adminActions';
+import { useVisibleAdminActions } from '../adminActions';
+import { getSession, isAdminRole, isSuperAdmin } from '../../../api/session';
 
 // ─── Feature pages ────────────────────────────────────────────────
 import ViewMembersPage   from '../../members/pages/ViewMembersPage';
@@ -60,11 +61,11 @@ type Screen =
   | 'ai-coach-admin'
   | 'more-actions';
 
-const DASHBOARD_STATS: StatStripItem[] = [
-  { icon: 'map-pin',   label: 'Branches', value: '5',     accent: '#7ED321' },
-  { icon: 'award',     label: 'Trainers', value: '18',    accent: '#7ED321' },
-  { icon: 'briefcase', label: 'Tenants',  value: '3',     accent: '#7ED321' },
-  { icon: 'users',     label: 'Members',  value: '1,284', accent: '#7ED321' },
+const dashboardStats = (s: { totalBranches: number; totalTrainers: number; totalTenants: number; totalMembers: number }): StatStripItem[] => [
+  { icon: 'map-pin',   label: 'Branches', value: s.totalBranches.toLocaleString('en-IN'), accent: '#7ED321' },
+  { icon: 'award',     label: 'Trainers', value: s.totalTrainers.toLocaleString('en-IN'), accent: '#7ED321' },
+  { icon: 'briefcase', label: 'Tenants',  value: s.totalTenants.toLocaleString('en-IN'),  accent: '#7ED321' },
+  { icon: 'users',     label: 'Members',  value: s.totalMembers.toLocaleString('en-IN'),  accent: '#7ED321' },
 ];
 
 // Labels match the reference (Dashboard/Members/+/Activity/More); destinations are
@@ -79,10 +80,13 @@ const NAV_ITEMS: { icon: FeatherIconName; label: string; key: string }[] = [
   { icon: 'grid',       label: 'More',      key: 'more'    },
 ];
 
-interface AdminDashboardProps { adminName?: string; }
+interface AdminDashboardProps { adminName?: string; onLogout?: () => void; }
 
-export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardProps) {
+export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminDashboardProps) {
   const { data, loading, refreshing, error, refresh } = useDashboardStats();
+  const actions = useVisibleAdminActions();
+  const role = getSession()?.role;
+  const roleLabel = isSuperAdmin(role) ? 'Super Admin' : isAdminRole(role) ? 'Administrator' : 'Staff';
   const [screen, setScreen] = useState<Screen>('home');
   const [activeTab, setActiveTab] = useState('home');
 
@@ -99,7 +103,7 @@ export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardPr
   }, []);
 
   // ── Sub-page routing ──────────────────────────────────────────
-  if (screen === 'module-hub')  return <AdminModuleDevelopmentDashboard onBack={goHome} onNavigate={(k) => go(k as Screen)} />;
+  if (screen === 'module-hub')  return <AdminModuleDevelopmentDashboard onBack={goHome} onNavigate={(k) => go(k as Screen)} stats={data?.stats} />;
   if (screen === 'members')     return <ViewMembersPage   onBack={goHome} onAddMember={() => go('add-member')} />;
   if (screen === 'add-member')  return <AddMemberPage     onBack={() => go('members')} />;
   if (screen === 'trainers')    return <ViewTrainersPage  onBack={goHome} onAddTrainer={() => go('add-trainer')} />;
@@ -118,7 +122,7 @@ export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardPr
   if (screen === 'stats-admin')        return <StatsAdminPage        onBack={goHome} />;
   if (screen === 'live-coaching-admin') return <LiveCoachingAdminPage onBack={goHome} />;
   if (screen === 'ai-coach-admin')     return <AiCoachSettingsPage   onBack={goHome} />;
-  if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} />;
+  if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} onLogout={onLogout} />;
 
   // ── Loading / Error states ─────────────────────────────────────
   if (loading && !data) return (
@@ -154,7 +158,7 @@ export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardPr
         <View style={{ paddingTop: 16, marginBottom: 20 }}>
           <DashboardBanner
             adminName={adminName}
-            roleLabel="Administrator"
+            roleLabel={roleLabel}
             hasUnreadNotifications
             onPressNotifications={() => {}}
             onPressAvatar={() => {}}
@@ -172,7 +176,7 @@ export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardPr
 
         {/* Stats strip — borderless inline row, per the reference */}
         <View style={{ marginBottom: 24 }}>
-          <StatsStrip items={DASHBOARD_STATS} bare />
+          <StatsStrip items={dashboardStats(stats)} bare />
         </View>
 
         {/* Revenue */}
@@ -194,7 +198,7 @@ export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardPr
         <View style={{ marginBottom: 28 }}>
           <SectionHeader title="Quick access" />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            {ADMIN_ACTIONS.map(q => (
+            {actions.map(q => (
               <Pressable key={q.screen} onPress={() => go(q.screen as Screen)}
                 style={({ pressed }) => ({
                   flexGrow: 1, flexBasis: '22%', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 14,

@@ -1,4 +1,5 @@
 import React from 'react';
+import { getSession, isSuperAdmin } from '../../../api/session';
 import { ScrollView, Text } from 'react-native';
 import { BranchPayload } from '../types/branch.types';
 import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
@@ -56,15 +57,21 @@ export default function StepBranchSettings({ data, onChange, errors = {} }: Prop
         error={errors.timezone}
       />
 
-      <Section title="Tenant" />
-      <Field
-        label="Tenant ID"
-        value={data.tenantId ? String(data.tenantId) : ''}
-        onChangeText={(v) => onChange({ tenantId: Number(v) || 0 })}
-        keyboardType="numeric"
-        placeholder="e.g. 1"
-        error={errors.tenantId}
-      />
+      {/* The branch is created in the signed-in admin's gym. Only a super admin
+          (who manages every gym) may pick a different one. */}
+      {isSuperAdmin(getSession()?.role) && (
+        <>
+          <Section title="Gym" />
+          <Field
+            label="Tenant ID"
+            value={data.tenantId ? String(data.tenantId) : ''}
+            onChangeText={(v) => onChange({ tenantId: Number(v) || 0 })}
+            keyboardType="numeric"
+            placeholder="Defaults to your own gym"
+            error={errors.tenantId}
+          />
+        </>
+      )}
     </ScrollView>
   );
 }

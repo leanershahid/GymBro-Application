@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Pressable, Text, Platform, StyleSheet } from 'react-native';
+import { View, Pressable, Text, Platform, StyleSheet, ActivityIndicator } from 'react-native';
+import { useMyTrainerProfileId } from './api/trainerAppQueries';
 import { Feather } from '@expo/vector-icons';
 import { ModuleAccessProvider, useModuleAccess } from '../module-access/context/ModuleAccessContext';
 import TrainerHomeScreen    from './screens/TrainerHomeScreen';
@@ -29,9 +30,33 @@ interface Props {
   onLogout: () => void;
 }
 
-export default function TrainerApp({ trainerId, onLogout }: Props) {
+// `userId` is the login account; per-user module toggles are keyed by it, while every
+// /trainers/{id} endpoint needs the TrainerProfile id, resolved via /trainers/me.
+export default function TrainerApp({ userId, onLogout }: { userId: number; onLogout: () => void }) {
+  const { data: trainerId = 0, isLoading, isError } = useMyTrainerProfileId();
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0A0F0A', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color="#7ED321" />
+      </View>
+    );
+  }
+  if (isError || trainerId === 0) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0A0F0A', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
+        <Text style={{ color: '#FFFFFF', textAlign: 'center' }}>
+          This account has no trainer profile yet. Ask your gym admin to finish setting it up.
+        </Text>
+        <Pressable onPress={onLogout} accessibilityRole="button">
+          <Text style={{ color: '#7ED321', fontWeight: '600' }}>Sign out</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
-    <ModuleAccessProvider userId={trainerId}>
+    <ModuleAccessProvider userId={userId}>
       <TrainerAppContent trainerId={trainerId} onLogout={onLogout} />
     </ModuleAccessProvider>
   );

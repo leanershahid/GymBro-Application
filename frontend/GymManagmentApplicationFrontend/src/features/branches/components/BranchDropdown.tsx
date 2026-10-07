@@ -8,7 +8,7 @@ import { Branch } from '../types/branch.types';
 import { T } from '../../trainers/components/theme';
 
 interface Props {
-  value: number | null;        // selected branch id (maps to tenantId)
+  value: number | null;        // selected branch id
   onChange: (branch: Branch) => void;
   error?: string;
   label?: string;

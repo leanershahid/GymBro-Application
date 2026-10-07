@@ -10,6 +10,7 @@ public class DashboardStatsResponse
     public int TotalBranches { get; set; }
     public int NewSignupsToday { get; set; }
     public int TrainersOnline { get; set; }
+    public int TotalTrainers { get; set; }
     /// <summary>Gyms visible to the caller: all for a super admin, 1 for a gym admin.</summary>
     public int TotalTenants { get; set; }
 }

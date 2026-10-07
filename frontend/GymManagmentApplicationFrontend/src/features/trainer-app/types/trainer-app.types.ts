@@ -7,6 +7,7 @@ export interface TrainerProfile {
   id: number;
   userId: number;
   branchId: number;
+  branchName?: string | null;
   trainerCode: string;
   displayName: string;
   bio: string | null;

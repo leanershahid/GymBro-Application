@@ -13,6 +13,8 @@ public class TrainerRepository(AppDbContext db) : ITrainerRepository
     {
         var total = await db.TrainerProfiles.CountAsync();
         var items = await db.TrainerProfiles
+            .Include(t => t.Branch)
+            .OrderBy(t => t.Id)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -20,7 +22,7 @@ public class TrainerRepository(AppDbContext db) : ITrainerRepository
     }
 
     public async Task<TrainerProfile?> GetByIdAsync(ulong id) =>
-        await db.TrainerProfiles.FirstOrDefaultAsync(t => t.Id == id);
+        await db.TrainerProfiles.Include(t => t.Branch).FirstOrDefaultAsync(t => t.Id == id);
 
     public async Task<TrainerProfile> CreateAsync(TrainerProfile trainer)
     {
@@ -45,7 +47,7 @@ public class TrainerRepository(AppDbContext db) : ITrainerRepository
             .ToListAsync();
 
     public Task<TrainerProfile?> GetByUserIdAsync(ulong userId) =>
-        db.TrainerProfiles.FirstOrDefaultAsync(t => t.UserId == userId);
+        db.TrainerProfiles.Include(t => t.Branch).FirstOrDefaultAsync(t => t.UserId == userId);
 
     public async Task<TrainerClientAssignment> AddClientAssignmentAsync(TrainerClientAssignment assignment)
     {

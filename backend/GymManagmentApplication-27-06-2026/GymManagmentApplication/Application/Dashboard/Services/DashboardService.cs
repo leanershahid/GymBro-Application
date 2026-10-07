@@ -36,6 +36,7 @@ public class DashboardService(AppDbContext db, ICurrentUser currentUser) : IDash
         var activeBranches = await db.Branches.CountAsync(b => b.Status == BranchStatus.Active);
 
         var trainersOnline = await db.TrainerProfiles.CountAsync(t => t.IsAvailable);
+        var totalTrainers = await db.TrainerProfiles.CountAsync();
         var totalTenants = currentUser.IsSuperAdmin ? await db.Tenants.CountAsync() : 1;
 
         var trendStart = startOfThisMonth.AddMonths(-6);
@@ -98,6 +99,7 @@ public class DashboardService(AppDbContext db, ICurrentUser currentUser) : IDash
                 TotalBranches = totalBranches,
                 NewSignupsToday = newSignupsToday,
                 TrainersOnline = trainersOnline,
+                TotalTrainers = totalTrainers,
                 TotalTenants = totalTenants
             },
             RevenueTrend = revenueTrend,

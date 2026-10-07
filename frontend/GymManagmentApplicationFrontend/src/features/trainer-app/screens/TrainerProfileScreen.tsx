@@ -126,7 +126,7 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
             {/* Read-only fields */}
             {[
               { label: 'Experience', value: profile?.experienceYears ? `${profile.experienceYears} years` : '—' },
-              { label: 'Branch',     value: profile?.branchId ? `#${profile.branchId}` : '—' },
+              { label: 'Branch',     value: profile?.branchName ?? (profile?.branchId ? `#${profile.branchId}` : '—') },
               { label: 'Rating',     value: profile?.rating ? `${profile.rating.toFixed(1)} / 5` : '—' },
             ].map(row => (
               <View key={row.label} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#151915', borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#1C211C' }}>

@@ -5,12 +5,15 @@ import {
   fetchPerformance, fetchEarnings,
   fetchMyClients, fetchClientProfile, fetchClientTimeline,
   fetchClientNotes, addClientNote, fetchClientDocuments,
-  fetchPlanAnalytics,
+  fetchPlanAnalytics, fetchMyTrainerProfile,
 } from './trainerAppApi';
 import { ScheduleSlot } from '../types/trainer-app.types';
 import { queryKeys } from '../../../api/queryKeys';
 
 const K = queryKeys.trainerApp;
+
+export const useMyTrainerProfileId = () =>
+  useQuery({ queryKey: ['trainerApp', 'me'], queryFn: fetchMyTrainerProfile, select: r => r.data?.id ?? 0 });
 
 export const useTrainerProfile  = (id: number) =>
   useQuery({ queryKey: K.profile(id),     queryFn: () => fetchTrainerProfile(id),  select: r => r.data, enabled: id > 0 });

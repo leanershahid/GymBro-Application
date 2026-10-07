@@ -11,6 +11,8 @@ export interface AuthData {
   expiresAt: string;
   role: string;
   userId: number;
+  tenantId: number;
+  branchId: number | null;
   email: string;
 }
 

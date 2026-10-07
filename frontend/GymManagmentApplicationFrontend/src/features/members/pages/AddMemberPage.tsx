@@ -7,6 +7,8 @@ import { Feather } from '@expo/vector-icons';
 import { useCreateMember } from '../api/memberQueries';
 import { MemberPayload, MemberGender } from '../types/member.types';
 import { isValidEmail } from '../../../utils/validation';
+import BranchDropdown from '../../branches/components/BranchDropdown';
+import { currentTenantId, getSession } from '../../../api/session';
 
 const GENDERS: { label: string; value: MemberGender }[] = [
   { label: 'Male',   value: 'male'   },
@@ -41,7 +43,7 @@ export default function AddMemberPage({ onBack }: Props) {
   const [form, setForm] = useState({
     email: '', firstName: '', lastName: '',
     phone: '', dob: '', notes: '',
-    trainerId: '', branchId: '',
+    trainerId: '', branchId: getSession()?.branchId ? String(getSession()!.branchId) : '',
   });
   const [gender, setGender] = useState<MemberGender | undefined>(undefined);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -57,7 +59,7 @@ export default function AddMemberPage({ onBack }: Props) {
     if (!form.email.trim())     e.email     = 'Email is required';
     else if (!isValidEmail(form.email)) e.email = 'Invalid email';
     // If trainerId given, branchId is strongly recommended
-    if (form.trainerId && !form.branchId) e.branchId = 'Branch ID is required when assigning a trainer';
+
     return e;
   };
 
@@ -67,7 +69,7 @@ export default function AddMemberPage({ onBack }: Props) {
     setErrors({});
 
     const payload: MemberPayload = {
-      tenantId:  1,
+      tenantId:  currentTenantId(),
       email:     form.email.trim(),
       firstName: form.firstName.trim(),
       lastName:  form.lastName.trim(),
@@ -85,7 +87,9 @@ export default function AddMemberPage({ onBack }: Props) {
           const assigned = res.data?.trainerId
             ? `\nTrainer #${res.data.trainerId} assigned automatically.`
             : '';
-          Alert.alert('Success 🎉', (res.message ?? 'Member created.') + assigned);
+          const pwd = (res.data as { defaultPassword?: string } | undefined)?.defaultPassword;
+          const password = pwd ? `\n\nTemporary password: ${pwd}\nShare it with the member — it is shown only once.` : '';
+          Alert.alert('Success 🎉', (res.message ?? 'Member created.') + assigned + password);
         } else {
           Alert.alert('Error', res.message ?? 'Something went wrong.');
         }
@@ -150,7 +154,7 @@ export default function AddMemberPage({ onBack }: Props) {
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: 'rgba(126,211,33,0.07)', borderWidth: 1, borderColor: 'rgba(126,211,33,0.20)', borderRadius: 14, padding: 12, marginBottom: 16, gap: 10 }}>
           <Feather name="info" size={15} color="#7ED321" style={{ marginTop: 1 }} />
           <Text style={{ flex: 1, color: '#AAAAAA', fontSize: 12, lineHeight: 18 }}>
-            Optional — enter a Trainer ID and Branch ID to automatically assign the new member to a trainer right after creation.
+            Pick the member's home branch. Optionally enter a Trainer ID to assign them right after creation — the branch then defaults to the trainer's.
           </Text>
         </View>
 
@@ -165,16 +169,13 @@ export default function AddMemberPage({ onBack }: Props) {
               error={undefined}
             />
           </View>
-          <View className="flex-1">
-            <Field
-              label="Branch ID (optional)"
-              value={form.branchId}
-              onChange={v => update('branchId', v.replace(/\D/g, ''))}
-              placeholder="e.g. 1"
-              keyboardType="numeric"
-              error={errors.branchId}
-            />
-          </View>
+
+        <BranchDropdown
+          label="Home branch (optional)"
+          value={form.branchId ? Number(form.branchId) : null}
+          onChange={b => update('branchId', String(b.id))}
+          error={errors.branchId}
+        />
         </View>
 
         {/* Notes */}

@@ -243,7 +243,7 @@ public class TrainerService(
 
     private static TrainerResponse MapToResponse(TrainerProfile t) => new()
     {
-        Id = t.Id, TenantId = t.TenantId, UserId = t.UserId, BranchId = t.BranchId, TrainerCode = t.TrainerCode,
+        Id = t.Id, TenantId = t.TenantId, UserId = t.UserId, BranchId = t.BranchId, BranchName = t.Branch?.Name, TrainerCode = t.TrainerCode,
         DisplayName = t.DisplayName, ProfileImage = t.ProfileImage, Bio = t.Bio,
         ExperienceYears = t.ExperienceYears, Gender = t.Gender, DateOfBirth = t.DateOfBirth,
         Phone = t.Phone, Email = t.Email, Address = t.Address, Notes = t.Notes,

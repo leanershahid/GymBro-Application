@@ -5,6 +5,8 @@ import LoginPage      from './src/features/auth/components/LoginPage';
 import AdminDashboard from './src/features/dashboard/pages/AdminDashboard';
 import MemberApp      from './src/features/member-app/MemberApp';
 import TrainerApp     from './src/features/trainer-app/TrainerApp';
+import { setAuthToken } from './src/api/axios';
+import { setSession, isAdminRole, isDelegatedRole } from './src/api/session';
 
 type AppState =
   | { status: 'unauthenticated'; error?: string }
@@ -16,13 +18,19 @@ export default function App() {
   const [appState, setAppState] = useState<AppState>({ status: 'unauthenticated' });
 
   const handleLoginSuccess = (role: string, userId: number) => {
-    // Only known roles get routed to their app — an unrecognized role (e.g. the
-    // unimplemented 'staff' role) must never silently fall through to the admin
-    // dashboard, which would grant it full platform access.
-    if (role === 'admin')        setAppState({ status: 'admin' });
+    // Admins and super admins get the full admin app. 'staff' and custom roles get the
+    // same app, but AdminDashboard only shows the modules the role/module matrix grants
+    // them — and the backend enforces that matrix on every request.
+    if (isAdminRole(role) || isDelegatedRole(role)) setAppState({ status: 'admin' });
     else if (role === 'client')  setAppState({ status: 'member',  userId });
     else if (role === 'trainer') setAppState({ status: 'trainer', userId });
     else setAppState({ status: 'unauthenticated', error: `Unsupported account role "${role}". Please contact your administrator.` });
+  };
+
+  const logout = () => {
+    setAuthToken(null);
+    setSession(null);
+    setAppState({ status: 'unauthenticated' });
   };
 
   return (
@@ -32,18 +40,18 @@ export default function App() {
           <LoginPage onLoginSuccess={handleLoginSuccess} errorMessage={appState.error} />
         )}
         {appState.status === 'admin' && (
-          <AdminDashboard />
+          <AdminDashboard onLogout={logout} />
         )}
         {appState.status === 'member' && (
           <MemberApp
             userId={appState.userId}
-            onLogout={() => setAppState({ status: 'unauthenticated' })}
+            onLogout={logout}
           />
         )}
         {appState.status === 'trainer' && (
           <TrainerApp
-            trainerId={appState.userId}
-            onLogout={() => setAppState({ status: 'unauthenticated' })}
+            userId={appState.userId}
+            onLogout={logout}
           />
         )}
       </QueryProvider>

@@ -3,11 +3,12 @@ import { View, Text, ScrollView, Pressable, StatusBar, Platform } from 'react-na
 import { Feather } from '@expo/vector-icons';
 import { T } from '../../trainers/components/theme';
 import BackButton from '../../common/components/BackButton';
-import { ADMIN_ACTIONS } from '../adminActions';
+import { useVisibleAdminActions } from '../adminActions';
 
 interface Props {
   onBack?: () => void;
   onNavigate: (screen: string) => void;
+  onLogout?: () => void;
 }
 
 /**
@@ -15,7 +16,8 @@ interface Props {
  * link and the bottom nav "More" tab, so every action stays reachable even
  * though only the first few get a dedicated Quick Access tile.
  */
-export default function MoreActionsPage({ onBack, onNavigate }: Props) {
+export default function MoreActionsPage({ onBack, onNavigate, onLogout }: Props) {
+  const actions = useVisibleAdminActions();
   return (
     <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
       <StatusBar barStyle="light-content" backgroundColor={T.bg} />
@@ -34,7 +36,7 @@ export default function MoreActionsPage({ onBack, onNavigate }: Props) {
 
       <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-          {ADMIN_ACTIONS.map((a) => (
+          {actions.map((a) => (
             <Pressable
               key={a.screen}
               onPress={() => onNavigate(a.screen)}
@@ -54,6 +56,18 @@ export default function MoreActionsPage({ onBack, onNavigate }: Props) {
             </Pressable>
           ))}
         </View>
+
+        {onLogout && (
+          <Pressable
+            onPress={onLogout}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+            style={{ marginTop: 28, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12 }}
+          >
+            <Feather name="log-out" size={16} color={T.textSub} />
+            <Text style={{ color: T.textSub, fontSize: 13, fontWeight: '600' }}>Sign out</Text>
+          </Pressable>
+        )}
       </ScrollView>
     </View>
   );

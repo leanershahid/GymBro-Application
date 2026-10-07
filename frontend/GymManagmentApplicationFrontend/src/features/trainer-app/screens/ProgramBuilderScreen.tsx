@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { currentTenantId } from '../../../api/session';
 import {
   View, Text, ScrollView, Pressable, TextInput,
   StatusBar, Platform, Animated, Alert, ActivityIndicator,
@@ -86,7 +87,7 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
 
   const handleCreateWorkout = () => {
     if (!wName.trim()) return;
-    const payload: WorkoutPayload = { tenantId: 1, name: wName.trim(), goal: wGoal, difficulty: wDiff, durationMin: wDuration ? Number(wDuration) : undefined, isPublic: false };
+    const payload: WorkoutPayload = { tenantId: currentTenantId(), name: wName.trim(), goal: wGoal, difficulty: wDiff, durationMin: wDuration ? Number(wDuration) : undefined, isPublic: false };
     createWorkout(payload, {
       onSuccess: res => { if (res.success) { Alert.alert('Created ✓', 'Workout created.'); setShowWForm(false); setWName(''); wRefetch(); } },
       onError:   () => Alert.alert('Error', 'Failed to create workout.'),
@@ -95,7 +96,7 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
 
   const handleCreatePlan = () => {
     if (!pName.trim() || !pWeeks) return;
-    const payload: WorkoutPlanPayload = { tenantId: 1, name: pName.trim(), durationWeeks: Number(pWeeks), goal: pGoal };
+    const payload: WorkoutPlanPayload = { tenantId: currentTenantId(), name: pName.trim(), durationWeeks: Number(pWeeks), goal: pGoal };
     createPlan(payload, {
       onSuccess: res => { if (res.success) { Alert.alert('Created ✓', 'Plan created.'); setShowPForm(false); setPName(''); pRefetch(); } },
       onError:   () => Alert.alert('Error', 'Failed to create plan.'),

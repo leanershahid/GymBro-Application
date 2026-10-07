@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { currentTenantId } from '../../../api/session';
 import {
   View, Text, TouchableOpacity,
   Alert, ActivityIndicator, StatusBar, Platform,
@@ -20,7 +21,7 @@ const STEPS = [
 
 // ─── Default values ───────────────────────────────────────────────
 const DEFAULT_VALUES: BranchPayload = {
-  tenantId:  0,
+  tenantId:  currentTenantId(),
   name:      '',
   code:      '',
   address:   '',
@@ -61,7 +62,7 @@ function validateSettings(d: Partial<BranchPayload>): BranchSettingsErrors {
   const e: BranchSettingsErrors = {};
   if (!d.timezone?.trim())       e.timezone = 'Timezone is required';
   if (!d.capacity || d.capacity < 1) e.capacity = 'Capacity must be at least 1';
-  if (!d.tenantId || d.tenantId < 1) e.tenantId = 'Tenant ID is required';
+
   return e;
 }
 

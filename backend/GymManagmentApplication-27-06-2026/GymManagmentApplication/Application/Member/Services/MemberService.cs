@@ -294,6 +294,7 @@ public class MemberService(
         Id = u.Id,
         TenantId = u.TenantId,
         BranchId = u.BranchId,
+        BranchName = u.Branch?.Name,
         Email = u.Email,
         FirstName = u.FirstName,
         LastName = u.LastName,

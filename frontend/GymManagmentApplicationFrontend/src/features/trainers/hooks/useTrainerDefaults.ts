@@ -2,7 +2,7 @@ import { TrainerPayload } from '../types/trainer.types';
 
 export const defaultTrainerValues: TrainerPayload = {
   userId: 0,
-  tenantId: 0,
+  branchId: 0,
   trainerCode: '',
   displayName: '',
   profileImage: '',

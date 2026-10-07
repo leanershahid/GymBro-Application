@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { currentTenantId } from '../../../api/session';
 import {
   View, Text, ScrollView, Pressable, Switch,
   StatusBar, Platform, ActivityIndicator, Alert,
@@ -118,7 +119,7 @@ function MatrixCell({ has }: { has: boolean }) {
 // ─── Page ─────────────────────────────────────────────────────────
 interface Props { onBack?: () => void; }
 
-const TENANT_ID = 1; // hardcoded until tenant context is available
+
 
 export default function ModuleAccessPage({ onBack }: Props) {
   const { width } = useWindowDimensions();
@@ -130,8 +131,8 @@ export default function ModuleAccessPage({ onBack }: Props) {
 
   const { data: moduleKeys = [], isLoading: keysLoading } = useModuleKeys();
   const { data: entries = [],    isLoading: entriesLoading, refetch: refetchEntries } =
-    useModuleAccess(TENANT_ID, selectedRoleId);
-  const { data: matrix,         isLoading: matrixLoading }  = useModuleMatrix(TENANT_ID);
+    useModuleAccess(currentTenantId(), selectedRoleId);
+  const { data: matrix,         isLoading: matrixLoading }  = useModuleMatrix(currentTenantId());
 
   const { mutate: upsert }  = useUpsertModuleAccess();
   const { mutate: delEntry } = useDeleteModuleAccess();
@@ -145,7 +146,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
   const handleToggle = useCallback((entry: ModuleAccessEntry, flag: Flag, value: boolean) => {
     setSavingModule(entry.module);
     const payload: ModuleAccessPayload = {
-      tenantId:  TENANT_ID,
+      tenantId:  currentTenantId(),
       roleId:    selectedRoleId,
       module:    entry.module,
       canView:   entry.canView,
@@ -164,7 +165,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
   // ── Add a new module for this role ────────────────────────────
   const handleAddModule = useCallback((module: string) => {
     const payload: ModuleAccessPayload = {
-      tenantId: TENANT_ID, roleId: selectedRoleId, module,
+      tenantId: currentTenantId(), roleId: selectedRoleId, module,
       canView: true, canCreate: false, canEdit: false, canDelete: false, canExport: false,
     };
     setSavingModule(module);
@@ -182,7 +183,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Remove', style: 'destructive', onPress: () =>
-          delEntry({ tenantId: TENANT_ID, roleId: selectedRoleId, module }, {
+          delEntry({ tenantId: currentTenantId(), roleId: selectedRoleId, module }, {
             onError: () => Alert.alert('Error', 'Failed to remove access.'),
           })
         },
@@ -198,7 +199,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Clear all', style: 'destructive', onPress: () =>
-          delRole({ tenantId: TENANT_ID, roleId: selectedRoleId }, {
+          delRole({ tenantId: currentTenantId(), roleId: selectedRoleId }, {
             onSuccess: () => Alert.alert('Done', 'All access cleared.'),
             onError:   () => Alert.alert('Error', 'Failed to clear access.'),
           })

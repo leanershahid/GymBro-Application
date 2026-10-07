@@ -24,6 +24,7 @@ public class MemberRepository(AppDbContext db) : IMemberRepository
 
         var total = await q.CountAsync();
         var items = await q
+            .Include(u => u.Branch)
             .OrderBy(u => u.FirstName)
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
@@ -44,7 +45,7 @@ public class MemberRepository(AppDbContext db) : IMemberRepository
     }
 
     public async Task<User?> GetByIdAsync(ulong id) =>
-        await db.Users.FirstOrDefaultAsync(u => u.Id == id && u.DeletedAt == null);
+        await db.Users.Include(u => u.Branch).FirstOrDefaultAsync(u => u.Id == id && u.DeletedAt == null);
 
     public async Task<User?> GetByEmailAsync(string email) =>
         await db.Users.FirstOrDefaultAsync(u =>

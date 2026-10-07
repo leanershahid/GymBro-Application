@@ -76,8 +76,7 @@ export default function AddTrainerPage({ onBack }: AddTrainerPageProps) {
   const [branchError, setBranchError] = useState('');
   const { mutate, isPending }     = useCreateTrainer();
 
-  // selected branch id (= tenantId)
-  const selectedBranchId: number | null = formData.tenantId || null;
+  const selectedBranchId: number | null = formData.branchId || null;
 
   const updateForm = (fields: Partial<TrainerPayload>) => {
     setFormData((prev) => ({ ...prev, ...fields }));
@@ -88,7 +87,7 @@ export default function AddTrainerPage({ onBack }: AddTrainerPageProps) {
   };
 
   const handleBranchSelect = (branch: Branch) => {
-    setFormData((prev) => ({ ...prev, tenantId: branch.tenantId }));
+    setFormData((prev) => ({ ...prev, branchId: branch.id }));
     setBranchError('');
   };
 
@@ -115,7 +114,14 @@ export default function AddTrainerPage({ onBack }: AddTrainerPageProps) {
       return;
     }
     mutate(formData, {
-      onSuccess: (res) => Alert.alert(res.success ? 'Success' : 'Error', res.message ?? 'Something went wrong.'),
+      onSuccess: (res) => {
+        const pwd = (res.data as { temporaryPassword?: string } | undefined)?.temporaryPassword;
+        Alert.alert(
+          res.success ? 'Success' : 'Error',
+          (res.message ?? 'Something went wrong.') +
+            (res.success && pwd ? `\n\nTemporary password: ${pwd}\nShare it with the trainer — it is shown only once.` : ''),
+        );
+      },
       onError:   ()    => Alert.alert('Error', 'Failed to connect to server.'),
     });
   };

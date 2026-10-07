@@ -65,20 +65,23 @@ interface ModuleItem {
   stat: string; level: string; image: any;
 }
 
-const MODULES: ModuleItem[] = [
-  { key: 'branch',  category: 'Locations',     label: 'Branches', sublabel: 'Add new location',   icon: 'map-pin',   stat: '5',     level: 'Manager',      image: IMG_WORKOUT },
-  { key: 'trainer', category: 'Staff',          label: 'Trainers', sublabel: 'Onboard coaches',    icon: 'award',     stat: '18',    level: 'Professional', image: IMG_COACH1  },
-  { key: 'tenant',  category: 'Organisations',  label: 'Tenants',  sublabel: 'New organisation',   icon: 'briefcase', stat: '3',     level: 'Enterprise',   image: IMG_COACH2  },
-  { key: 'client',  category: 'Members',        label: 'Clients',  sublabel: 'Enrol members',      icon: 'user-plus', stat: '1,284', level: 'Beginner',     image: IMG_HERO    },
+// Counts come from the dashboard overview so the hub never shows invented numbers.
+interface HubStats { totalBranches: number; totalTrainers: number; totalTenants: number; totalMembers: number; newSignupsToday: number; activeBranches: number; }
+const fmt = (n?: number) => (n === undefined ? '—' : n.toLocaleString('en-IN'));
+const buildModules = (s?: HubStats): ModuleItem[] => [
+  { key: 'branch',  category: 'Locations',     label: 'Branches', sublabel: 'Add new location',   icon: 'map-pin',   stat: fmt(s?.totalBranches), level: 'Manager',      image: IMG_WORKOUT },
+  { key: 'trainer', category: 'Staff',          label: 'Trainers', sublabel: 'Onboard coaches',    icon: 'award',     stat: fmt(s?.totalTrainers), level: 'Professional', image: IMG_COACH1  },
+  { key: 'tenant',  category: 'Organisations',  label: 'Tenants',  sublabel: 'New organisation',   icon: 'briefcase', stat: fmt(s?.totalTenants),  level: 'Enterprise',   image: IMG_COACH2  },
+  { key: 'client',  category: 'Members',        label: 'Clients',  sublabel: 'Enrol members',      icon: 'user-plus', stat: fmt(s?.totalMembers),  level: 'Beginner',     image: IMG_HERO    },
 ];
 
 const CATEGORIES = ['All', 'Locations', 'Staff', 'Organisations', 'Members'];
 
-const ACTIVITY = [
-  { icon: 'map-pin'   as FeatherIconName, title: 'Downtown branch added',   sub: 'Mumbai · 2h ago'             },
-  { icon: 'award'     as FeatherIconName, title: 'Ravi K. onboarded',       sub: 'Trainer · Westside · 5h ago' },
-  { icon: 'user-plus' as FeatherIconName, title: '23 new members enrolled', sub: 'Today · all branches'        },
-];
+const buildActivity = (s?: HubStats) => s ? [
+  { icon: 'map-pin'   as FeatherIconName, title: `${fmt(s.activeBranches)} of ${fmt(s.totalBranches)} branches active`, sub: 'Locations' },
+  { icon: 'award'     as FeatherIconName, title: `${fmt(s.totalTrainers)} trainers on staff`,                          sub: 'Staff'     },
+  { icon: 'user-plus' as FeatherIconName, title: `${fmt(s.newSignupsToday)} new members today`,                         sub: 'Today · all branches' },
+] : [];
 
 // ─── Module card ──────────────────────────────────────────────────
 function ModuleCard({
@@ -247,9 +250,12 @@ function ModuleCard({
 interface AdminModuleDevelopmentDashboardProps {
   onNavigate?: (key: string) => void;
   onBack?: () => void;
+  stats?: HubStats;
 }
 
-export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack }: AdminModuleDevelopmentDashboardProps) {
+export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack, stats }: AdminModuleDevelopmentDashboardProps) {
+  const MODULES = buildModules(stats);
+  const ACTIVITY = buildActivity(stats);
   const [activePage,   setActivePage]   = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState('All');
 
