@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using GymManagmentApplication.Application.Common;
+using GymManagmentApplication.Domain.Constants;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
@@ -25,7 +26,11 @@ public class AuthorizeRolesAttribute(params string[] roles) : Attribute, IAuthor
         if (roles.Length > 0)
         {
             var userRole = user.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
-            if (!roles.Any(r => r.Equals(userRole, StringComparison.OrdinalIgnoreCase)))
+            // A super admin can do anything a tenant admin can.
+            var isSuperAdminActingAsAdmin =
+                userRole.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase) &&
+                roles.Any(r => r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase));
+            if (!isSuperAdminActingAsAdmin && !roles.Any(r => r.Equals(userRole, StringComparison.OrdinalIgnoreCase)))
             {
                 context.Result = new JsonResult(ApiResponse<object>.Fail($"Forbidden. Required role(s): {string.Join(", ", roles)}."))
                 {

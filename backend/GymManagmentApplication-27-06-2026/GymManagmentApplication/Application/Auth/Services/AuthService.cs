@@ -3,6 +3,8 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using GymManagmentApplication.Application.Auth.Interfaces;
+using GymManagmentApplication.Application.Common;
+using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Application.Auth.Requests;
 using GymManagmentApplication.Application.Auth.Responses;
 using GymManagmentApplication.Domain.Entities.Identity;
@@ -25,69 +27,81 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
 
     public async Task<AuthResponse?> RegisterAsync(RegisterRequest request)
     {
-        // Reject if email already exists
-        var exists = await db.Users
-            .AnyAsync(u => u.Email != null && u.Email.ToLower() == request.Email.ToLower() && u.DeletedAt == null);
-        if (exists) return null;
-
-        // Resolve TenantId — fall back to the first (default) tenant if not provided
+        // Resolve TenantId — fall back to the first (default) tenant if not provided.
+        // The tenant must exist and be active; you can only join a real gym.
         var tenantId = request.TenantId != 0
             ? request.TenantId
             : (await db.Tenants.OrderBy(t => t.Id).Select(t => t.Id).FirstOrDefaultAsync());
 
-        if (tenantId == 0)
-            throw new InvalidOperationException("No tenant found. Ensure the database is seeded.");
+        var tenantActive = await db.Tenants.AnyAsync(t => t.Id == tenantId && (t.Status == TenantStatus.Active || t.Status == TenantStatus.Trial));
+        if (!tenantActive)
+            throw new ArgumentException("The selected gym does not exist or is not accepting registrations.");
 
         // Public self-registration always creates a 'client' account — the role is never
         // taken from the request body, since that would let anyone register as admin/trainer.
-        // Admin/trainer accounts are created via the authenticated TrainerController/RolesController flows.
-        const string roleSlug = "client";
-        var role = await db.Roles
-            .FirstOrDefaultAsync(r => r.Slug == roleSlug && r.TenantId == tenantId)
-            ?? await db.Roles.FirstOrDefaultAsync(r => r.Slug == "client");
+        var user = await CreateUserAsync(new NewUser(
+            tenantId, BranchId: null, RoleNames.Client,
+            request.Email, request.Password, request.FirstName, request.LastName, UserStatus.Pending));
 
-        if (role is null)
-            throw new InvalidOperationException("No roles found. Ensure the database is seeded.");
+        return user is null ? null : GenerateTokens(user, RoleNames.Client);
+    }
 
-        // Generate Id in application code — DB uses numeric(20,0) with no identity strategy
-        var maxId = await db.Users.MaxAsync(u => (ulong?)u.Id) ?? 0UL;
-        var newId = maxId + 1;
+    public async Task<User?> CreateUserAsync(NewUser spec)
+    {
+        // Email is the login key, so it stays unique across all tenants.
+        var exists = await db.Users.IgnoreQueryFilters()
+            .AnyAsync(u => u.Email != null && u.Email.ToLower() == spec.Email.ToLower() && u.DeletedAt == null);
+        if (exists) return null;
+
+        if (spec.BranchId is { } branchId)
+        {
+            var branchOk = await db.Branches.IgnoreQueryFilters()
+                .AnyAsync(b => b.Id == branchId && b.TenantId == spec.TenantId);
+            if (!branchOk)
+                throw new ArgumentException($"Branch {branchId} does not belong to tenant {spec.TenantId}.");
+        }
+
+        // Role must belong to the same tenant — never borrow another tenant's role.
+        var role = await db.Roles.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.Slug == spec.RoleSlug && r.TenantId == spec.TenantId)
+            ?? throw new InvalidOperationException(
+                $"Tenant {spec.TenantId} has no '{spec.RoleSlug}' role. Ensure the tenant was provisioned.");
 
         var user = new User
         {
-            Id           = newId,
             Uuid         = Guid.NewGuid().ToString(),
-            Email        = request.Email,
-            PasswordHash = Hash(request.Password),
-            FirstName    = request.FirstName,
-            LastName     = request.LastName,
+            Email        = spec.Email,
+            PasswordHash = PasswordHasher.Hash(spec.Password),
+            FirstName    = spec.FirstName,
+            LastName     = spec.LastName,
             RoleId       = role.Id,
-            TenantId     = tenantId,
-            Status       = UserStatus.Pending,
+            TenantId     = spec.TenantId,
+            BranchId     = spec.BranchId,
+            Status       = spec.Status,
             CreatedAt    = DateTime.UtcNow,
             UpdatedAt    = DateTime.UtcNow
         };
 
         db.Users.Add(user);
-        await db.SaveChangesAsync();
-
-        return GenerateTokens(user, roleSlug);
+        await db.SaveChangesAsync(); // Id assigned by AppDbContext
+        return user;
     }
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest request)
     {
-        var passwordHash = Hash(request.Password);
-
-        // Find user by email + password only — don't join Role here,
+        // Find user by email only — don't join Role here,
         // a broken RoleId FK would cause Include to fail or return null
         var user = await db.Users
             .FirstOrDefaultAsync(u =>
                 u.Email != null &&
                 u.Email.ToLower() == request.Email.ToLower() &&
-                u.PasswordHash == passwordHash &&
                 u.DeletedAt == null);
 
-        if (user is null) return null;
+        if (user is null || !PasswordHasher.Verify(request.Password, user.PasswordHash, out var needsRehash))
+            return null;
+
+        // Upgrade legacy unsalted hashes transparently.
+        if (needsRehash) user.PasswordHash = PasswordHasher.Hash(request.Password);
 
         // Load role separately so a missing/0 RoleId doesn't block login
         var role = user.RoleId != 0
@@ -150,7 +164,7 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
         var user = await db.Users.FindAsync(entry.UserId);
         if (user is null) return false;
 
-        user.PasswordHash = Hash(request.NewPassword);
+        user.PasswordHash = PasswordHasher.Hash(request.NewPassword);
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
@@ -161,9 +175,9 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
     public async Task<bool> ChangePasswordAsync(ulong userId, ChangePasswordRequest request)
     {
         var user = await db.Users.FindAsync(userId);
-        if (user is null || user.PasswordHash != Hash(request.CurrentPassword)) return false;
+        if (user is null || !PasswordHasher.Verify(request.CurrentPassword, user.PasswordHash, out _)) return false;
 
-        user.PasswordHash = Hash(request.NewPassword);
+        user.PasswordHash = PasswordHasher.Hash(request.NewPassword);
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return true;
@@ -187,6 +201,8 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
             FirstName       = user.FirstName ?? string.Empty,
             LastName        = user.LastName ?? string.Empty,
             Role            = role?.Slug ?? "client",
+            TenantId        = user.TenantId,
+            BranchId        = user.BranchId,
             IsEmailVerified = user.EmailVerifiedAt.HasValue
         };
     }
@@ -233,6 +249,8 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
             ExpiresAt    = expiry,
             Role         = roleSlug,
             UserId       = user.Id,
+            TenantId     = user.TenantId,
+            BranchId     = user.BranchId,
             Email        = user.Email ?? string.Empty
         };
     }
@@ -241,13 +259,16 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
     {
         var key   = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub,   user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
-            new Claim(ClaimTypes.Role,               roleSlug),
-            new Claim(JwtRegisteredClaimNames.Jti,   Guid.NewGuid().ToString())
+            new(JwtRegisteredClaimNames.Sub,   user.Id.ToString()),
+            new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+            new(ClaimTypes.Role,               roleSlug),
+            new(CustomClaims.TenantId,         user.TenantId.ToString()),
+            new(JwtRegisteredClaimNames.Jti,   Guid.NewGuid().ToString())
         };
+        if (user.BranchId is { } branchId)
+            claims.Add(new Claim(CustomClaims.BranchId, branchId.ToString()));
         var token = new JwtSecurityToken(
             issuer:            _jwt.Issuer,
             audience:          _jwt.Audience,
@@ -258,5 +279,4 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
     }
 
     private static string GenerateRefreshToken() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
-    private static string Hash(string input) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
 }

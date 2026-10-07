@@ -32,6 +32,7 @@ public class TenantController(
     }
 
     [HttpPost]
+    [AuthorizeRoles(RoleNames.SuperAdmin)]
     public async Task<ActionResult<ApiResponse<object>>> Create([FromBody] CreateTenantRequest request)
     {
         var v = await validator.ValidateAsync(request);
@@ -51,6 +52,7 @@ public class TenantController(
     }
 
     [HttpDelete("{id}")]
+    [AuthorizeRoles(RoleNames.SuperAdmin)]
     public async Task<ActionResult<ApiResponse<object>>> Delete(ulong id)
     {
         var deleted = await service.DeleteAsync(id);

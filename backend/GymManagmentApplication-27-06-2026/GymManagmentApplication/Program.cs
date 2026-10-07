@@ -173,6 +173,10 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateMembershipPlanValidat
 builder.Services.AddValidatorsFromAssemblyContaining<AddCircuitValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateChallengeValidator>();
 
+// Current caller (tenant/branch/role from the JWT)
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<GymManagmentApplication.Application.Common.ICurrentUser, GymManagmentApplication.Application.Common.CurrentUser>();
+
 // Application Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITenantService, TenantService>();

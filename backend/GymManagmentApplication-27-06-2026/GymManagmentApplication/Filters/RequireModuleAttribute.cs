@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Claims;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.UserModules.Interfaces;
+using GymManagmentApplication.Domain.Constants;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
@@ -30,7 +31,8 @@ public class RequireModuleAttribute(string moduleKey) : Attribute, IAsyncAuthori
         }
 
         var role = user.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
-        if (role.Equals("admin", StringComparison.OrdinalIgnoreCase))
+        if (role.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase) ||
+            role.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase))
             return; // Admins bypass module gating entirely.
 
         if (!ulong.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))

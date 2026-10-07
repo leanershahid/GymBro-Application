@@ -17,12 +17,24 @@ using GymManagmentApplication.Domain.Entities.Platform;
 using GymManagmentApplication.Domain.Entities.POS;
 using GymManagmentApplication.Domain.Entities.Scheduling;
 using GymManagmentApplication.Domain.Entities.Training;
+using System.Linq.Expressions;
+using GymManagmentApplication.Application.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Infrastructure.Data;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? currentUser = null) : DbContext(options)
 {
+    // ── Tenant isolation ────────────────────────────────────────────────────
+    // Every entity with a CLR TenantId gets a global query filter (see ApplyTenantFilters).
+    // Evaluated per DbContext instance, i.e. per request:
+    //   * anonymous / background (no HttpContext) → no filter (login, seeding)
+    //   * super admin                              → no filter (platform-wide)
+    //   * anyone else                              → own tenant only; a token without a
+    //                                                 tenant claim sees nothing (fails closed)
+    public bool TenantFilterDisabled => currentUser is null || !currentUser.IsAuthenticated || currentUser.IsSuperAdmin;
+    public ulong CurrentTenantId => currentUser?.TenantId ?? 0;
+
     // Core
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Branch> Branches => Set<Branch>();
@@ -200,6 +212,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             if (pk != null && pk.ClrType == typeof(ulong))
                 pk.ValueGenerated = Microsoft.EntityFrameworkCore.Metadata.ValueGenerated.Never;
         }
+
+        ApplyTenantFilters(modelBuilder);
 
         // Composite keys
         modelBuilder.Entity<ExerciseMuscle>().HasKey(e => new { e.ExerciseId, e.MuscleId });
@@ -412,6 +426,106 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey("TenantId")
                 .OnDelete(DeleteBehavior.Restrict);
+        }
+    }
+
+    private void ApplyTenantFilters(ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            // Only real CLR TenantId properties — shadow FK columns are never populated.
+            var clrProperty = entityType.ClrType.GetProperty("TenantId");
+            if (clrProperty is null || entityType.BaseType is not null) continue;
+
+            var param = Expression.Parameter(entityType.ClrType, "e");
+            var ctx = Expression.Constant(this);
+            var disabled = Expression.Property(ctx, nameof(TenantFilterDisabled));
+            var current = Expression.Property(ctx, nameof(CurrentTenantId));
+            var tenantProp = Expression.Property(param, clrProperty);
+
+            Expression match;
+            if (clrProperty.PropertyType == typeof(ulong))
+            {
+                match = Expression.Equal(tenantProp, current);
+            }
+            else if (clrProperty.PropertyType == typeof(ulong?))
+            {
+                // Null tenant = shared/global row (e.g. built-in exercise library), visible to all.
+                match = Expression.OrElse(
+                    Expression.Equal(tenantProp, Expression.Constant(null, typeof(ulong?))),
+                    Expression.Equal(tenantProp, Expression.Convert(current, typeof(ulong?))));
+            }
+            else continue;
+
+            var body = Expression.OrElse(disabled, match);
+            modelBuilder.Entity(entityType.ClrType).HasQueryFilter(Expression.Lambda(body, param));
+        }
+    }
+
+    // ── Id generation ───────────────────────────────────────────────────────
+    // ulong PKs are ValueGenerated.Never (numeric(20,0), no identity), so any new row
+    // still carrying Id 0 is assigned MAX(Id)+1 here. Repositories that already set an
+    // Id are left alone.
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        await AssignMissingIdsAsync(cancellationToken);
+        return await base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override int SaveChanges()
+    {
+        AssignMissingIdsAsync(CancellationToken.None).GetAwaiter().GetResult();
+        return base.SaveChanges();
+    }
+
+    private async Task AssignMissingIdsAsync(CancellationToken ct)
+    {
+        var pending = ChangeTracker.Entries()
+            .Where(e => e.State == EntityState.Added)
+            .Select(e => (Entry: e, Key: e.Metadata.FindPrimaryKey()))
+            .Where(x => x.Key is { Properties.Count: 1 }
+                        && x.Key.Properties[0].Name == "Id"
+                        && x.Key.Properties[0].ClrType == typeof(ulong)
+                        && (ulong)x.Entry.Property("Id").CurrentValue! == 0UL)
+            .GroupBy(x => x.Entry.Metadata)
+            .ToList();
+
+        foreach (var group in pending)
+        {
+            var table = group.Key.GetTableName();
+            if (table is null) continue;
+            var schema = group.Key.GetSchema();
+            var qualified = schema is null ? $"\"{table}\"" : $"\"{schema}\".\"{table}\"";
+
+            // Rows added in this same unit of work may already hold explicit ids.
+            var trackedMax = ChangeTracker.Entries()
+                .Where(e => e.Metadata == group.Key && e.State == EntityState.Added)
+                .Select(e => (ulong)e.Property("Id").CurrentValue!)
+                .DefaultIfEmpty(0UL)
+                .Max();
+
+            var next = Math.Max(await GetMaxIdAsync(qualified, ct), trackedMax) + 1;
+            foreach (var (entry, _) in group)
+                entry.Property("Id").CurrentValue = next++;
+        }
+    }
+
+    private async Task<ulong> GetMaxIdAsync(string qualifiedTable, CancellationToken ct)
+    {
+        var conn = Database.GetDbConnection();
+        var wasOpen = conn.State == System.Data.ConnectionState.Open;
+        if (!wasOpen) await conn.OpenAsync(ct);
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"SELECT COALESCE(MAX(\"Id\"), 0) FROM {qualifiedTable}";
+            if (Database.CurrentTransaction is { } tx) cmd.Transaction = Microsoft.EntityFrameworkCore.Storage.DbContextTransactionExtensions.GetDbTransaction(tx);
+            var result = await cmd.ExecuteScalarAsync(ct);
+            return result is DBNull or null ? 0UL : (ulong)Convert.ToDecimal(result);
+        }
+        finally
+        {
+            if (!wasOpen) await conn.CloseAsync();
         }
     }
 }
