@@ -6,6 +6,7 @@ namespace GymManagmentApplication.Infrastructure.Repositories.Exercise;
 
 public interface IExerciseRepository
 {
+    Task<bool> SlugExistsAsync(ulong? tenantId, string slug);
     Task<(List<ExerciseEntity> Items, int Total)> GetAllAsync(ExerciseListRequest request);
     Task<ExerciseEntity> CreateAsync(ExerciseEntity exercise);
     Task<ExerciseEntity?> GetByIdAsync(ulong id);

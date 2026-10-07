@@ -26,6 +26,8 @@ public class ExerciseService(IExerciseRepository repository, ICurrentUser curren
     {
         request.TenantId = currentUser.ResolveTenantId(request.TenantId);
         var slug = request.Name.ToLower().Replace(" ", "-");
+        if (await repository.SlugExistsAsync(request.TenantId, slug))
+            throw new ArgumentException($"An exercise named '{request.Name}' already exists in this gym.");
         var tags = request.Tags is not null
             ? JsonDocument.Parse(JsonSerializer.Serialize(request.Tags))
             : null;

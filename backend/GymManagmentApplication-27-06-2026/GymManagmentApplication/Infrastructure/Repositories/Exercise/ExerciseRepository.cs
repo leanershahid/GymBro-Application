@@ -8,6 +8,9 @@ namespace GymManagmentApplication.Infrastructure.Repositories.Exercise;
 
 public class ExerciseRepository(AppDbContext db) : IExerciseRepository
 {
+    public Task<bool> SlugExistsAsync(ulong? tenantId, string slug) =>
+        db.Exercises.IgnoreQueryFilters().AnyAsync(e => e.TenantId == tenantId && e.Slug == slug);
+
     public async Task<(List<ExerciseEntity> Items, int Total)> GetAllAsync(ExerciseListRequest request)
     {
         var q = db.Exercises.Where(e => e.IsActive);
