@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, Platform } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { T } from '../../../theme';
 import { useMyPlans, useHealthToday } from '../api/memberAppQueries';
 import MetricBar from '../components/MetricBar';
 import EmptyState from '../../dashboard/components/EmptyState';
+import Screen from '../../common/components/Screen';
 
 interface Props { userId: number; }
 
@@ -13,8 +14,7 @@ export default function ProgressScreen({ userId }: Props) {
   const plans = planPage?.items ?? [];
 
   return (
-    <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
 
       <View className="px-5 pt-5 pb-3">
         <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 2 }}>This week</Text>
@@ -62,6 +62,6 @@ export default function ProgressScreen({ userId }: Props) {
           ))
         )}
       </ScrollView>
-    </View>
+    </Screen>
   );
 }

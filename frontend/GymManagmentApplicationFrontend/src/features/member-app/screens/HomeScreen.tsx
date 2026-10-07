@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, StatusBar, Platform } from 'react-native';
+import { View, Text, ScrollView, Pressable, useWindowDimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T } from '../../../theme';
+import { T, R } from '../../../theme';
 import {
   useMyProfile, useMyWorkouts, useMyPlans,
   useHealthToday, useActiveChallenges,
@@ -17,6 +17,7 @@ import FeaturedWorkoutCard from '../components/FeaturedWorkoutCard';
 import AICoachCard from '../components/AICoachCard';
 import LiveCoachCard from '../components/LiveCoachCard';
 import ChallengeCard from '../components/ChallengeCard';
+import Screen from '../../common/components/Screen';
 
 const IMG_WORKOUT = require('../../../assets/dashboard/workout-1.jpg');
 const IMG_COACH1  = require('../../../assets/dashboard/coach-1.jpg');
@@ -35,6 +36,8 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
   const { data: health } = useHealthToday(userId);
   const { data: challenges } = useActiveChallenges(userId);
   const { data: trainerPage } = useTrainers(1, 3);
+  const { height: winH } = useWindowDimensions();
+  const heroH = Math.min(260, Math.round(winH * 0.32));
 
   const canWorkouts     = useModuleAccess('workouts');
   const canStats        = useModuleAccess('stats');
@@ -62,8 +65,7 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
     : 0;
 
   return (
-    <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 110 }}>
 
@@ -90,7 +92,7 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
         {/* ── Daily summary card + streak (stats module) ── */}
         {canStats && (
           <>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: T.bgInput, borderRadius: 22, padding: 16, borderWidth: 1, borderColor: T.line, marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: T.bgInput, borderRadius: R.xl, padding: 16, borderWidth: 1, borderColor: T.line, marginBottom: 16 }}>
               <SummaryRing pct={overallPct} sublabel="Daily" />
               <View style={{ flex: 1, marginLeft: 18 }}>
                 <MetricBar label="Move" current={rings?.move.current ?? 0} goal={rings?.move.goal ?? 8000} unit="steps" color={T.brand} />
@@ -111,7 +113,7 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <Text style={{ color: T.text, fontSize: 18, fontWeight: '700' }}>Today's session</Text>
               {canPlans && (
-                <Pressable onPress={() => onNavigate('plans')} accessibilityRole="button" accessibilityLabel="View plan">
+                <Pressable onPress={() => onNavigate('plans')} hitSlop={12} accessibilityRole="button" accessibilityLabel="View plan">
                   <Text style={{ color: T.brand, fontSize: 13, fontWeight: '700' }}>View plan ›</Text>
                 </Pressable>
               )}
@@ -119,7 +121,7 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
 
             <View style={{ marginBottom: 24 }}>
               {wLoading ? (
-                <View style={{ height: 260, borderRadius: 24, backgroundColor: T.bgInput }} />
+                <View style={{ height: heroH, borderRadius: R.xl, backgroundColor: T.bgInput }} />
               ) : featured ? (
                 <FeaturedWorkoutCard
                   category={featured.goal ?? 'Training'}
@@ -206,6 +208,6 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
         )}
 
       </ScrollView>
-    </View>
+    </Screen>
   );
 }

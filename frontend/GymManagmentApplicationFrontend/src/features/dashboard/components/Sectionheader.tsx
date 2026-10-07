@@ -12,13 +12,13 @@ interface SectionHeaderProps {
 export default function SectionHeader({ title, onPressAction, actionLabel = 'View all' }: SectionHeaderProps) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-      <Text style={{ color: T.text, fontSize: 18, fontWeight: '700' }}>{title}</Text>
+      <Text accessibilityRole="header" numberOfLines={1} style={{ color: T.text, fontSize: 18, fontWeight: '700', flexShrink: 1 }}>{title}</Text>
       {onPressAction && (
         <Pressable
           onPress={onPressAction}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={actionLabel}
+          accessibilityLabel={`${actionLabel}: ${title}`}
           style={{
             width: 32, height: 32, borderRadius: 10,
             backgroundColor: T.brand,

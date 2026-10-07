@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, ScrollView, Pressable, TextInput,
-  StatusBar, Platform, ActivityIndicator, Alert, Switch,
+  View, Text, ScrollView, Pressable,
+  Platform, Alert, Switch, KeyboardAvoidingView,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import {
@@ -9,7 +9,14 @@ import {
   useTrainerEarnings, useUpdateTrainerProfile, useUpdateSchedule,
 } from '../api/trainerAppQueries';
 import { ScheduleSlot } from '../types/trainer-app.types';
-import { T, withAlpha } from '../../../theme';
+import { T, R, withAlpha } from '../../../theme';
+import Screen from '../../common/components/Screen';
+import SegmentedTabs from '../../common/components/SegmentedTabs';
+import PrimaryButton from '../../common/components/PrimaryButton';
+import LoadingState from '../../common/components/LoadingState';
+import StatusPill from '../../common/components/StatusPill';
+import EmptyState from '../../dashboard/components/EmptyState';
+import { Field, SwitchRow } from '../../trainers/components/FormFields';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -62,30 +69,26 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
     });
   };
 
-  if (isLoading) return (
-    <View style={{ flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center' }}>
-      <ActivityIndicator size="large" color={T.brand} />
-    </View>
-  );
+  if (isLoading) return <LoadingState fullScreen label="Loading profile" />;
 
   const initials = profile?.displayName?.split(' ').map(w => w[0]).join('').toUpperCase() || 'T';
 
   return (
-    <View style={{ flex: 1, backgroundColor: T.bg, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
 
         {/* Avatar */}
         <View style={{ alignItems: 'center', paddingTop: 30, paddingBottom: 20, paddingHorizontal: 20 }}>
           <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: withAlpha(T.brand, 0.12), borderWidth: 2, borderColor: T.brand, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
             <Text style={{ color: T.brand, fontSize: 26, fontWeight: '800' }}>{initials}</Text>
           </View>
-          <Text style={{ color: T.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }}>{profile?.displayName ?? 'Trainer'}</Text>
-          <Text style={{ color: T.textSub, fontSize: 13, marginTop: 4 }}>{profile?.email}</Text>
+          <Text numberOfLines={1} style={{ color: T.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }}>{profile?.displayName ?? 'Trainer'}</Text>
+          <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 13, marginTop: 4 }}>{profile?.email}</Text>
           {profile?.trainerCode && (
-            <View style={{ marginTop: 10, backgroundColor: T.bgInput, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4, borderWidth: 1, borderColor: T.line }}>
-              <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '700' }}>{profile.trainerCode}</Text>
+            <View style={{ marginTop: 10, alignSelf: 'center' }}>
+              <StatusPill label={profile.trainerCode} tone="neutral" />
             </View>
           )}
 
@@ -102,27 +105,29 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
         </View>
 
         {/* Tab switcher */}
-        <View style={{ flexDirection: 'row', marginHorizontal: 20, backgroundColor: T.bgInput, borderRadius: 16, padding: 4, borderWidth: 1, borderColor: T.bgInputActive, marginBottom: 20 }}>
-          {(['info', 'schedule', 'earnings'] as const).map(t => (
-            <Pressable key={t} onPress={() => setTab(t)}
-              style={{ flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: tab === t ? T.brand : 'transparent' }}>
-              <Text style={{ color: tab === t ? T.onBrand : T.textSub, fontSize: 12, fontWeight: '700', textTransform: 'capitalize' }}>{t}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <SegmentedTabs
+          tabs={[{ key: 'info', label: 'Info' }, { key: 'schedule', label: 'Schedule' }, { key: 'earnings', label: 'Earnings' }]}
+          value={tab}
+          onChange={setTab}
+          style={{ marginHorizontal: 20, marginBottom: 24 }}
+        />
 
         {/* Info tab */}
         {tab === 'info' && (
           <View style={{ paddingHorizontal: 20 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <Text style={{ color: T.text, fontSize: 16, fontWeight: '700' }}>Profile Info</Text>
-              <Pressable onPress={() => editing ? handleSaveProfile() : setEditing(true)} disabled={savingProfile}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: editing ? T.brand : T.bgInput, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: editing ? T.brand : T.line }}>
-                {savingProfile ? <ActivityIndicator size="small" color={T.onBrand} /> : <Feather name={editing ? 'check' : 'edit-2'} size={13} color={editing ? T.onBrand : T.textSub} />}
-                <Text style={{ color: editing ? T.onBrand : T.textSub, fontSize: 12, fontWeight: '700' }}>{editing ? 'Save' : 'Edit'}</Text>
-              </Pressable>
+              {!editing && (
+                <Pressable onPress={() => setEditing(true)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit profile info"
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, backgroundColor: T.bgInput, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: T.line }}>
+                  <Feather name="edit-2" size={13} color={T.textSub} />
+                  <Text style={{ color: T.textSub, fontSize: 12, fontWeight: '700' }}>Edit</Text>
+                </Pressable>
+              )}
             </View>
-            {editing && <Pressable onPress={() => setEditing(false)} style={{ marginBottom: 12 }}><Text style={{ color: T.err, fontSize: 12 }}>Cancel</Text></Pressable>}
 
             {/* Read-only fields */}
             {[
@@ -132,58 +137,64 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
             ].map(row => (
               <View key={row.label} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: T.bgInput, borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: T.bgInputActive }}>
                 <Text style={{ color: T.textSub, fontSize: 12, width: 90 }}>{row.label}</Text>
-                <Text style={{ color: T.text, fontSize: 14, fontWeight: '600' }}>{row.value}</Text>
+                <Text numberOfLines={1} style={{ color: T.text, fontSize: 14, fontWeight: '600', flex: 1 }}>{row.value}</Text>
               </View>
             ))}
 
-            {/* Editable: Bio */}
-            <Text style={{ color: T.textSub, fontSize: 12, marginBottom: 6, marginTop: 8 }}>Bio</Text>
-            <TextInput
-              style={{ backgroundColor: editing ? T.bgInputActive : T.bgInput, borderRadius: 14, borderWidth: 1, borderColor: editing ? T.textDisabled : T.bgInputActive, color: editing ? T.text : T.textFaint, padding: 14, fontSize: 14, height: 80, textAlignVertical: 'top', marginBottom: 12 }}
-              value={bio} onChangeText={setBio} placeholder="Your professional bio…" placeholderTextColor={T.textFaint}
-              multiline editable={editing}
-            />
+            <View style={{ marginTop: 8 }}>
+              {/* Editable: Bio */}
+              <Field label="Bio" value={bio} onChangeText={setBio} placeholder="Your professional bio…" multiline editable={editing} />
 
-            {/* Editable: Phone */}
-            <Text style={{ color: T.textSub, fontSize: 12, marginBottom: 6 }}>Phone</Text>
-            <TextInput
-              style={{ backgroundColor: editing ? T.bgInputActive : T.bgInput, borderRadius: 14, borderWidth: 1, borderColor: editing ? T.textDisabled : T.bgInputActive, color: editing ? T.text : T.textFaint, padding: 14, fontSize: 14, marginBottom: 12 }}
-              value={phone} onChangeText={setPhone} placeholder="+91…" placeholderTextColor={T.textFaint}
-              keyboardType="phone-pad" editable={editing}
-            />
-
-            {/* Available toggle */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: T.bgInput, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: T.bgInputActive, marginBottom: 20 }}>
-              <View>
-                <Text style={{ color: T.text, fontSize: 14, fontWeight: '600' }}>Accepting new clients</Text>
-                <Text style={{ color: T.textSub, fontSize: 11, marginTop: 2 }}>Toggle your availability status</Text>
-              </View>
-              <Switch value={available} onValueChange={setAvailable} disabled={!editing}
-                trackColor={{ false: T.line, true: T.brand }} thumbColor={available ? T.onBrand : T.text} />
+              {/* Editable: Phone */}
+              <Field label="Phone" value={phone} onChangeText={setPhone} placeholder="+91…" keyboardType="phone-pad" editable={editing} autoCapitalize="none" autoCorrect={false} />
             </View>
 
+            {/* Available toggle */}
+            {editing ? (
+              <SwitchRow
+                label="Accepting new clients"
+                description="Toggle your availability status"
+                value={available}
+                onValueChange={setAvailable}
+              />
+            ) : (
+              <View
+                accessible
+                accessibilityLabel={`Accepting new clients: ${available ? 'yes' : 'no'}`}
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: T.bgInput, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: T.bgInputActive, marginBottom: 16 }}>
+                <View style={{ flex: 1, marginRight: 12 }}>
+                  <Text style={{ color: T.text, fontSize: 14, fontWeight: '600' }}>Accepting new clients</Text>
+                  <Text style={{ color: T.textSub, fontSize: 11, marginTop: 2 }}>Tap Edit to change your availability</Text>
+                </View>
+                <StatusPill label={available ? 'Yes' : 'No'} tone={available ? 'brand' : 'neutral'} />
+              </View>
+            )}
+
+            {editing && (
+              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 8 }}>
+                <PrimaryButton label="Cancel" variant="secondary" onPress={() => setEditing(false)} disabled={savingProfile} style={{ flex: 1 }} />
+                <PrimaryButton label="Save" icon="check" onPress={handleSaveProfile} loading={savingProfile} style={{ flex: 1 }} />
+              </View>
+            )}
+
             {/* Logout */}
-            <Pressable onPress={() => Alert.alert('Sign out', 'Are you sure?', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Sign out', style: 'destructive', onPress: onLogout },
-            ])} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: withAlpha(T.err, 0.10), borderWidth: 1, borderColor: withAlpha(T.err, 0.25), borderRadius: 999, paddingVertical: 14 }}>
-              <Feather name="log-out" size={16} color={T.err} />
-              <Text style={{ color: T.err, fontSize: 14, fontWeight: '700' }}>Sign Out</Text>
-            </Pressable>
+            <PrimaryButton
+              label="Sign Out"
+              icon="log-out"
+              variant="danger"
+              style={{ marginTop: 16 }}
+              onPress={() => Alert.alert('Sign out', 'Are you sure?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Sign out', style: 'destructive', onPress: onLogout },
+              ])}
+            />
           </View>
         )}
 
         {/* Schedule tab */}
         {tab === 'schedule' && (
           <View style={{ paddingHorizontal: 20 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <Text style={{ color: T.text, fontSize: 16, fontWeight: '700' }}>Weekly Availability</Text>
-              <Pressable onPress={handleSaveSchedule} disabled={savingSchedule}
-                style={{ backgroundColor: T.brand, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                {savingSchedule ? <ActivityIndicator size="small" color={T.onBrand} /> : <Feather name="check" size={13} color={T.onBrand} />}
-                <Text style={{ color: T.onBrand, fontSize: 12, fontWeight: '700' }}>Save</Text>
-              </Pressable>
-            </View>
+            <Text style={{ color: T.text, fontSize: 16, fontWeight: '700', marginBottom: 16 }}>Weekly Availability</Text>
             {DAYS.map((day, i) => {
               const dow   = i + 1;
               const slot  = slots.find(s => s.dayOfWeek === dow);
@@ -199,10 +210,12 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
                     )}
                   </View>
                   <Switch value={active} onValueChange={() => toggleSlot(dow)}
+                    accessibilityLabel={`Available on ${day}`}
                     trackColor={{ false: T.line, true: T.brand }} thumbColor={active ? T.onBrand : T.text} />
                 </View>
               );
             })}
+            <PrimaryButton label="Save schedule" icon="check" onPress={handleSaveSchedule} loading={savingSchedule} style={{ marginTop: 12 }} />
           </View>
         )}
 
@@ -212,7 +225,7 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
             <Text style={{ color: T.text, fontSize: 16, fontWeight: '700', marginBottom: 16 }}>Earnings</Text>
             {earnings ? (
               <>
-                <View style={{ backgroundColor: T.bgInput, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: T.bgInputActive, marginBottom: 16 }}>
+                <View style={{ backgroundColor: T.bgInput, borderRadius: R.xl, padding: 20, borderWidth: 1, borderColor: T.bgInputActive, marginBottom: 16 }}>
                   <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
                     {new Date(earnings.year, earnings.month - 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' })}
                   </Text>
@@ -227,7 +240,7 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
                   </View>
                 </View>
                 {perf && (
-                  <View style={{ backgroundColor: T.bgInput, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: T.bgInputActive, gap: 10 }}>
+                  <View style={{ backgroundColor: T.bgInput, borderRadius: R.lg, padding: 16, borderWidth: 1, borderColor: T.bgInputActive, gap: 10 }}>
                     {[
                       { label: 'Total Clients',  value: perf.totalClients },
                       { label: 'Total Sessions', value: perf.totalSessions },
@@ -242,14 +255,12 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
                 )}
               </>
             ) : (
-              <View style={{ alignItems: 'center', paddingTop: 40 }}>
-                <Feather name="dollar-sign" size={28} color={T.textDisabled} />
-                <Text style={{ color: T.textSub, fontSize: 13, marginTop: 10 }}>No earnings data available</Text>
-              </View>
+              <EmptyState icon="dollar-sign" title="No earnings data available" />
             )}
           </View>
         )}
       </ScrollView>
-    </View>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }

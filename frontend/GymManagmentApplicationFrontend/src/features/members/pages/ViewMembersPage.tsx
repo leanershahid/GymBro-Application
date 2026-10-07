@@ -1,45 +1,35 @@
 import React, { useState } from 'react';
-import {
-  View, Text, ScrollView, Pressable, TextInput,
-  StatusBar, Platform, ActivityIndicator,
-} from 'react-native';
+import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useMembers } from '../api/memberQueries';
 import { Member } from '../types/member.types';
-import BackButton from '../../common/components/BackButton';
+import Screen from '../../common/components/Screen';
+import ScreenHeader from '../../common/components/ScreenHeader';
+import SearchBar from '../../common/components/SearchBar';
+import StatusPill, { toneForStatus } from '../../common/components/StatusPill';
+import PaginationFooter from '../../common/components/PaginationFooter';
 import Skeleton from '../../common/components/Skeleton';
+import EmptyState from '../../dashboard/components/EmptyState';
+import StatsStrip from '../../common/StatsStrip';
 import ManageUserAccessPage from '../../module-access/pages/ManageUserAccessPage';
-import { T, withAlpha } from '../../../theme';
-
-type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
+import { T, withAlpha, SP } from '../../../theme';
 
 const TINTS = [T.brand, T.sky, T.violet, T.brandGold, T.err];
 const tint  = (id: number) => TINTS[id % TINTS.length];
 
-function StatusBadge({ status }: { status: string }) {
-  const s = status.toLowerCase();
-  const active  = s === 'active';
-  const pending = s === 'pending';
-  const color  = active ? T.brand : pending ? T.brandGold : T.textSub;
-  const bg     = active ? withAlpha(T.brand, 0.12) : pending ? withAlpha(T.brandGold, 0.12) : withAlpha(T.text, 0.07);
-  const border = active ? withAlpha(T.brand, 0.28) : pending ? withAlpha(T.brandGold, 0.28) : withAlpha(T.text, 0.12);
-  return (
-    <View style={{ backgroundColor: bg, borderWidth: 1, borderColor: border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-        <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: color }} />
-        <Text style={{ color, fontSize: 10, fontWeight: '700', textTransform: 'capitalize' }}>{status}</Text>
-      </View>
-    </View>
-  );
-}
+const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 function MemberCard({ member, onPress }: { member: Member; onPress: () => void }) {
   const accent   = tint(member.id);
   const initials = `${member.firstName[0] ?? ''}${member.lastName[0] ?? ''}`.toUpperCase();
+  const fullName = `${member.firstName} ${member.lastName}`;
 
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${fullName}, ${member.status}`}
+      accessibilityHint="Opens access management for this member"
       style={({ pressed }) => ({
         flexDirection: 'row', alignItems: 'center',
         backgroundColor: pressed ? T.bgInputActive : T.bgInput,
@@ -50,8 +40,8 @@ function MemberCard({ member, onPress }: { member: Member; onPress: () => void }
       {/* Avatar */}
       <View style={{
         width: 46, height: 46, borderRadius: 23,
-        backgroundColor: accent + '18',
-        borderWidth: 1.5, borderColor: accent + '50',
+        backgroundColor: withAlpha(accent, 0.09),
+        borderWidth: 1.5, borderColor: withAlpha(accent, 0.31),
         alignItems: 'center', justifyContent: 'center',
         marginRight: 14,
       }}>
@@ -59,55 +49,34 @@ function MemberCard({ member, onPress }: { member: Member; onPress: () => void }
       </View>
 
       {/* Info */}
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
         <Text className="text-white font-bold text-[15px]" numberOfLines={1}>
-          {member.firstName} {member.lastName}
+          {fullName}
         </Text>
         <Text className="text-sub text-[12px] mt-0.5" numberOfLines={1}>{member.email}</Text>
         {!!member.phone && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
             <Feather name="phone" size={11} color={T.textFaint} />
-            <Text className="text-faint text-[11px]">{member.phone}</Text>
+            <Text className="text-faint text-[11px]" numberOfLines={1}>{member.phone}</Text>
           </View>
         )}
       </View>
 
       {/* Right */}
       <View style={{ alignItems: 'flex-end', gap: 6 }}>
-        <StatusBadge status={member.status} />
+        <StatusPill label={capitalize(member.status)} tone={toneForStatus(member.status)} dot />
         {/* Show trainer badge if assigned */}
         {!!member.trainerId && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: withAlpha(T.sky, 0.10), borderWidth: 1, borderColor: withAlpha(T.sky, 0.25), borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-            <Feather name="award" size={10} color={T.sky} />
-            <Text style={{ color: T.sky, fontSize: 10, fontWeight: '700' }}>T#{member.trainerId}</Text>
+            <Feather name="award" size={11} color={T.sky} />
+            <Text style={{ color: T.sky, fontSize: 11, fontWeight: '700' }} numberOfLines={1}>T#{member.trainerId}</Text>
           </View>
         )}
-        <Text className="text-faint text-[10px]">
+        <Text className="text-faint text-[11px]" numberOfLines={1}>
           {new Date(member.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
         </Text>
       </View>
     </Pressable>
-  );
-}
-
-function PaginationBar({ page, total, onPrev, onNext }: { page: number; total: number; onPrev: () => void; onNext: () => void }) {
-  if (total <= 1) return null;
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginVertical: 20 }}>
-      <Pressable onPress={onPrev} disabled={page <= 1}
-        style={{ paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: page <= 1 ? T.bgInput : withAlpha(T.brand, 0.12), borderWidth: 1, borderColor: page <= 1 ? T.line : withAlpha(T.brand, 0.30), opacity: page <= 1 ? 0.4 : 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-        <Feather name="chevron-left" size={15} color={page <= 1 ? T.textDisabled : T.brand} />
-        <Text style={{ color: page <= 1 ? T.textDisabled : T.brand, fontSize: 13, fontWeight: '700' }}>Prev</Text>
-      </Pressable>
-      <View style={{ paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999, backgroundColor: T.brand }}>
-        <Text style={{ color: T.onBrand, fontSize: 13, fontWeight: '900' }}>{page} / {total}</Text>
-      </View>
-      <Pressable onPress={onNext} disabled={page >= total}
-        style={{ paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: page >= total ? T.bgInput : withAlpha(T.brand, 0.12), borderWidth: 1, borderColor: page >= total ? T.line : withAlpha(T.brand, 0.30), opacity: page >= total ? 0.4 : 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-        <Text style={{ color: page >= total ? T.textDisabled : T.brand, fontSize: 13, fontWeight: '700' }}>Next</Text>
-        <Feather name="chevron-right" size={15} color={page >= total ? T.textDisabled : T.brand} />
-      </Pressable>
-    </View>
   );
 }
 
@@ -134,102 +103,76 @@ export default function ViewMembersPage({ onBack, onAddMember }: Props) {
   }
 
   return (
-    <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
+      <ScreenHeader
+        eyebrow="Members"
+        title="All Members"
+        onBack={onBack}
+        action={onAddMember ? { label: 'Add', icon: 'plus', onPress: onAddMember } : undefined}
+      />
 
-      {/* Header */}
-      <View className="px-5 pt-5 pb-4">
-        <View className="flex-row items-center justify-between mb-5">
-          {onBack && <BackButton onPress={onBack} />}
-          <View style={{ flex: 1 }}>
-            <Text className="text-sub text-[11px] font-semibold uppercase tracking-widest mb-0.5">Members</Text>
-            <Text className="text-white text-[26px] font-extrabold tracking-tight">All Members</Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {isFetching && !isLoading && <ActivityIndicator size="small" color={T.brand} />}
-            {onAddMember && (
-              <Pressable onPress={onAddMember}
-                className="flex-row items-center gap-2 bg-brand rounded-full px-4 py-2.5">
-                <Feather name="plus" size={15} color={T.onBrand} />
-                <Text className="text-black text-[13px] font-bold">Add</Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
-
+      <View style={{ paddingHorizontal: SP.xl, paddingBottom: SP.lg }}>
         {/* Stats row */}
         {!isLoading && !isError && (
-          <View className="flex-row gap-3 mb-4">
-            {[
-              { label: 'Total', value: String(totalRecs), icon: 'users' as FeatherIconName },
-              { label: 'Active', value: String(items.filter(m => m.status.toLowerCase() === 'active').length), icon: 'check-circle' as FeatherIconName },
-              { label: 'Shown', value: String(items.length), icon: 'eye' as FeatherIconName },
-            ].map((s) => (
-              <View key={s.label} className="flex-1 bg-surface border border-line rounded-2xl p-3 items-center gap-1">
-                <Feather name={s.icon} size={16} color={T.brand} />
-                <Text className="text-white text-[18px] font-extrabold">{s.value}</Text>
-                <Text className="text-sub text-[10px] font-semibold">{s.label}</Text>
-              </View>
-            ))}
+          <View style={{ marginBottom: SP.lg }}>
+            <StatsStrip items={[
+              { icon: 'users',        label: 'Total',  value: String(totalRecs),                                                          accent: T.brand },
+              { icon: 'check-circle', label: 'Active', value: String(items.filter(m => m.status.toLowerCase() === 'active').length),     accent: T.sky },
+              { icon: 'eye',          label: 'Shown',  value: String(items.length),                                                       accent: T.violet },
+            ]} />
           </View>
         )}
 
-        {/* Search */}
-        <View className="flex-row items-center bg-surface border border-line rounded-2xl px-4 h-[48px]">
-          <Feather name="search" size={16} color={T.textFaint} style={{ marginRight: 10 }} />
-          <TextInput
-            className="flex-1 text-white text-[14px] h-full"
-            placeholder="Search by name or email…"
-            placeholderTextColor={T.textFaint}
+        {/* Search (+ background-refresh spinner) */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
+          <SearchBar
             value={search}
             onChangeText={(v) => { setSearch(v); setPage(1); }}
-            autoCorrect={false} autoCapitalize="none"
+            placeholder="Search by name or email…"
+            label="Search members"
+            style={{ flex: 1 }}
           />
-          {search.length > 0 && (
-            <Pressable onPress={() => { setSearch(''); setPage(1); }} hitSlop={8}>
-              <Feather name="x" size={15} color={T.textFaint} />
-            </Pressable>
+          {isFetching && !isLoading && (
+            <ActivityIndicator size="small" color={T.brand} accessibilityLabel="Refreshing" />
           )}
         </View>
       </View>
 
       {/* List */}
-      <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
-        {isLoading && <Skeleton height={74} />}
-
-        {isError && (
-          <View className="items-center pt-16">
-            <View className="w-[68px] h-[68px] rounded-full bg-red-500/10 border border-red-500/20 items-center justify-center mb-4">
-              <Feather name="wifi-off" size={28} color={T.err} />
-            </View>
-            <Text className="text-white text-[16px] font-bold mb-2">Failed to load</Text>
-            <Text className="text-sub text-[13px] text-center mb-6">Check your connection and try again.</Text>
-            <Pressable onPress={() => refetch()} className="bg-brand rounded-full px-7 py-3">
-              <Text className="text-black text-[14px] font-bold">Retry</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {!isLoading && !isError && items.length === 0 && (
-          <View className="items-center pt-16">
-            <View className="w-[68px] h-[68px] rounded-full bg-surface border border-line items-center justify-center mb-4">
-              <Feather name="users" size={28} color={T.textSub} />
-            </View>
-            <Text className="text-white text-[16px] font-bold mb-2">{search ? 'No results' : 'No members yet'}</Text>
-            <Text className="text-sub text-[13px] text-center">
-              {search ? `Nothing matches "${search}"` : 'Add your first member to get started.'}
-            </Text>
-          </View>
-        )}
-
-        {!isLoading && !isError && items.map((m) => (
-          <MemberCard key={m.id} member={m} onPress={() => setManageAccessFor(m)} />
-        ))}
-
-        {!isLoading && !isError && (
-          <PaginationBar page={page} total={totalPages} onPrev={() => setPage(p => Math.max(1, p - 1))} onNext={() => setPage(p => Math.min(totalPages, p + 1))} />
-        )}
-      </ScrollView>
-    </View>
+      <FlatList
+        data={isLoading || isError ? [] : items}
+        keyExtractor={(m) => String(m.id)}
+        renderItem={({ item }) => <MemberCard member={item} onPress={() => setManageAccessFor(item)} />}
+        ListHeaderComponent={
+          isLoading ? <Skeleton height={74} /> :
+          isError ? (
+            <EmptyState
+              icon="wifi-off"
+              tone="error"
+              title="Failed to load"
+              subtitle="Check your connection and try again."
+              action={{ label: 'Retry', onPress: () => refetch() }}
+            />
+          ) : null
+        }
+        ListEmptyComponent={
+          !isLoading && !isError ? (
+            <EmptyState
+              icon="users"
+              title={search ? 'No results' : 'No members yet'}
+              subtitle={search ? `Nothing matches "${search}"` : 'Add your first member to get started.'}
+            />
+          ) : null
+        }
+        ListFooterComponent={
+          !isLoading && !isError
+            ? <PaginationFooter page={page} totalPages={totalPages} onChange={setPage} />
+            : null
+        }
+        contentContainerStyle={{ paddingHorizontal: SP.xl, paddingBottom: 48 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      />
+    </Screen>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, LayoutChangeEvent } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T, Shadow, withAlpha } from '../../../theme';
+import { T, R, Shadow, withAlpha } from '../../../theme';
 import AreaChart from './AreaChart';
 import { RevenueTrendPoint } from '../types/dashboard';
 
@@ -43,7 +43,7 @@ export default function RevenueOverviewCard({
   );
 
   return (
-    <View style={[glass, { borderRadius: 24, padding: 20 }]}>
+    <View style={[glass, { borderRadius: R.xl, padding: 20 }]}>
       {/* Top row */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
@@ -61,12 +61,14 @@ export default function RevenueOverviewCard({
                 onPress={() => setPeriod(p)}
                 accessibilityRole="button"
                 accessibilityLabel={p}
+                accessibilityState={{ selected: active }}
+                hitSlop={{ top: 10, bottom: 10, left: 2, right: 2 }}
                 style={{
                   paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
                   backgroundColor: active ? T.brand : 'transparent',
                 }}
               >
-                <Text style={{ color: active ? T.onBrand : T.textSub, fontSize: 10.5, fontWeight: '700' }}>{p}</Text>
+                <Text style={{ color: active ? T.onBrand : T.textSub, fontSize: 11, fontWeight: '700' }} numberOfLines={1}>{p}</Text>
               </Pressable>
             );
           })}

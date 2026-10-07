@@ -26,6 +26,7 @@ export default function StepCertDocuments({ data, onChange }: Props) {
   return (
     <ScrollView
       className="flex-1 bg-bg"
+      keyboardShouldPersistTaps="handled"
       contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 48, gap: 12 }}
       showsVerticalScrollIndicator={false}
     >
@@ -39,11 +40,11 @@ export default function StepCertDocuments({ data, onChange }: Props) {
       {/* ── Certifications header ────────────────────────────── */}
       <GlassCard style={{ padding: 16 }}>
         <View className="flex-row items-center gap-3">
-          <View className="w-10 h-10 rounded-xl bg-[rgba(126,211,33,0.10)] border border-[rgba(126,211,33,0.25)] items-center justify-center">
-            <Text className="text-[18px]">🎖</Text>
+          <View className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/25 items-center justify-center">
+            <Text className="text-[18px]" importantForAccessibility="no">🎖</Text>
           </View>
-          <View>
-            <Text className="text-[15px] font-bold text-white">Certifications</Text>
+          <View className="flex-1">
+            <Text accessibilityRole="header" className="text-[15px] font-bold text-white">Certifications</Text>
             <Text className="text-[12px] text-sub mt-[2px]">Professional certifications and qualifications</Text>
           </View>
         </View>
@@ -52,13 +53,17 @@ export default function StepCertDocuments({ data, onChange }: Props) {
       {certs.map((cert, i) => (
         <GlassCard key={i} style={{ padding: 16 }} elevated>
           <View className="flex-row justify-between items-center mb-[14px]">
-            <View className="px-2 py-[3px] bg-[rgba(126,211,33,0.10)] rounded-full border border-[rgba(126,211,33,0.25)]">
-              <Text className="text-[10px] font-extrabold text-brand" style={{ letterSpacing: 1 }}>CERT {i + 1}</Text>
+            <View className="px-2 py-[3px] bg-brand/10 rounded-full border border-brand/25">
+              <Text className="text-[11px] font-extrabold text-brand" style={{ letterSpacing: 1 }}>CERT {i + 1}</Text>
             </View>
             <TouchableOpacity
               onPress={() => onChange({ certifications: certs.filter((_, idx) => idx !== i) })}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove certification ${i + 1}`}
+              style={{ minHeight: 32, justifyContent: 'center', paddingHorizontal: 4 }}
             >
-              <Text className="text-[12px] font-semibold" style={{ color: T.err }}>Remove</Text>
+              <Text className="text-[13px] font-semibold" style={{ color: T.err }}>Remove</Text>
             </TouchableOpacity>
           </View>
 
@@ -78,9 +83,11 @@ export default function StepCertDocuments({ data, onChange }: Props) {
       ))}
 
       <TouchableOpacity
-        className="flex-row items-center justify-center rounded-[14px] p-[14px] bg-[rgba(126,211,33,0.10)] border border-[rgba(126,211,33,0.25)]"
+        className="flex-row items-center justify-center rounded-[14px] p-[14px] bg-brand/10 border border-brand/25"
         onPress={() => onChange({ certifications: [...certs, emptyCert()] })}
         activeOpacity={0.75}
+        accessibilityRole="button"
+        accessibilityLabel="Add certification"
       >
         <Text className="text-[14px] font-bold text-brand">＋  Add Certification</Text>
       </TouchableOpacity>
@@ -88,11 +95,11 @@ export default function StepCertDocuments({ data, onChange }: Props) {
       {/* ── Documents header ─────────────────────────────────── */}
       <GlassCard style={{ padding: 16 }}>
         <View className="flex-row items-center gap-3">
-          <View className="w-10 h-10 rounded-xl bg-[rgba(126,211,33,0.10)] border border-[rgba(126,211,33,0.25)] items-center justify-center">
-            <Text className="text-[18px]">📁</Text>
+          <View className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/25 items-center justify-center">
+            <Text className="text-[18px]" importantForAccessibility="no">📁</Text>
           </View>
-          <View>
-            <Text className="text-[15px] font-bold text-white">Documents</Text>
+          <View className="flex-1">
+            <Text accessibilityRole="header" className="text-[15px] font-bold text-white">Documents</Text>
             <Text className="text-[12px] text-sub mt-[2px]">Identity, address, or other documents</Text>
           </View>
         </View>
@@ -101,13 +108,17 @@ export default function StepCertDocuments({ data, onChange }: Props) {
       {docs.map((doc, i) => (
         <GlassCard key={i} style={{ padding: 16 }} elevated>
           <View className="flex-row justify-between items-center mb-[14px]">
-            <View className="px-2 py-[3px] bg-[rgba(126,211,33,0.10)] rounded-full border border-[rgba(126,211,33,0.25)]">
-              <Text className="text-[10px] font-extrabold text-brand" style={{ letterSpacing: 1 }}>DOC {i + 1}</Text>
+            <View className="px-2 py-[3px] bg-brand/10 rounded-full border border-brand/25">
+              <Text className="text-[11px] font-extrabold text-brand" style={{ letterSpacing: 1 }}>DOC {i + 1}</Text>
             </View>
             <TouchableOpacity
               onPress={() => onChange({ documents: docs.filter((_, idx) => idx !== i) })}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove document ${i + 1}`}
+              style={{ minHeight: 32, justifyContent: 'center', paddingHorizontal: 4 }}
             >
-              <Text className="text-[12px] font-semibold" style={{ color: T.err }}>Remove</Text>
+              <Text className="text-[13px] font-semibold" style={{ color: T.err }}>Remove</Text>
             </TouchableOpacity>
           </View>
 
@@ -125,9 +136,11 @@ export default function StepCertDocuments({ data, onChange }: Props) {
       ))}
 
       <TouchableOpacity
-        className="flex-row items-center justify-center rounded-[14px] p-[14px] bg-[rgba(126,211,33,0.10)] border border-[rgba(126,211,33,0.25)]"
+        className="flex-row items-center justify-center rounded-[14px] p-[14px] bg-brand/10 border border-brand/25"
         onPress={() => onChange({ documents: [...docs, emptyDoc()] })}
         activeOpacity={0.75}
+        accessibilityRole="button"
+        accessibilityLabel="Add document"
       >
         <Text className="text-[14px] font-bold text-brand">＋  Add Document</Text>
       </TouchableOpacity>

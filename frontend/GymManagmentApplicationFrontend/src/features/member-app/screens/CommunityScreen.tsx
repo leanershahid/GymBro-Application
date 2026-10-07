@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, Platform } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { T } from '../../../theme';
 import { useActiveChallenges } from '../api/memberAppQueries';
 import { useTrainers } from '../../trainers/api/trainerQueries';
@@ -7,6 +7,7 @@ import { useModuleAccess } from '../../module-access/context/ModuleAccessContext
 import EmptyState from '../../dashboard/components/EmptyState';
 import LiveCoachCard from '../components/LiveCoachCard';
 import ChallengeCard from '../components/ChallengeCard';
+import Screen from '../../common/components/Screen';
 
 const IMG_WORKOUT = require('../../../assets/dashboard/workout-1.jpg');
 const IMG_COACH1  = require('../../../assets/dashboard/coach-1.jpg');
@@ -24,8 +25,7 @@ export default function CommunityScreen({ userId }: Props) {
   const canChallenges   = useModuleAccess('challenges');
 
   return (
-    <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
 
       <View className="px-5 pt-5 pb-3">
         <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 2 }}>Together</Text>
@@ -79,6 +79,6 @@ export default function CommunityScreen({ userId }: Props) {
           <EmptyState icon="lock" title="Nothing enabled here yet" subtitle="Ask your gym admin to enable Community features for your account." />
         )}
       </ScrollView>
-    </View>
+    </Screen>
   );
 }

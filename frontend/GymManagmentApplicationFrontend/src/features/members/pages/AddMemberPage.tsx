@@ -1,42 +1,25 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, Pressable, TextInput,
-  StatusBar, Platform, ActivityIndicator, Alert,
+  View, Text, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCreateMember } from '../api/memberQueries';
 import { MemberPayload, MemberGender } from '../types/member.types';
 import { isValidEmail } from '../../../utils/validation';
 import BranchDropdown from '../../branches/components/BranchDropdown';
 import { currentTenantId, getSession } from '../../../api/session';
-import { T, withAlpha } from '../../../theme';
+import { T, withAlpha, SP } from '../../../theme';
+import Screen from '../../common/components/Screen';
+import ScreenHeader from '../../common/components/ScreenHeader';
+import PrimaryButton from '../../common/components/PrimaryButton';
+import { Field } from '../../trainers/components/FormFields';
 
 const GENDERS: { label: string; value: MemberGender }[] = [
   { label: 'Male',   value: 'male'   },
   { label: 'Female', value: 'female' },
   { label: 'Other',  value: 'other'  },
 ];
-
-function Field({ label, value, onChange, placeholder, keyboardType, autoCapitalize, error }: {
-  label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; keyboardType?: any; autoCapitalize?: any; error?: string;
-}) {
-  return (
-    <View className="mb-4">
-      <Text className="text-sub text-[13px] mb-1.5">{label}</Text>
-      <TextInput
-        className="bg-elevated border border-line rounded-2xl px-4 py-[14px] text-[15px] text-white"
-        style={error ? { borderColor: T.err } : undefined}
-        value={value} onChangeText={onChange}
-        placeholder={placeholder ?? ''} placeholderTextColor={T.textFaint}
-        keyboardType={keyboardType ?? 'default'}
-        autoCapitalize={autoCapitalize ?? 'sentences'}
-        autoCorrect={false}
-      />
-      {!!error && <Text className="text-red-400 text-xs mt-1 ml-1">{error}</Text>}
-    </View>
-  );
-}
 
 interface Props { onBack?: () => void; }
 
@@ -50,6 +33,7 @@ export default function AddMemberPage({ onBack }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { mutate, isPending } = useCreateMember();
+  const insets = useSafeAreaInsets();
 
   const update = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
@@ -100,104 +84,96 @@ export default function AddMemberPage({ onBack }: Props) {
   };
 
   return (
-    <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
+      <ScreenHeader eyebrow="Members" title="Add Member" onBack={onBack} />
 
-      {/* Nav */}
-      <View className="flex-row items-center px-5 pt-4 pb-2">
-        <Pressable onPress={onBack} className="w-9 h-9 rounded-full bg-surface border border-line items-center justify-center mr-3">
-          <Text className="text-white text-[18px]">←</Text>
-        </Pressable>
-        <View>
-          <Text className="text-sub text-[11px] font-semibold uppercase tracking-widest">Members</Text>
-          <Text className="text-white text-[22px] font-extrabold tracking-tight">Add Member</Text>
-        </View>
-      </View>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          className="flex-1 px-5"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingTop: SP.sm, paddingBottom: 48 }}
+        >
 
-      <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 48 }}>
-
-        {/* Personal */}
-        <Text className="text-sub text-[13px] font-semibold uppercase tracking-widest mb-3">Personal Info</Text>
-        <View className="flex-row gap-3">
-          <View className="flex-1">
-            <Field label="First Name" value={form.firstName} onChange={v => update('firstName', v)} error={errors.firstName} />
+          {/* Personal */}
+          <Text className="text-sub text-[13px] font-semibold uppercase tracking-widest mb-3">Personal Info</Text>
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <Field label="First Name" value={form.firstName} onChangeText={v => update('firstName', v)} autoCorrect={false} error={errors.firstName} />
+            </View>
+            <View className="flex-1">
+              <Field label="Last Name" value={form.lastName} onChangeText={v => update('lastName', v)} autoCorrect={false} error={errors.lastName} />
+            </View>
           </View>
-          <View className="flex-1">
-            <Field label="Last Name" value={form.lastName} onChange={v => update('lastName', v)} error={errors.lastName} />
+          <Field label="Email" value={form.email} onChangeText={v => update('email', v)} placeholder="member@email.com" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} error={errors.email} />
+          <Field label="Phone" value={form.phone ?? ''} onChangeText={v => update('phone', v)} placeholder="+91..." keyboardType="phone-pad" autoCorrect={false} />
+          <Field label="Date of Birth" value={form.dob ?? ''} onChangeText={v => update('dob', v)} placeholder="YYYY-MM-DD" autoCorrect={false} />
+
+          {/* Gender picker */}
+          <Text className="text-sub text-[13px] mb-1.5">Gender</Text>
+          <View className="flex-row gap-2 mb-4" accessibilityRole="radiogroup" accessibilityLabel="Gender">
+            {GENDERS.map(g => {
+              const sel = gender === g.value;
+              return (
+                <Pressable key={g.value} onPress={() => setGender(g.value)}
+                  accessibilityRole="radio"
+                  accessibilityLabel={g.label}
+                  accessibilityState={{ checked: sel }}
+                  style={{ flex: 1, minHeight: 44, paddingVertical: 12, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: sel ? withAlpha(T.brand, 0.12) : T.bgInputActive,
+                    borderColor: sel ? withAlpha(T.brand, 0.50) : T.line }}>
+                  <Text style={{ color: sel ? T.brand : T.textSub, fontSize: 13, fontWeight: '700' }}>{g.label}</Text>
+                </Pressable>
+              );
+            })}
           </View>
-        </View>
-        <Field label="Email" value={form.email} onChange={v => update('email', v)} placeholder="member@email.com" keyboardType="email-address" autoCapitalize="none" error={errors.email} />
-        <Field label="Phone" value={form.phone ?? ''} onChange={v => update('phone', v)} placeholder="+91..." keyboardType="phone-pad" />
-        <Field label="Date of Birth" value={form.dob ?? ''} onChange={v => update('dob', v)} placeholder="YYYY-MM-DD" />
 
-        {/* Gender picker */}
-        <Text className="text-sub text-[13px] mb-1.5">Gender</Text>
-        <View className="flex-row gap-2 mb-4">
-          {GENDERS.map(g => {
-            const sel = gender === g.value;
-            return (
-              <Pressable key={g.value} onPress={() => setGender(g.value)}
-                style={{ flex: 1, paddingVertical: 12, borderRadius: 16, borderWidth: 1.5, alignItems: 'center',
-                  backgroundColor: sel ? withAlpha(T.brand, 0.12) : T.bgInputActive,
-                  borderColor: sel ? withAlpha(T.brand, 0.50) : T.line }}>
-                <Text style={{ color: sel ? T.brand : T.textSub, fontSize: 13, fontWeight: '700' }}>{g.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* Trainer assignment (optional) */}
-        <Text className="text-sub text-[13px] font-semibold uppercase tracking-widest mb-3 mt-2">
-          Trainer Assignment
-        </Text>
-
-        {/* Info note */}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: withAlpha(T.brand, 0.07), borderWidth: 1, borderColor: withAlpha(T.brand, 0.20), borderRadius: 14, padding: 12, marginBottom: 16, gap: 10 }}>
-          <Feather name="info" size={15} color={T.brand} style={{ marginTop: 1 }} />
-          <Text style={{ flex: 1, color: T.textSub, fontSize: 12, lineHeight: 18 }}>
-            Pick the member's home branch. Optionally enter a Trainer ID to assign them right after creation — the branch then defaults to the trainer's.
+          {/* Trainer assignment (optional) */}
+          <Text className="text-sub text-[13px] font-semibold uppercase tracking-widest mb-3 mt-2">
+            Trainer Assignment
           </Text>
-        </View>
 
-        <View className="flex-row gap-3">
-          <View className="flex-1">
-            <Field
-              label="Trainer ID (optional)"
-              value={form.trainerId}
-              onChange={v => update('trainerId', v.replace(/\D/g, ''))}
-              placeholder="e.g. 5"
-              keyboardType="numeric"
-              error={undefined}
-            />
+          {/* Info note */}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: withAlpha(T.brand, 0.07), borderWidth: 1, borderColor: withAlpha(T.brand, 0.20), borderRadius: 14, padding: 12, marginBottom: 16, gap: 10 }}>
+            <Feather name="info" size={15} color={T.brand} style={{ marginTop: 1 }} />
+            <Text style={{ flex: 1, color: T.textSub, fontSize: 12, lineHeight: 18 }}>
+              Pick the member's home branch. Optionally enter a Trainer ID to assign them right after creation — the branch then defaults to the trainer's.
+            </Text>
           </View>
 
-        <BranchDropdown
-          label="Home branch (optional)"
-          value={form.branchId ? Number(form.branchId) : null}
-          onChange={b => update('branchId', String(b.id))}
-          error={errors.branchId}
-        />
+          <Field
+            label="Trainer ID (optional)"
+            value={form.trainerId}
+            onChangeText={v => update('trainerId', v.replace(/\D/g, ''))}
+            placeholder="e.g. 5"
+            keyboardType="numeric"
+          />
+
+          <BranchDropdown
+            label="Home branch (optional)"
+            value={form.branchId ? Number(form.branchId) : null}
+            onChange={b => update('branchId', String(b.id))}
+            error={errors.branchId}
+          />
+
+          {/* Notes */}
+          <Field
+            label="Notes (optional)"
+            value={form.notes ?? ''}
+            onChangeText={v => update('notes', v)}
+            placeholder="Internal admin notes…"
+            multiline
+          />
+        </ScrollView>
+
+        {/* Bottom CTA */}
+        <View
+          className="px-5 pt-3 bg-bg border-t border-line"
+          style={{ paddingBottom: Math.max(insets.bottom, SP.lg) }}
+        >
+          <PrimaryButton label="Create Member" onPress={handleSubmit} loading={isPending} />
         </View>
-
-        {/* Notes */}
-        <Text className="text-sub text-[13px] mb-1.5">Notes (optional)</Text>
-        <TextInput
-          className="bg-elevated border border-line rounded-2xl px-4 pt-3 text-[15px] text-white mb-4"
-          style={{ height: 88, textAlignVertical: 'top' }}
-          value={form.notes ?? ''} onChangeText={v => update('notes', v)}
-          placeholder="Internal admin notes…" placeholderTextColor={T.textFaint}
-          multiline
-        />
-      </ScrollView>
-
-      {/* Bottom CTA */}
-      <View className="px-5 pt-3 pb-8 bg-bg border-t border-line">
-        <Pressable
-          onPress={handleSubmit} disabled={isPending}
-          className={`h-14 rounded-full items-center justify-center ${isPending ? 'bg-brandDark' : 'bg-brand'}`}>
-          {isPending ? <ActivityIndicator color={T.onBrand} /> : <Text className="text-black text-base font-bold">Create Member</Text>}
-        </Pressable>
-      </View>
-    </View>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, Pressable, Text, Platform, StyleSheet } from 'react-native';
+import { View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { T } from '../../theme';
+import BottomTabBar from '../common/components/BottomTabBar';
 import { ModuleAccessProvider, useModuleAccess } from '../module-access/context/ModuleAccessContext';
 import HomeScreen          from './screens/HomeScreen';
 import TrainScreen         from './screens/TrainScreen';
@@ -122,72 +122,7 @@ function MemberAppContent({ userId, onLogout }: Props) {
       </View>
 
       {/* ── Bottom tab bar ── */}
-      <View style={S.tabBar}>
-        {visibleTabs.map(tab => {
-          const active = activeTab === tab.key;
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => goTo(tab.key)}
-              hitSlop={8}
-              style={S.tabItem}
-              accessibilityRole="button"
-              accessibilityLabel={tab.label}
-            >
-              {active ? (
-                <LinearGradient
-                  colors={T.brandGradient}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={S.tabIconActive}
-                >
-                  <Feather name={tab.icon} size={19} color={T.onBrand} />
-                </LinearGradient>
-              ) : (
-                <View style={S.tabIcon}>
-                  <Feather name={tab.icon} size={19} color={T.textFaint} />
-                </View>
-              )}
-              <Text style={[S.tabLabel, active && S.tabLabelActive]}>{tab.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <BottomTabBar tabs={visibleTabs} active={activeTab} onChange={goTo} />
     </View>
   );
 }
-
-const S = StyleSheet.create({
-  tabBar: {
-    flexDirection:   'row',
-    backgroundColor: T.bgNav,
-    borderTopWidth:  1,
-    borderTopColor:  T.bgInput,
-    paddingBottom:   Platform.OS === 'ios' ? 24 : 8,
-    paddingTop:      10,
-    paddingHorizontal: 4,
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  tabIcon: {
-    width: 38, height: 38, borderRadius: 19,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  tabIconActive: {
-    width: 38, height: 38, borderRadius: 19,
-    alignItems: 'center', justifyContent: 'center',
-    marginTop: -14,
-    shadowColor: T.brand, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 8,
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: T.textFaint,
-  },
-  tabLabelActive: {
-    color: T.brand,
-  },
-});

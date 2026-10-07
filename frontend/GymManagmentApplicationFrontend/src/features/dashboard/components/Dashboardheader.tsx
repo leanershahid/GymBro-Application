@@ -45,6 +45,7 @@ export default function DashboardHeader({
         onPress={onPressAvatar}
         style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
         accessibilityRole="button"
+        accessibilityLabel={`${adminName}${roleLabel ? `, ${roleLabel}` : ''}, profile`}
       >
         {/* Avatar */}
         {avatarUrl ? (

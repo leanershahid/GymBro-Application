@@ -13,7 +13,7 @@ function Block({ num, title, children }: { num: string; title: string; children:
   return (
     <View className="px-5 pt-[22px] pb-[10px]">
       <View className="flex-row items-center gap-[10px] mb-4">
-        <View className="w-7 h-7 rounded-lg bg-[rgba(126,211,33,0.10)] border border-[rgba(126,211,33,0.25)] items-center justify-center">
+        <View className="w-7 h-7 rounded-lg bg-brand/10 border border-brand/25 items-center justify-center">
           <Text className="text-[11px] font-extrabold text-brand" style={{ letterSpacing: 0.5 }}>{num}</Text>
         </View>
         <Text className="text-[16px] font-bold text-white">{title}</Text>
@@ -32,7 +32,7 @@ export default function StepMiscellaneous({ data, onChange }: Props) {
   const updateAtt = (f: object) => onChange({ attendanceSettings: { ...att, ...f } });
 
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+    <ScrollView className="flex-1 bg-bg" keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
 
       <Block num="01" title="Emergency Contact">
         <RowGrid>

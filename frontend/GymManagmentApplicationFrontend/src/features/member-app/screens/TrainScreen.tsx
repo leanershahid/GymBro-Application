@@ -1,36 +1,24 @@
-import React, { useRef, useState } from 'react';
-import {
-  View, Text, ScrollView, Pressable, TextInput,
-  StatusBar, Platform, Animated, Alert,
-} from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useMyWorkouts, useExerciseList, useBookmarkWorkout } from '../api/memberAppQueries';
 import { getDifficultyColor } from '../../common/constants/statusColors';
-import { T, withAlpha } from '../../../theme';
+import { T, R, withAlpha } from '../../../theme';
+import Screen from '../../common/components/Screen';
+import Skeleton from '../../common/components/Skeleton';
+import SegmentedTabs from '../../common/components/SegmentedTabs';
+import SearchBar from '../../common/components/SearchBar';
+import StatusPill from '../../common/components/StatusPill';
+import PaginationFooter from '../../common/components/PaginationFooter';
+import EmptyState from '../../dashboard/components/EmptyState';
+import { difficultyTone, goalTone } from '../components/pillTones';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
-const GOAL_COLOR: Record<string, string> = {
-  general: T.textSub, weightloss: T.sky, musclegain: T.brand, endurance: T.brandGold,
-};
 const CAT_ICON: Record<string, FeatherIconName> = {
   strength: 'zap', cardio: 'activity', flexibility: 'wind', balance: 'target',
 };
 const EX_FILTERS = ['All', 'Strength', 'Cardio', 'Flexibility', 'Balance'];
-
-function Skeleton({ height = 88, count = 4 }: { height?: number; count?: number }) {
-  const op = useRef(new Animated.Value(0.25)).current;
-  React.useEffect(() => {
-    const l = Animated.loop(Animated.sequence([
-      Animated.timing(op, { toValue: 0.65, duration: 700, useNativeDriver: true }),
-      Animated.timing(op, { toValue: 0.25, duration: 700, useNativeDriver: true }),
-    ]));
-    l.start(); return () => l.stop();
-  }, []);
-  return <>{Array.from({ length: count }).map((_, k) =>
-    <Animated.View key={k} style={{ height, borderRadius: 18, backgroundColor: T.bgInput, marginBottom: 10, opacity: op }} />
-  )}</>;
-}
 
 interface Props { userId: number; onOpenWorkout: (id: number) => void; }
 
@@ -56,8 +44,7 @@ export default function TrainScreen({ userId, onOpenWorkout }: Props) {
     : exercises;
 
   return (
-    <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
 
       {/* Header */}
       <View className="px-5 pt-5 pb-3">
@@ -65,47 +52,31 @@ export default function TrainScreen({ userId, onOpenWorkout }: Props) {
         <Text className="text-white text-[28px] font-extrabold tracking-tight mb-4">Train</Text>
 
         {/* Tab switcher */}
-        <View style={{ flexDirection: 'row', backgroundColor: T.bgInput, borderRadius: 16, padding: 4, borderWidth: 1, borderColor: T.bgInputActive }}>
-          {(['workouts', 'exercises'] as const).map(t => (
-            <Pressable key={t} onPress={() => setTab(t)}
-              style={{ flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center',
-                backgroundColor: tab === t ? T.brand : 'transparent' }}>
-              <Text style={{ color: tab === t ? T.onBrand : T.textSub, fontSize: 13, fontWeight: '700', textTransform: 'capitalize' }}>{t}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <SegmentedTabs
+          tabs={[{ key: 'workouts', label: 'Workouts' }, { key: 'exercises', label: 'Exercises' }]}
+          value={tab}
+          onChange={setTab}
+        />
       </View>
 
       {/* ── Workouts tab ── */}
       {tab === 'workouts' && (
         <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
-          {wLoad && <Skeleton />}
+          {wLoad && <Skeleton rows={4} />}
           {wErr && (
-            <View className="items-center pt-16">
-              <Feather name="wifi-off" size={28} color={T.err} />
-              <Text className="text-white font-bold mt-4 mb-4">Failed to load</Text>
-              <Pressable onPress={() => wRefetch()} className="bg-brand rounded-full px-7 py-3">
-                <Text className="text-black font-bold">Retry</Text>
-              </Pressable>
-            </View>
+            <EmptyState icon="wifi-off" tone="error" title="Failed to load" action={{ label: 'Retry', onPress: () => wRefetch() }} />
           )}
           {!wLoad && !wErr && workouts.length === 0 && (
-            <View className="items-center pt-16">
-              <View className="w-[68px] h-[68px] rounded-full bg-surface border border-line items-center justify-center mb-4">
-                <Feather name="activity" size={28} color={T.textSub} />
-              </View>
-              <Text className="text-white text-[16px] font-bold mb-2">No workouts assigned</Text>
-              <Text className="text-sub text-[13px] text-center">Ask your trainer to assign a workout.</Text>
-            </View>
+            <EmptyState icon="activity" title="No workouts assigned" subtitle="Ask your trainer to assign a workout." />
           )}
           {!wLoad && !wErr && workouts.map(w => {
-            const gc = GOAL_COLOR[w.goal?.toLowerCase() ?? 'general'] ?? T.textSub;
-            const dc = getDifficultyColor(w.difficulty?.toLowerCase() ?? 'beginner');
             return (
               <Pressable key={w.id} onPress={() => onOpenWorkout(w.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Open workout ${w.name}`}
                 style={({ pressed }) => ({
                   backgroundColor: pressed ? T.bgInputActive : T.bgInput,
-                  borderRadius: 20, padding: 16, marginBottom: 12,
+                  borderRadius: R.xl, padding: 16, marginBottom: 12,
                   borderWidth: 1, borderColor: pressed ? withAlpha(T.brand, 0.20) : T.bgInputActive,
                 })}>
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -119,37 +90,27 @@ export default function TrainScreen({ userId, onOpenWorkout }: Props) {
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-                  {w.goal && <View style={{ backgroundColor: gc + '15', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: gc + '35' }}><Text style={{ color: gc, fontSize: 11, fontWeight: '700' }}>{w.goal}</Text></View>}
-                  {w.difficulty && <View style={{ backgroundColor: dc + '15', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: dc + '35' }}><Text style={{ color: dc, fontSize: 11, fontWeight: '700' }}>{w.difficulty}</Text></View>}
-                  {w.durationMin && <View style={{ backgroundColor: T.bgInputActive, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: T.line, flexDirection: 'row', alignItems: 'center', gap: 4 }}><Feather name="clock" size={10} color={T.textFaint} /><Text style={{ color: T.textSub, fontSize: 11 }}>{w.durationMin}min</Text></View>}
+                  {w.goal && <StatusPill label={w.goal} tone={goalTone(w.goal)} />}
+                  {w.difficulty && <StatusPill label={w.difficulty} tone={difficultyTone(w.difficulty)} />}
+                  {!!w.durationMin && <View style={{ backgroundColor: T.bgInputActive, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: T.line, flexDirection: 'row', alignItems: 'center', gap: 4 }}><Feather name="clock" size={10} color={T.textFaint} /><Text style={{ color: T.textSub, fontSize: 11 }}>{w.durationMin}min</Text></View>}
                 </View>
                 {/* Bookmark */}
                 <Pressable onPress={() => bookmark(w.id, {
                   onSuccess: () => Alert.alert('✓', 'Bookmark toggled.'),
                   onError: () => {},
-                })} style={{ alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                })}
+                  hitSlop={12}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Save ${w.name}`}
+                  style={{ alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 32, paddingHorizontal: 4 }}>
                   <Feather name="bookmark" size={14} color={T.textSub} />
-                  <Text style={{ color: T.textSub, fontSize: 11 }}>Save</Text>
+                  <Text style={{ color: T.textSub, fontSize: 12 }}>Save</Text>
                 </Pressable>
               </Pressable>
             );
           })}
           {/* Pagination */}
-          {!wLoad && !wErr && wTotal > 1 && (
-            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginVertical: 16 }}>
-              <Pressable onPress={() => setWPage(p => Math.max(1, p - 1))} disabled={wPage <= 1}
-                style={{ paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999, backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line, opacity: wPage <= 1 ? 0.4 : 1 }}>
-                <Text style={{ color: T.brand, fontWeight: '700' }}>Prev</Text>
-              </Pressable>
-              <View style={{ backgroundColor: T.brand, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9 }}>
-                <Text style={{ color: T.onBrand, fontWeight: '900' }}>{wPage}/{wTotal}</Text>
-              </View>
-              <Pressable onPress={() => setWPage(p => Math.min(wTotal, p + 1))} disabled={wPage >= wTotal}
-                style={{ paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999, backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line, opacity: wPage >= wTotal ? 0.4 : 1 }}>
-                <Text style={{ color: T.brand, fontWeight: '700' }}>Next</Text>
-              </Pressable>
-            </View>
-          )}
+          {!wLoad && !wErr && <PaginationFooter page={wPage} totalPages={wTotal} onChange={setWPage} />}
         </ScrollView>
       )}
 
@@ -163,30 +124,24 @@ export default function TrainScreen({ userId, onOpenWorkout }: Props) {
                 const active = f === exFilter;
                 return (
                   <Pressable key={f} onPress={() => { setExFilter(f); setExPage(1); }}
-                    style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: active ? T.brand : T.bgInput, borderWidth: 1, borderColor: active ? T.brand : T.line }}>
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Filter: ${f}`}
+                    accessibilityState={{ selected: active }}
+                    style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: active ? T.brand : T.bgInput, borderWidth: 1, borderColor: active ? T.brand : T.line }}>
                     <Text style={{ color: active ? T.onBrand : T.textSub, fontSize: 12, fontWeight: '700' }}>{f}</Text>
                   </Pressable>
                 );
               })}
             </ScrollView>
             {/* Search */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: T.bgInput, borderRadius: 16, borderWidth: 1, borderColor: T.line, paddingHorizontal: 12, height: 46 }}>
-              <Feather name="search" size={15} color={T.textFaint} style={{ marginRight: 8 }} />
-              <TextInput style={{ flex: 1, color: T.text, fontSize: 14 }} placeholder="Search exercises…" placeholderTextColor={T.textFaint}
-                value={search} onChangeText={setSearch} autoCorrect={false} autoCapitalize="none" />
-              {search.length > 0 && <Pressable onPress={() => setSearch('')} hitSlop={8}><Feather name="x" size={14} color={T.textFaint} /></Pressable>}
-            </View>
+            <SearchBar value={search} onChangeText={setSearch} placeholder="Search exercises…" label="Search exercises" />
           </View>
 
           <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
-            {exLoad && <Skeleton />}
+            {exLoad && <Skeleton rows={4} />}
             {exErr && (
-              <View className="items-center pt-16">
-                <Feather name="wifi-off" size={28} color={T.err} />
-                <Pressable onPress={() => exRefetch()} className="bg-brand rounded-full px-7 py-3 mt-4">
-                  <Text className="text-black font-bold">Retry</Text>
-                </Pressable>
-              </View>
+              <EmptyState icon="wifi-off" tone="error" title="Failed to load exercises" action={{ label: 'Retry', onPress: () => exRefetch() }} />
             )}
             {!exLoad && !exErr && filteredEx.map(ex => {
               const diff  = ex.difficulty?.toLowerCase() ?? 'beginner';
@@ -201,8 +156,8 @@ export default function TrainScreen({ userId, onOpenWorkout }: Props) {
                   <View style={{ flex: 1 }}>
                     <Text className="text-white text-[15px] font-bold" numberOfLines={1}>{ex.name}</Text>
                     <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
-                      {ex.category && <View style={{ backgroundColor: T.bgInputActive, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: T.line }}><Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600' }}>{ex.category}</Text></View>}
-                      {ex.difficulty && <View style={{ backgroundColor: color + '15', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: color + '35' }}><Text style={{ color, fontSize: 11, fontWeight: '700' }}>{ex.difficulty}</Text></View>}
+                      {ex.category && <StatusPill label={ex.category} tone="neutral" />}
+                      {ex.difficulty && <StatusPill label={ex.difficulty} tone={difficultyTone(ex.difficulty)} />}
                     </View>
                   </View>
                   <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: withAlpha(T.brand, 0.10), borderWidth: 1, borderColor: withAlpha(T.brand, 0.25), alignItems: 'center', justifyContent: 'center' }}>
@@ -212,24 +167,10 @@ export default function TrainScreen({ userId, onOpenWorkout }: Props) {
               );
             })}
             {/* Ex Pagination */}
-            {!exLoad && !exErr && exTotal > 1 && (
-              <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginVertical: 16 }}>
-                <Pressable onPress={() => setExPage(p => Math.max(1, p - 1))} disabled={exPage <= 1}
-                  style={{ paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999, backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line, opacity: exPage <= 1 ? 0.4 : 1 }}>
-                  <Text style={{ color: T.brand, fontWeight: '700' }}>Prev</Text>
-                </Pressable>
-                <View style={{ backgroundColor: T.brand, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9 }}>
-                  <Text style={{ color: T.onBrand, fontWeight: '900' }}>{exPage}/{exTotal}</Text>
-                </View>
-                <Pressable onPress={() => setExPage(p => Math.min(exTotal, p + 1))} disabled={exPage >= exTotal}
-                  style={{ paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999, backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line, opacity: exPage >= exTotal ? 0.4 : 1 }}>
-                  <Text style={{ color: T.brand, fontWeight: '700' }}>Next</Text>
-                </Pressable>
-              </View>
-            )}
+            {!exLoad && !exErr && <PaginationFooter page={exPage} totalPages={exTotal} onChange={setExPage} />}
           </ScrollView>
         </>
       )}
-    </View>
+    </Screen>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Pressable, Text, Platform, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
 import { useMyTrainerProfileId } from './api/trainerAppQueries';
 import { Feather } from '@expo/vector-icons';
 import { ModuleAccessProvider, useModuleAccess } from '../module-access/context/ModuleAccessContext';
@@ -7,11 +7,14 @@ import TrainerHomeScreen    from './screens/TrainerHomeScreen';
 import ClientsScreen        from './screens/ClientsScreen';
 import ProgramBuilderScreen from './screens/ProgramBuilderScreen';
 import TrainerProfileScreen from './screens/TrainerProfileScreen';
-import { T, withAlpha } from '../../theme';
+import { T } from '../../theme';
+import BottomTabBar from '../common/components/BottomTabBar';
+import LoadingState from '../common/components/LoadingState';
+import Screen from '../common/components/Screen';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
-type Screen =
+type Route =
   | { id: 'home'    }
   | { id: 'clients' }
   | { id: 'builder' }
@@ -37,22 +40,24 @@ export default function TrainerApp({ userId, onLogout }: { userId: number; onLog
   const { data: trainerId = 0, isLoading, isError } = useMyTrainerProfileId();
 
   if (isLoading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={T.brand} />
-      </View>
-    );
+    return <LoadingState fullScreen label="Loading your profile" />;
   }
   if (isError || trainerId === 0) {
     return (
-      <View style={{ flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
+      <Screen style={{ alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
         <Text style={{ color: T.text, textAlign: 'center' }}>
           This account has no trainer profile yet. Ask your gym admin to finish setting it up.
         </Text>
-        <Pressable onPress={onLogout} accessibilityRole="button">
+        <Pressable
+          onPress={onLogout}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
+          style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 }}
+        >
           <Text style={{ color: T.brand, fontWeight: '600' }}>Sign out</Text>
         </Pressable>
-      </View>
+      </Screen>
     );
   }
 
@@ -64,7 +69,7 @@ export default function TrainerApp({ userId, onLogout }: { userId: number; onLog
 }
 
 function TrainerAppContent({ trainerId, onLogout }: Props) {
-  const [screen,    setScreen]    = useState<Screen>({ id: 'home' });
+  const [screen,    setScreen]    = useState<Route>({ id: 'home' });
   const [activeTab, setActiveTab] = useState('home');
 
   const canWorkouts = useModuleAccess('workouts');
@@ -121,57 +126,7 @@ function TrainerAppContent({ trainerId, onLogout }: Props) {
       </View>
 
       {/* ── Bottom tab bar ── */}
-      <View style={S.tabBar}>
-        {visibleTabs.map(tab => {
-          const active = activeTab === tab.key;
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => goTo(tab.key)}
-              hitSlop={8}
-              style={S.tabItem}
-              accessibilityRole="button"
-              accessibilityLabel={tab.label}
-            >
-              <View style={[S.tabIcon, active && S.tabIconActive]}>
-                <Feather name={tab.icon} size={20} color={active ? T.brand : T.textFaint} />
-              </View>
-              <Text style={[S.tabLabel, active && S.tabLabelActive]}>{tab.label}</Text>
-              {active && <View style={S.activeDot} />}
-            </Pressable>
-          );
-        })}
-      </View>
+      <BottomTabBar tabs={visibleTabs} active={activeTab} onChange={goTo} />
     </View>
   );
 }
-
-const S = StyleSheet.create({
-  tabBar: {
-    flexDirection:    'row',
-    backgroundColor:  T.bgNav,
-    borderTopWidth:   1,
-    borderTopColor:   T.bgInput,
-    paddingBottom:    Platform.OS === 'ios' ? 24 : 8,
-    paddingTop:       10,
-    paddingHorizontal:8,
-  },
-  tabItem: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4,
-  },
-  tabIcon: {
-    width: 42, height: 32, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
-  },
-  tabIconActive: {
-    backgroundColor: withAlpha(T.brand, 0.10),
-  },
-  tabLabel: {
-    fontSize: 10, fontWeight: '600', color: T.textFaint,
-  },
-  tabLabelActive: {
-    color: T.brand,
-  },
-  activeDot: {
-    width: 4, height: 4, borderRadius: 2, backgroundColor: T.brand, marginTop: 1,
-  },
-});

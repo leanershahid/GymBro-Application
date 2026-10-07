@@ -12,20 +12,29 @@ import {
   ImageBackground,
   Image,
   StyleSheet,
-  Dimensions,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { useState, useRef, useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogin } from '../api/authQueries';
 import { scaleW, scaleH, rs } from '../../../utils/scale';
 import { T, withAlpha } from '../../../theme';
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+/** Scaled font size that never drops below the 11px legibility floor. */
+const fs = (px: number) => Math.max(11, rs(px));
 
-// Layout split — adjusts slightly on very small screens (< 700 px tall)
-const HERO_RATIO  = SCREEN_HEIGHT < 700 ? 0.42 : 0.50;
-const SHEET_RATIO = 1 - HERO_RATIO;
-const HERO_HEIGHT  = SCREEN_HEIGHT * HERO_RATIO;
-const SHEET_HEIGHT = SCREEN_HEIGHT * SHEET_RATIO;
+/** Layout split from the live window size — adjusts on very small screens (< 700 px tall). */
+function useLoginLayout() {
+  const { width, height } = useWindowDimensions();
+  const heroRatio  = height < 700 ? 0.42 : 0.50;
+  const heroHeight  = height * heroRatio;
+  const sheetHeight = height - heroHeight;
+  // The logo sits just above the sheet; cap it by the hero height so it never runs off the top.
+  const logoHeight = Math.min(scaleH(190), heroHeight * 0.7);
+  const logoWidth  = Math.min(width * 0.90, logoHeight * 2.4);
+  return { width, height, heroHeight, sheetHeight, logoHeight, logoWidth };
+}
 
 // ─── CTA Button ───────────────────────────────────────────────────────────────
 function CTAButton({
@@ -53,6 +62,9 @@ function CTAButton({
         onPressOut={pressOut}
         disabled={loading}
         activeOpacity={1}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ disabled: loading, busy: loading }}
       >
         {loading
           ? <ActivityIndicator color={T.onBrand} />
@@ -71,7 +83,13 @@ function InputField({
   secureTextEntry,
   keyboardType,
   rightElement,
+  accessibilityLabel,
+  textContentType,
+  autoComplete,
 }: {
+  accessibilityLabel: string;
+  textContentType?: 'username' | 'password';
+  autoComplete?: 'email' | 'password';
   value: string;
   onChangeText: (v: string) => void;
   placeholder?: string;
@@ -111,6 +129,9 @@ function InputField({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         underlineColorAndroid="transparent"
+        accessibilityLabel={accessibilityLabel}
+        textContentType={textContentType}
+        autoComplete={autoComplete}
       />
       {rightElement}
     </Animated.View>
@@ -132,8 +153,10 @@ export default function LoginPage({
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
 
   const { mutate, isPending } = useLogin();
+  const insets = useSafeAreaInsets();
+  const { heroHeight, sheetHeight, logoHeight, logoWidth } = useLoginLayout();
 
-  const sheetTranslateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
+  const sheetTranslateY = useRef(new Animated.Value(sheetHeight)).current;
   const sheetOpacity    = useRef(new Animated.Value(0)).current;
   const heroOpacity     = useRef(new Animated.Value(1)).current;
 
@@ -219,31 +242,46 @@ export default function LoginPage({
         </ImageBackground>
       </Animated.View>
 
-      {/* Logo — pinned to left side of hero */}
-      <Animated.View style={[styles.heroLabel, { opacity: heroOpacity }]} pointerEvents="none">
+      {/* Logo — pinned to left side of hero, just above the sheet (never above the status bar) */}
+      <Animated.View
+        style={[
+          styles.heroLabel,
+          { opacity: heroOpacity, top: Math.max(insets.top + 8, heroHeight - logoHeight * (150 / 190)) },
+        ]}
+        pointerEvents="none"
+      >
         <Image
           source={require('../../../assets/common/logo01.png')}
-          style={styles.heroLogo}
+          style={{ width: logoWidth, height: logoHeight }}
           resizeMode="contain"
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel="GymBro"
         />
       </Animated.View>
 
-      {/* ── Bottom sheet — no scroll, fits all content in fixed height ── */}
+      {/* ── Bottom sheet — shrinks above the keyboard and scrolls when content doesn't fit ── */}
       <KeyboardAvoidingView
         style={styles.sheetContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <Animated.View
           style={[
             styles.sheet,
             {
+              height: sheetHeight,
               opacity: sheetOpacity,
               transform: [{ translateY: sheetTranslateY }],
             },
           ]}
         >
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[styles.sheetContent, { paddingBottom: scaleH(28) + insets.bottom }]}
+          >
           {/* Headline */}
-          <Text style={styles.headline}>Welcome to the gym</Text>
+          <Text style={styles.headline} accessibilityRole="header">Welcome to the gym</Text>
 
           {/* Sign In tab */}
           <View style={styles.tabRow}>
@@ -258,7 +296,7 @@ export default function LoginPage({
 
           {/* Error banner */}
           {!!error && (
-            <View style={styles.errorBanner}>
+            <View style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
               <View style={styles.errorDot} />
               <Text style={styles.errorText}>{error}</Text>
             </View>
@@ -272,9 +310,12 @@ export default function LoginPage({
                 onChangeText={(v) => { setEmail(v); setError(''); setFieldErrors((p) => ({ ...p, email: undefined })); }}
                 placeholder="Username or email..."
                 keyboardType="email-address"
+                accessibilityLabel="Email"
+                textContentType="username"
+                autoComplete="email"
               />
               {!!fieldErrors.email && (
-                <Text style={styles.fieldError}>{fieldErrors.email}</Text>
+                <Text style={styles.fieldError} accessibilityLiveRegion="polite">{fieldErrors.email}</Text>
               )}
             </View>
             <View>
@@ -283,18 +324,24 @@ export default function LoginPage({
                 onChangeText={(v) => { setPassword(v); setError(''); setFieldErrors((p) => ({ ...p, password: undefined })); }}
                 placeholder="Password..."
                 secureTextEntry={!showPass}
+                accessibilityLabel="Password"
+                textContentType="password"
+                autoComplete="password"
                 rightElement={
                   <TouchableOpacity
                     style={styles.showHideBtn}
                     onPress={() => setShowPass((p) => !p)}
                     activeOpacity={0.7}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={showPass ? 'Hide password' : 'Show password'}
                   >
                     <Text style={styles.showHideText}>{showPass ? 'Hide' : 'Show'}</Text>
                   </TouchableOpacity>
                 }
               />
               {!!fieldErrors.password && (
-                <Text style={styles.fieldError}>{fieldErrors.password}</Text>
+                <Text style={styles.fieldError} accessibilityLiveRegion="polite">{fieldErrors.password}</Text>
               )}
             </View>
           </View>
@@ -303,6 +350,7 @@ export default function LoginPage({
           <View style={styles.ctaWrapper}>
             <CTAButton label="Sign In" onPress={handleSignIn} loading={isPending} />
           </View>
+          </ScrollView>
         </Animated.View>
       </KeyboardAvoidingView>
     </View>
@@ -323,39 +371,31 @@ const styles = StyleSheet.create({
   // GymManager label — always sits just above the sheet's top edge
   heroLabel: {
     position: 'absolute',
-    top: HERO_HEIGHT - scaleH(150),
     left: scaleW(16),
     alignItems: 'flex-start',
   },
-  heroLogo: {
-    width: SCREEN_WIDTH * 0.90,
-    height: scaleH(190),
-   
-  
-  },
 
-
-  // Sheet anchored to bottom, height = remaining screen after hero
+  // Fills the screen; the sheet is pushed to the bottom and shrinks when the keyboard opens.
   sheetContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: SHEET_HEIGHT,
+    flex: 1,
+    justifyContent: 'flex-end',
   },
   sheet: {
-    flex: 1,
+    flexShrink: 1,
     backgroundColor: withAlpha(T.bgInput, 0.72),
     borderTopLeftRadius: rs(28),
     borderTopRightRadius: rs(28),
+    overflow: 'hidden',
+  },
+  sheetContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: scaleW(20),
     paddingTop: scaleH(24),
-    paddingBottom: scaleH(28),
-    justifyContent: 'center',
   },
 
   headline: {
-    fontSize: rs(22),
+    fontSize: fs(22),
     fontWeight: '800',
     color: T.text,
     letterSpacing: -0.4,
@@ -373,7 +413,7 @@ const styles = StyleSheet.create({
     paddingBottom: scaleH(4),
   },
   tabTextActive: {
-    fontSize: rs(15),
+    fontSize: fs(15),
     fontWeight: '700',
     color: T.text,
   },
@@ -412,7 +452,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     flex: 1,
-    fontSize: rs(13),
+    fontSize: fs(13),
     color: T.err,
     lineHeight: rs(18),
   },
@@ -422,8 +462,8 @@ const styles = StyleSheet.create({
   },  inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: scaleH(50),
-    borderRadius: scaleH(50),
+    height: Math.max(48, scaleH(50)),
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: T.line,
     backgroundColor: T.bgInputActive,
@@ -432,16 +472,17 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     paddingHorizontal: scaleW(20),
-    fontSize: rs(14),
+    fontSize: fs(14),
     color: T.text,
     height: '100%',
   },
   showHideBtn: {
     paddingHorizontal: scaleW(16),
-    paddingVertical: scaleH(10),
+    minHeight: 44,
+    justifyContent: 'center',
   },
   showHideText: {
-    fontSize: rs(11),
+    fontSize: fs(12),
     fontWeight: '600',
     color: T.brand,
   },
@@ -450,21 +491,21 @@ const styles = StyleSheet.create({
     marginTop: scaleH(18),
   },
   ctaButton: {
-    height: scaleH(52),
-    borderRadius: scaleH(52),
+    height: Math.max(48, scaleH(52)),
+    borderRadius: 999,
     backgroundColor: T.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   ctaText: {
-    fontSize: rs(16),
+    fontSize: fs(16),
     fontWeight: '700',
     color: T.onBrand,
     letterSpacing: 0.3,
   },
 
   fieldError: {
-    fontSize: rs(12),
+    fontSize: fs(12),
     color: T.err,
     marginTop: scaleH(4),
     marginLeft: scaleW(16),

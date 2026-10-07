@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T, Shadow } from '../../../theme';
+import { T, R, Shadow } from '../../../theme';
 import RevenueSparkline from './Revenuesparkline';
 import { RevenueTrendPoint } from '../types/dashboard';
 
@@ -22,7 +22,7 @@ export default function MonthlyInsightCard({ growthPct, activeBranches, trend }:
       style={[
         {
           flexDirection: 'row', alignItems: 'center',
-          backgroundColor: T.bgInput, borderRadius: 22, padding: 16,
+          backgroundColor: T.bgInput, borderRadius: R.xl, padding: 16,
           borderWidth: 1, borderColor: T.line,
         },
         Shadow.sm,

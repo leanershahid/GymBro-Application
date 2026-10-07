@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T, Shadow, withAlpha } from '../../../theme';
+import { T, R, Shadow, withAlpha } from '../../../theme';
+import { useLayout } from '../../../utils/useLayout';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -21,8 +22,10 @@ const glass = {
 };
 
 export default function StatTile({ icon, label, value, deltaLabel, deltaPositive = true }: StatTileProps) {
+  // Two per row with the parent's 12px gap.
+  const { tileW } = useLayout();
   return (
-    <View style={[glass, { borderRadius: 20, padding: 16, width: '47%' }]}>
+    <View style={[glass, { borderRadius: R.xl, padding: 16, width: tileW(2, 12) }]}>
       {/* Icon badge */}
       <View style={{
         width: 38, height: 38, borderRadius: 19,

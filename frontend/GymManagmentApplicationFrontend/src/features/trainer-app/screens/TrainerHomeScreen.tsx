@@ -1,28 +1,19 @@
 import React from 'react';
-import {
-  View, Text, ScrollView, Pressable, ImageBackground,
-  StatusBar, Platform, ActivityIndicator,
-} from 'react-native';
+import { View, Text, ScrollView, Pressable, ImageBackground } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTrainerProfile, useTrainerPerformance, useTrainerEarnings, useMyClients } from '../api/trainerAppQueries';
-import { T, withAlpha } from '../../../theme';
+import { T, R, withAlpha } from '../../../theme';
+import Screen from '../../common/components/Screen';
+import LoadingState from '../../common/components/LoadingState';
+import StatusPill from '../../common/components/StatusPill';
+import StatsStrip from '../../common/StatsStrip';
+import SectionHeader from '../../dashboard/components/Sectionheader';
+import { useLayout } from '../../../utils/useLayout';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
 const IMG_HERO    = require('../../../assets/dashboard/hero-athlete.jpg');
 const IMG_COACH1  = require('../../../assets/dashboard/coach-1.jpg');
-
-function StatCard({ label, value, color, icon }: { label: string; value: string | number; color: string; icon: FeatherIconName }) {
-  return (
-    <View style={{ flex: 1, backgroundColor: T.bgInput, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: T.bgInputActive, alignItems: 'center', gap: 6 }}>
-      <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: color + '18', borderWidth: 1, borderColor: color + '35', alignItems: 'center', justifyContent: 'center' }}>
-        <Feather name={icon} size={16} color={color} />
-      </View>
-      <Text style={{ color: T.text, fontSize: 20, fontWeight: '800', letterSpacing: -0.5 }}>{value}</Text>
-      <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600' }}>{label}</Text>
-    </View>
-  );
-}
 
 interface Props {
   trainerId: number;
@@ -34,6 +25,9 @@ export default function TrainerHomeScreen({ trainerId, onNavigate }: Props) {
   const { data: perf }                = useTrainerPerformance(trainerId);
   const { data: earnings }            = useTrainerEarnings(trainerId);
   const { data: clients = [] }        = useMyClients(trainerId);
+  const { height: winH, tileW }       = useLayout();
+  const heroH = Math.min(260, Math.round(winH * 0.32));
+  const linkW = tileW(2, 10);
 
   const now    = new Date();
   const hour   = now.getHours();
@@ -49,20 +43,15 @@ export default function TrainerHomeScreen({ trainerId, onNavigate }: Props) {
     { icon: 'user',      label: 'Profile',  screen: 'profile',  color: T.brandGold },
   ];
 
-  if (isLoading) return (
-    <View style={{ flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center' }}>
-      <ActivityIndicator size="large" color={T.brand} />
-    </View>
-  );
+  if (isLoading) return <LoadingState fullScreen />;
 
   return (
-    <View style={{ flex: 1, backgroundColor: T.bg, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>
 
         {/* ── Hero header ── */}
-        <ImageBackground source={IMG_HERO} style={{ width: '100%', height: 260 }} resizeMode="cover">
+        <ImageBackground source={IMG_HERO} style={{ width: '100%', height: heroH }} resizeMode="cover">
           <View style={{ flex: 1, backgroundColor: withAlpha(T.black, 0.62), padding: 20, justifyContent: 'space-between' }}>
             {/* Top bar */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8 }}>
@@ -70,6 +59,7 @@ export default function TrainerHomeScreen({ trainerId, onNavigate }: Props) {
                 <Text style={{ color: T.brand, fontSize: 16, fontWeight: '800' }}>{name[0]?.toUpperCase() ?? 'T'}</Text>
               </View>
               <Pressable onPress={() => onNavigate('notifications')}
+                hitSlop={12}
                 accessibilityRole="button"
                 accessibilityLabel="Notifications"
                 style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: withAlpha(T.black, 0.50), borderWidth: 1, borderColor: withAlpha(T.text, 0.20), alignItems: 'center', justifyContent: 'center' }}>
@@ -90,15 +80,19 @@ export default function TrainerHomeScreen({ trainerId, onNavigate }: Props) {
         </ImageBackground>
 
         {/* ── Stats row ── */}
-        <View style={{ flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginTop: 20, marginBottom: 28 }}>
-          <StatCard label="Clients"  value={perf?.totalClients  ?? clients.length} color={T.brand} icon="users" />
-          <StatCard label="Sessions" value={perf?.totalSessions ?? '—'}            color={T.sky} icon="activity" />
-          <StatCard label="Rating"   value={perf?.rating ? perf.rating.toFixed(1) : '—'} color={T.brandGold} icon="star" />
+        <View style={{ paddingHorizontal: 20, marginTop: 20, marginBottom: 28 }}>
+          <StatsStrip
+            items={[
+              { label: 'Clients',  value: String(perf?.totalClients ?? clients.length), accent: T.brand, icon: 'users' },
+              { label: 'Sessions', value: String(perf?.totalSessions ?? '—'),          accent: T.sky, icon: 'activity' },
+              { label: 'Rating',   value: perf?.rating ? perf.rating.toFixed(1) : '—', accent: T.brandGold, icon: 'star' },
+            ]}
+          />
         </View>
 
         {/* ── Earnings card ── */}
         {earnings && (
-          <View style={{ marginHorizontal: 20, marginBottom: 28, backgroundColor: T.bgInput, borderRadius: 20, padding: 18, borderWidth: 1, borderColor: T.bgInputActive }}>
+          <View style={{ marginHorizontal: 20, marginBottom: 28, backgroundColor: T.bgInput, borderRadius: R.xl, padding: 18, borderWidth: 1, borderColor: T.bgInputActive }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
                 {new Date(earnings.year, earnings.month - 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' })}
@@ -123,16 +117,18 @@ export default function TrainerHomeScreen({ trainerId, onNavigate }: Props) {
         <View style={{ flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginBottom: 28, flexWrap: 'wrap' }}>
           {quickLinks.map(q => (
             <Pressable key={q.screen} onPress={() => onNavigate(q.screen)}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${q.label}`}
               style={({ pressed }) => ({
-                width: '47%', alignItems: 'center', gap: 8, paddingVertical: 18,
-                backgroundColor: pressed ? q.color + '14' : T.bgInput,
-                borderRadius: 18, borderWidth: 1,
-                borderColor: pressed ? q.color + '35' : T.bgInputActive,
+                width: linkW, alignItems: 'center', gap: 8, paddingVertical: 18,
+                backgroundColor: pressed ? withAlpha(q.color, 0.08) : T.bgInput,
+                borderRadius: R.lg, borderWidth: 1,
+                borderColor: pressed ? withAlpha(q.color, 0.21) : T.bgInputActive,
               })}>
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: q.color + '14', borderWidth: 1, borderColor: q.color + '30', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: withAlpha(q.color, 0.08), borderWidth: 1, borderColor: withAlpha(q.color, 0.19), alignItems: 'center', justifyContent: 'center' }}>
                 <Feather name={q.icon} size={18} color={q.color} />
               </View>
-              <Text style={{ color: T.textSub, fontSize: 12, fontWeight: '600' }}>{q.label}</Text>
+              <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 12, fontWeight: '600' }}>{q.label}</Text>
             </Pressable>
           ))}
         </View>
@@ -140,38 +136,30 @@ export default function TrainerHomeScreen({ trainerId, onNavigate }: Props) {
         {/* ── Recent clients ── */}
         {clients.length > 0 && (
           <View style={{ paddingHorizontal: 20 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <Text style={{ color: T.text, fontSize: 18, fontWeight: '700' }}>My Clients</Text>
-              <Pressable onPress={() => onNavigate('clients')}
-                accessibilityRole="button"
-                accessibilityLabel="View all clients"
-                style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: T.brand, alignItems: 'center', justifyContent: 'center' }}>
-                <Feather name="arrow-up-right" size={16} color={T.onBrand} />
-              </Pressable>
-            </View>
+            <SectionHeader title="My Clients" onPressAction={() => onNavigate('clients')} actionLabel="View all clients" />
             {clients.slice(0, 4).map((c, i) => {
               const colors = [T.brand, T.sky, T.violet, T.brandGold];
               const col = colors[i % colors.length];
               return (
                 <Pressable key={c.assignmentId} onPress={() => onNavigate(`client-${c.clientId}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Client #${c.clientId}, ${c.status}`}
                   style={({ pressed }) => ({
                     flexDirection: 'row', alignItems: 'center',
                     backgroundColor: pressed ? T.bgInputActive : T.bgInput,
                     borderRadius: 16, padding: 14, marginBottom: 10,
                     borderWidth: 1, borderColor: T.bgInputActive,
                   })}>
-                  <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: col + '18', borderWidth: 1.5, borderColor: col + '50', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-                    <Text style={{ color: col, fontSize: 16, fontWeight: '800' }}>{c.clientId}</Text>
+                  <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: withAlpha(col, 0.09), borderWidth: 1.5, borderColor: withAlpha(col, 0.31), alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                    <Text numberOfLines={1} style={{ color: col, fontSize: 16, fontWeight: '800' }}>{c.clientId}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: T.text, fontSize: 14, fontWeight: '700' }}>Client #{c.clientId}</Text>
-                    <Text style={{ color: T.textSub, fontSize: 11, marginTop: 2 }}>
+                    <Text numberOfLines={1} style={{ color: T.text, fontSize: 14, fontWeight: '700' }}>Client #{c.clientId}</Text>
+                    <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 11, marginTop: 2 }}>
                       Since {new Date(c.assignedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </Text>
                   </View>
-                  <View style={{ backgroundColor: c.status === 'Active' ? withAlpha(T.brand, 0.12) : T.bgInputActive, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: c.status === 'Active' ? withAlpha(T.brand, 0.28) : T.line }}>
-                    <Text style={{ color: c.status === 'Active' ? T.brand : T.textSub, fontSize: 11, fontWeight: '700' }}>{c.status}</Text>
-                  </View>
+                  <StatusPill label={c.status} tone={c.status === 'Active' ? 'brand' : 'neutral'} />
                 </Pressable>
               );
             })}
@@ -179,7 +167,7 @@ export default function TrainerHomeScreen({ trainerId, onNavigate }: Props) {
         )}
 
         {/* ── PT Sessions coming soon ── */}
-        <View style={{ marginHorizontal: 20, marginTop: 8, backgroundColor: T.bgInput, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: T.bgInputActive, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <View style={{ marginHorizontal: 20, marginTop: 8, backgroundColor: T.bgInput, borderRadius: R.xl, padding: 20, borderWidth: 1, borderColor: T.bgInputActive, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
           <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: withAlpha(T.violet, 0.12), borderWidth: 1, borderColor: withAlpha(T.violet, 0.25), alignItems: 'center', justifyContent: 'center' }}>
             <Feather name="calendar" size={20} color={T.violet} />
           </View>
@@ -193,6 +181,6 @@ export default function TrainerHomeScreen({ trainerId, onNavigate }: Props) {
         </View>
 
       </ScrollView>
-    </View>
+    </Screen>
   );
 }

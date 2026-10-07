@@ -1,14 +1,16 @@
 import React from 'react';
-import {
-  View, Text, ScrollView, Pressable, TextInput,
-  StatusBar, Platform,
-} from 'react-native';
+import { View, Text, FlatList } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTenants } from '../api/tenantQueries';
 import { Tenant } from '../types/tenant.types';
-import { T, withAlpha } from '../../../theme';
+import { T, withAlpha, R, SP } from '../../../theme';
 import StatsStrip from '../../common/StatsStrip';
 import Skeleton from '../../common/components/Skeleton';
+import Screen from '../../common/components/Screen';
+import ScreenHeader from '../../common/components/ScreenHeader';
+import SearchBar from '../../common/components/SearchBar';
+import StatusPill, { PillTone, toneForStatus } from '../../common/components/StatusPill';
+import EmptyState from '../../dashboard/components/EmptyState';
 
 const TINTS = [
   { bg: withAlpha(T.violet, 0.08), accent: T.violet },
@@ -18,41 +20,10 @@ const TINTS = [
 ];
 const tint = (id: number) => TINTS[id % TINTS.length];
 
-// ─── Hook is now in tenantQueries.ts ──────────────────────────────
-
-// ─── Plan badge ───────────────────────────────────────────────────
-function PlanBadge({ plan }: { plan: string }) {
-  const colors: Record<string, { color: string; bg: string; border: string }> = {
-    starter:    { color: T.brand, bg: withAlpha(T.brand, 0.12),   border: withAlpha(T.brand, 0.28)   },
-    basic:      { color: T.sky, bg: withAlpha(T.sky, 0.12),  border: withAlpha(T.sky, 0.28)  },
-    pro:        { color: T.violet, bg: withAlpha(T.violet, 0.12), border: withAlpha(T.violet, 0.28) },
-    enterprise: { color: T.brandGold, bg: withAlpha(T.brandGold, 0.12),  border: withAlpha(T.brandGold, 0.28)  },
-  };
-  const c = colors[plan.toLowerCase()] ?? { color: T.textSub, bg: withAlpha(T.text, 0.08), border: withAlpha(T.text, 0.14) };
-  return (
-    <View style={{ backgroundColor: c.bg, borderWidth: 1, borderColor: c.border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
-      <Text style={{ color: c.color, fontSize: 11, fontWeight: '700' }}>{plan}</Text>
-    </View>
-  );
-}
-
-// ─── Status badge ─────────────────────────────────────────────────
-function StatusBadge({ status }: { status: string }) {
-  const lower  = status.toLowerCase();
-  const active = lower === 'active';
-  const trial  = lower === 'trial';
-  const color  = active ? T.brand : trial ? T.brandGold : T.textSub;
-  const bg     = active ? withAlpha(T.brand, 0.15) : trial ? withAlpha(T.brandGold, 0.15) : withAlpha(T.text, 0.08);
-  const border = active ? withAlpha(T.brand, 0.30) : trial ? withAlpha(T.brandGold, 0.30) : withAlpha(T.text, 0.14);
-  return (
-    <View style={{ backgroundColor: bg, borderWidth: 1, borderColor: border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-        <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: color }} />
-        <Text style={{ color, fontSize: 11, fontWeight: '700' }}>{status}</Text>
-      </View>
-    </View>
-  );
-}
+// ─── Plan → pill tone ─────────────────────────────────────────────
+const PLAN_TONE: Record<string, PillTone> = {
+  starter: 'brand', basic: 'info', pro: 'violet', enterprise: 'warn',
+};
 
 function formatDate(iso: string): string {
   try {
@@ -61,18 +32,20 @@ function formatDate(iso: string): string {
 }
 
 // ─── Tenant card ──────────────────────────────────────────────────
-function TenantCard({ tenant, onPress }: { tenant: Tenant; onPress: () => void }) {
+// There is no tenant detail screen yet, so the card is a grouped View rather than a
+// Pressable with a no-op handler.
+function TenantCard({ tenant }: { tenant: Tenant }) {
   const c        = tint(tenant.id);
   const initials = tenant.name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('');
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
+    <View
+      accessible
+      accessibilityLabel={`${tenant.name}, ${tenant.status}, ${tenant.plan} plan`}
+      style={{
         marginBottom: 14,
-        borderRadius: 24,
+        borderRadius: R.xl,
         overflow: 'hidden',
-        opacity: pressed ? 0.92 : 1,
         backgroundColor: withAlpha(T.ok, 0.06),
         borderWidth: 1,
         borderColor: withAlpha(T.ok, 0.18),
@@ -81,10 +54,10 @@ function TenantCard({ tenant, onPress }: { tenant: Tenant; onPress: () => void }
         shadowOpacity: 0.18,
         shadowRadius: 18,
         elevation: 8,
-      })}
+      }}
     >
       {/* Accent top strip */}
-      <View style={{ height: 3, backgroundColor: c.accent, borderTopLeftRadius: 24, borderTopRightRadius: 24 }} />
+      <View style={{ height: 3, backgroundColor: c.accent, borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl }} />
 
       <View style={{ padding: 16 }}>
         {/* Top row */}
@@ -93,14 +66,14 @@ function TenantCard({ tenant, onPress }: { tenant: Tenant; onPress: () => void }
           <View style={{
             width: 52, height: 52, borderRadius: 16,
             backgroundColor: c.bg,
-            borderWidth: 1.5, borderColor: c.accent + '60',
+            borderWidth: 1.5, borderColor: withAlpha(c.accent, 0.38),
             alignItems: 'center', justifyContent: 'center',
             marginRight: 14,
           }}>
             <Text style={{ color: c.accent, fontSize: 20, fontWeight: '800' }}>{initials}</Text>
           </View>
 
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
             <Text style={{ color: T.text, fontSize: 16, fontWeight: '800', letterSpacing: -0.3 }} numberOfLines={1}>
               {tenant.name}
             </Text>
@@ -109,12 +82,12 @@ function TenantCard({ tenant, onPress }: { tenant: Tenant; onPress: () => void }
             </Text>
           </View>
 
-          <StatusBadge status={tenant.status} />
+          <StatusPill label={tenant.status} tone={toneForStatus(tenant.status)} dot />
         </View>
 
         {/* Plan + primary colour pill */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <PlanBadge plan={tenant.plan} />
+          <StatusPill label={tenant.plan} tone={PLAN_TONE[tenant.plan.toLowerCase()] ?? 'neutral'} />
           {!!tenant.primaryColor && tenant.primaryColor !== 'string' && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <View style={{
@@ -122,7 +95,7 @@ function TenantCard({ tenant, onPress }: { tenant: Tenant; onPress: () => void }
                 backgroundColor: tenant.primaryColor,
                 borderWidth: 1, borderColor: withAlpha(T.text, 0.20),
               }} />
-              <Text style={{ color: T.textFaint, fontSize: 11 }}>{tenant.primaryColor}</Text>
+              <Text style={{ color: T.textFaint, fontSize: 11 }} numberOfLines={1}>{tenant.primaryColor}</Text>
             </View>
           )}
         </View>
@@ -133,21 +106,21 @@ function TenantCard({ tenant, onPress }: { tenant: Tenant; onPress: () => void }
         {/* Details row */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
           {!!tenant.timezone && tenant.timezone !== 'string' && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 }}>
               <Feather name="clock" size={12} color={T.textFaint} />
-              <Text style={{ color: T.textSub, fontSize: 12 }}>{tenant.timezone}</Text>
+              <Text style={{ color: T.textSub, fontSize: 12, flexShrink: 1 }} numberOfLines={1}>{tenant.timezone}</Text>
             </View>
           )}
           {!!tenant.currency && tenant.currency !== 'string' && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               <Feather name="dollar-sign" size={12} color={T.textFaint} />
-              <Text style={{ color: T.textSub, fontSize: 12 }}>{tenant.currency}</Text>
+              <Text style={{ color: T.textSub, fontSize: 12 }} numberOfLines={1}>{tenant.currency}</Text>
             </View>
           )}
           {!!tenant.locale && tenant.locale !== 'string' && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               <Feather name="globe" size={12} color={T.textFaint} />
-              <Text style={{ color: T.textSub, fontSize: 12 }}>{tenant.locale}</Text>
+              <Text style={{ color: T.textSub, fontSize: 12 }} numberOfLines={1}>{tenant.locale}</Text>
             </View>
           )}
         </View>
@@ -155,17 +128,17 @@ function TenantCard({ tenant, onPress }: { tenant: Tenant; onPress: () => void }
         {/* Custom domain + trial date */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
           {!!tenant.customDomain && tenant.customDomain !== 'string' && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1, minWidth: 0, marginRight: 8 }}>
               <Feather name="link" size={12} color={T.textFaint} />
-              <Text style={{ color: T.textSub, fontSize: 12 }} numberOfLines={1}>{tenant.customDomain}</Text>
+              <Text style={{ color: T.textSub, fontSize: 12, flexShrink: 1 }} numberOfLines={1}>{tenant.customDomain}</Text>
             </View>
           )}
-          <Text style={{ color: T.textFaint, fontSize: 11 }}>
+          <Text style={{ color: T.textFaint, fontSize: 11 }} numberOfLines={1}>
             Trial ends {formatDate(tenant.trialEndsAt)}
           </Text>
         </View>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -186,148 +159,70 @@ export default function ViewTenantsPage({ onBack, onAddTenant }: ViewTenantsPage
     t.plan.toLowerCase().includes(search.toLowerCase())
   );
 
+  const listHeader = (
+    <>
+      {/* Summary strip */}
+      {!isLoading && !isError && (
+        <View style={{ marginBottom: 24 }}>
+          <StatsStrip items={[
+            { icon: 'briefcase',    label: 'Total',  value: String(tenants.length),                                                        accent: T.violet },
+            { icon: 'check-circle', label: 'Active', value: String(tenants.filter((t) => t.status.toLowerCase() === 'active').length),      accent: T.brand   },
+            { icon: 'clock',        label: 'Trial',  value: String(tenants.filter((t) => t.status.toLowerCase() === 'trial').length),       accent: T.brandGold },
+          ]} />
+        </View>
+      )}
+
+      {isLoading && <Skeleton rows={3} height={180} borderRadius={R.xl} />}
+
+      {isError && (
+        <EmptyState
+          icon="wifi-off"
+          tone="error"
+          title="Failed to load"
+          subtitle="Check your connection and try again."
+          action={{ label: 'Retry', onPress: () => refetch() }}
+        />
+      )}
+    </>
+  );
+
   return (
-    <View style={{
-      flex: 1,
-      backgroundColor: T.bg,
-      paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0,
-    }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
+      <ScreenHeader
+        eyebrow="Organisations"
+        title="All Tenants"
+        onBack={onBack}
+        action={onAddTenant ? { label: 'Add', icon: 'plus', onPress: onAddTenant } : undefined}
+      />
 
-      {/* ── Header ── */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-          {onBack && (
-            <Pressable
-              onPress={onBack}
-              hitSlop={12}
-              style={{
-                width: 42, height: 42, borderRadius: 21,
-                backgroundColor: withAlpha(T.ok, 0.10),
-                borderWidth: 1, borderColor: withAlpha(T.ok, 0.22),
-                alignItems: 'center', justifyContent: 'center',
-                marginRight: 14,
-              }}
-            >
-              <Feather name="arrow-left" size={20} color={T.text} />
-            </Pressable>
-          )}
-
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 3 }}>
-              Organisations
-            </Text>
-            <Text style={{ color: T.text, fontSize: 26, fontWeight: '800', letterSpacing: -0.5 }}>
-              All Tenants
-            </Text>
-          </View>
-
-          {onAddTenant && (
-            <Pressable
-              onPress={onAddTenant}
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: 8,
-                backgroundColor: T.brand, borderRadius: 999,
-                paddingHorizontal: 16, paddingVertical: 10,
-                shadowColor: T.brand,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.4, shadowRadius: 10, elevation: 8,
-              }}
-            >
-              <Feather name="plus" size={16} color={T.onBrand} />
-              <Text style={{ color: T.onBrand, fontSize: 13, fontWeight: '700' }}>Add</Text>
-            </Pressable>
-          )}
-        </View>
-
-        {/* Search */}
-        <View style={{
-          flexDirection: 'row', alignItems: 'center',
-          backgroundColor: withAlpha(T.ok, 0.06),
-          borderWidth: 1, borderColor: withAlpha(T.ok, 0.18),
-          borderRadius: 16, paddingHorizontal: 14, height: 48,
-        }}>
-          <Feather name="search" size={16} color={T.textFaint} style={{ marginRight: 10 }} />
-          <TextInput
-            style={{ flex: 1, color: T.text, fontSize: 14 }}
-            placeholder="Search by name, slug or plan…"
-            placeholderTextColor={T.textFaint}
-            value={search}
-            onChangeText={setSearch}
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')} hitSlop={8}>
-              <Feather name="x" size={16} color={T.textFaint} />
-            </Pressable>
-          )}
-        </View>
+      {/* Search */}
+      <View style={{ paddingHorizontal: SP.xl, paddingBottom: SP.lg }}>
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search by name, slug or plan…"
+          label="Search tenants"
+        />
       </View>
 
-      <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }}
+      <FlatList
+        data={isLoading || isError ? [] : filtered}
+        keyExtractor={(t) => String(t.id)}
+        renderItem={({ item }) => <TenantCard tenant={item} />}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          !isLoading && !isError ? (
+            <EmptyState
+              icon="briefcase"
+              title={search ? 'No results' : 'No tenants yet'}
+              subtitle={search ? `Nothing matches "${search}"` : 'Register your first organisation to get started.'}
+            />
+          ) : null
+        }
+        contentContainerStyle={{ paddingHorizontal: SP.xl, paddingBottom: 48 }}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-      >
-        {/* Summary strip */}
-        {!isLoading && !isError && (
-          <View style={{ marginBottom: 20 }}>
-            <StatsStrip items={[
-              { icon: 'briefcase',    label: 'Total',  value: String(tenants.length),                                                        accent: T.violet },
-              { icon: 'check-circle', label: 'Active', value: String(tenants.filter((t) => t.status.toLowerCase() === 'active').length),      accent: T.brand   },
-              { icon: 'clock',        label: 'Trial',  value: String(tenants.filter((t) => t.status.toLowerCase() === 'trial').length),       accent: T.brandGold },
-            ]} />
-          </View>
-        )}
-
-        {isLoading && <Skeleton rows={3} height={180} borderRadius={24} />}
-
-        {isError && (
-          <View style={{ alignItems: 'center', paddingTop: 60 }}>
-            <View style={{
-              width: 68, height: 68, borderRadius: 34,
-              backgroundColor: withAlpha(T.err, 0.10),
-              borderWidth: 1, borderColor: withAlpha(T.err, 0.20),
-              alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-            }}>
-              <Feather name="wifi-off" size={30} color={T.err} />
-            </View>
-            <Text style={{ color: T.text, fontSize: 17, fontWeight: '700', marginBottom: 8 }}>Failed to load</Text>
-            <Text style={{ color: T.textSub, fontSize: 13, textAlign: 'center', marginBottom: 24 }}>
-              Check your connection and try again.
-            </Text>
-            <Pressable
-              onPress={() => refetch()}
-              style={{ backgroundColor: T.brand, borderRadius: 999, paddingHorizontal: 28, paddingVertical: 14 }}
-            >
-              <Text style={{ color: T.onBrand, fontSize: 15, fontWeight: '700' }}>Retry</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {!isLoading && !isError && filtered.length === 0 && (
-          <View style={{ alignItems: 'center', paddingTop: 60 }}>
-            <View style={{
-              width: 68, height: 68, borderRadius: 34,
-              backgroundColor: withAlpha(T.text, 0.06),
-              borderWidth: 1, borderColor: withAlpha(T.text, 0.10),
-              alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-            }}>
-              <Feather name="briefcase" size={30} color={T.textSub} />
-            </View>
-            <Text style={{ color: T.text, fontSize: 17, fontWeight: '700', marginBottom: 8 }}>
-              {search ? 'No results' : 'No tenants yet'}
-            </Text>
-            <Text style={{ color: T.textSub, fontSize: 13, textAlign: 'center' }}>
-              {search ? `Nothing matches "${search}"` : 'Register your first organisation to get started.'}
-            </Text>
-          </View>
-        )}
-
-        {!isLoading && !isError && filtered.map((tenant) => (
-          <TenantCard key={tenant.id} tenant={tenant} onPress={() => {}} />
-        ))}
-      </ScrollView>
-    </View>
+      />
+    </Screen>
   );
 }

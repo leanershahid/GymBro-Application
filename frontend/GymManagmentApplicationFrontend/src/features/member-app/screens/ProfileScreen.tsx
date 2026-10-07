@@ -1,13 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, ScrollView, Pressable, TextInput,
-  StatusBar, Platform, ActivityIndicator, Alert, Image, TouchableOpacity,
+  View, Text, ScrollView, Pressable,
+  Platform, Alert, Image, TouchableOpacity, KeyboardAvoidingView,
 } from 'react-native';
 
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useMyProfile, useMyTimeline, useUpdateProfile } from '../api/memberAppQueries';
 import { T, withAlpha } from '../../../theme';
+import Screen from '../../common/components/Screen';
+import SegmentedTabs from '../../common/components/SegmentedTabs';
+import PrimaryButton from '../../common/components/PrimaryButton';
+import LoadingState from '../../common/components/LoadingState';
+import StatusPill from '../../common/components/StatusPill';
+import EmptyState from '../../dashboard/components/EmptyState';
+import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
 
 function AvatarPicker({ uri, initials, onPick }: { uri?: string | null; initials: string; onPick: (u: string) => void }) {
   const pick = async () => {
@@ -45,30 +52,6 @@ function AvatarPicker({ uri, initials, onPick }: { uri?: string | null; initials
         <Feather name="camera" size={12} color={T.onBrand} />
       </View>
     </TouchableOpacity>
-  );
-}
-
-function Field({ label, value, onChange, placeholder, keyboardType, editable = true }: {
-  label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; keyboardType?: any; editable?: boolean;
-}) {
-  return (
-    <View style={{ marginBottom: 14 }}>
-      <Text style={{ color: T.textSub, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>{label}</Text>
-      <TextInput
-        style={{
-          backgroundColor: editable ? T.bgInputActive : T.bgInput, borderRadius: 14,
-          borderWidth: 1, borderColor: editable ? T.line : T.bgInputActive,
-          color: editable ? T.text : T.textFaint,
-          paddingHorizontal: 14, paddingVertical: 13, fontSize: 14,
-        }}
-        value={value} onChangeText={onChange}
-        placeholder={placeholder ?? ''} placeholderTextColor={T.textFaint}
-        keyboardType={keyboardType ?? 'default'}
-        autoCapitalize="none" autoCorrect={false}
-        editable={editable}
-      />
-    </View>
   );
 }
 
@@ -126,19 +109,15 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
     });
   };
 
-  if (isLoading) return (
-    <View className="flex-1 bg-bg items-center justify-center">
-      <ActivityIndicator size="large" color={T.brand} />
-    </View>
-  );
+  if (isLoading) return <LoadingState fullScreen label="Loading profile" />;
 
   const initials = `${profile?.firstName?.[0] ?? ''}${profile?.lastName?.[0] ?? ''}`.toUpperCase() || 'M';
 
   return (
-    <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
 
         {/* ── Avatar / name header ── */}
         <View style={{ alignItems: 'center', paddingTop: 32, paddingBottom: 24, paddingHorizontal: 20 }}>
@@ -147,21 +126,19 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
             initials={initials}
             onPick={(uri) => setAvatarUri(uri)}
           />
-          <Text style={{ color: T.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }}>
+          <Text numberOfLines={1} style={{ color: T.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }}>
             {profile?.firstName} {profile?.lastName}
           </Text>
-          <Text style={{ color: T.textSub, fontSize: 13, marginTop: 4 }}>{profile?.email}</Text>
+          <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 13, marginTop: 4 }}>{profile?.email}</Text>
 
           {/* Status badge */}
-          <View style={{ marginTop: 10, backgroundColor: profile?.status === 'Active' ? withAlpha(T.brand, 0.12) : T.bgInput, borderWidth: 1, borderColor: profile?.status === 'Active' ? withAlpha(T.brand, 0.30) : T.line, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
-            <Text style={{ color: profile?.status === 'Active' ? T.brand : T.textSub, fontSize: 11, fontWeight: '700' }}>
-              {profile?.status ?? 'Member'}
-            </Text>
+          <View style={{ marginTop: 10, alignSelf: 'center' }}>
+            <StatusPill label={profile?.status ?? 'Member'} tone={profile?.status === 'Active' ? 'brand' : 'neutral'} />
           </View>
 
           {/* Trainer / Branch badges */}
           {(!!profile?.trainerId || !!profile?.branchId) && (
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 10 }}>
               {!!profile?.trainerId && (
                 <View style={{ backgroundColor: withAlpha(T.sky, 0.10), borderWidth: 1, borderColor: withAlpha(T.sky, 0.25), borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                   <Feather name="award" size={12} color={T.sky} />
@@ -179,53 +156,61 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
         </View>
 
         {/* ── Tab switcher ── */}
-        <View style={{ flexDirection: 'row', marginHorizontal: 20, backgroundColor: T.bgInput, borderRadius: 16, padding: 4, borderWidth: 1, borderColor: T.bgInputActive, marginBottom: 20 }}>
-          {(['info', 'timeline'] as const).map(t => (
-            <Pressable key={t} onPress={() => setTab(t)}
-              style={{ flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: tab === t ? T.brand : 'transparent' }}>
-              <Text style={{ color: tab === t ? T.onBrand : T.textSub, fontSize: 13, fontWeight: '700', textTransform: 'capitalize' }}>{t}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <SegmentedTabs
+          tabs={[{ key: 'info', label: 'Info' }, { key: 'timeline', label: 'Timeline' }]}
+          value={tab}
+          onChange={setTab}
+          style={{ marginHorizontal: 20, marginBottom: 24 }}
+        />
 
         {/* ── Info tab ── */}
         {tab === 'info' && (
           <View style={{ paddingHorizontal: 20 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <Text style={{ color: T.text, fontSize: 16, fontWeight: '700' }}>Personal Info</Text>
-              <Pressable onPress={() => editing ? handleSave() : setEditing(true)} disabled={isPending}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: editing ? T.brand : T.bgInput, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: editing ? T.brand : T.line }}>
-                {isPending ? <ActivityIndicator size="small" color={T.onBrand} /> : <Feather name={editing ? 'check' : 'edit-2'} size={14} color={editing ? T.onBrand : T.textSub} />}
-                <Text style={{ color: editing ? T.onBrand : T.textSub, fontSize: 12, fontWeight: '700' }}>{editing ? 'Save' : 'Edit'}</Text>
-              </Pressable>
+              {!editing && (
+                <Pressable onPress={() => setEditing(true)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit personal info"
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, backgroundColor: T.bgInput, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: T.line }}>
+                  <Feather name="edit-2" size={14} color={T.textSub} />
+                  <Text style={{ color: T.textSub, fontSize: 12, fontWeight: '700' }}>Edit</Text>
+                </Pressable>
+              )}
             </View>
+            <RowGrid>
+              <GridCell>
+                <Field label="First Name" value={firstName} onChangeText={setFirstName} editable={editing} autoCapitalize="words" autoCorrect={false} />
+              </GridCell>
+              <GridCell>
+                <Field label="Last Name" value={lastName} onChangeText={setLastName} editable={editing} autoCapitalize="words" autoCorrect={false} />
+              </GridCell>
+            </RowGrid>
+            <Field label="Email" value={profile?.email ?? ''} onChangeText={() => {}} editable={false} />
+            <Field label="Phone" value={phone} onChangeText={setPhone} placeholder="+91..." keyboardType="phone-pad" editable={editing} autoCapitalize="none" autoCorrect={false} />
+            <Field label="Date of Birth" value={profile?.dob ?? '—'} onChangeText={() => {}} editable={false} />
+            <Field label="Gender" value={profile?.gender ?? '—'} onChangeText={() => {}} editable={false} />
+            <Field label="Member Since" value={profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'} onChangeText={() => {}} editable={false} />
+
             {editing && (
-              <Pressable onPress={() => setEditing(false)} style={{ marginBottom: 12, alignSelf: 'flex-start' }}>
-                <Text style={{ color: T.err, fontSize: 12, fontWeight: '600' }}>Cancel</Text>
-              </Pressable>
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
+                <PrimaryButton label="Cancel" variant="secondary" onPress={() => setEditing(false)} disabled={isPending} style={{ flex: 1 }} />
+                <PrimaryButton label="Save" icon="check" onPress={handleSave} loading={isPending} style={{ flex: 1 }} />
+              </View>
             )}
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <Field label="First Name" value={firstName} onChange={setFirstName} editable={editing} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Field label="Last Name" value={lastName} onChange={setLastName} editable={editing} />
-              </View>
-            </View>
-            <Field label="Email" value={profile?.email ?? ''} onChange={() => {}} editable={false} />
-            <Field label="Phone" value={phone} onChange={setPhone} placeholder="+91..." keyboardType="phone-pad" editable={editing} />
-            <Field label="Date of Birth" value={profile?.dob ?? '—'} onChange={() => {}} editable={false} />
-            <Field label="Gender" value={profile?.gender ?? '—'} onChange={() => {}} editable={false} />
-            <Field label="Member Since" value={profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'} onChange={() => {}} editable={false} />
 
             {/* Logout */}
-            <Pressable onPress={() => Alert.alert('Sign out', 'Are you sure?', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Sign out', style: 'destructive', onPress: onLogout },
-            ])} style={{ marginTop: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: withAlpha(T.err, 0.10), borderWidth: 1, borderColor: withAlpha(T.err, 0.25), borderRadius: 999, paddingVertical: 14 }}>
-              <Feather name="log-out" size={16} color={T.err} />
-              <Text style={{ color: T.err, fontSize: 14, fontWeight: '700' }}>Sign Out</Text>
-            </Pressable>
+            <PrimaryButton
+              label="Sign Out"
+              icon="log-out"
+              variant="danger"
+              style={{ marginTop: 24 }}
+              onPress={() => Alert.alert('Sign out', 'Are you sure?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Sign out', style: 'destructive', onPress: onLogout },
+              ])}
+            />
           </View>
         )}
 
@@ -234,10 +219,7 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
           <View style={{ paddingHorizontal: 20 }}>
             <Text style={{ color: T.text, fontSize: 16, fontWeight: '700', marginBottom: 16 }}>Activity Timeline</Text>
             {timeline.length === 0 ? (
-              <View style={{ alignItems: 'center', paddingTop: 32 }}>
-                <Feather name="clock" size={28} color={T.textDisabled} />
-                <Text style={{ color: T.textSub, fontSize: 13, marginTop: 10 }}>No activity yet</Text>
-              </View>
+              <EmptyState icon="clock" title="No activity yet" />
             ) : (
               timeline.slice(0, 20).map((ev, i) => <TimelineRow key={i} event={ev} />)
             )}
@@ -245,6 +227,7 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
         )}
 
       </ScrollView>
-    </View>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }

@@ -32,7 +32,7 @@ export default function SegmentedTabs<K extends string>({ tabs, value, onChange,
               paddingHorizontal: 8, backgroundColor: selected ? T.brand : 'transparent',
             }}
           >
-            <Text numberOfLines={1} style={{ color: selected ? T.onBrand : T.textSub, fontSize: 13, fontWeight: '700' }}>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ color: selected ? T.onBrand : T.textSub, fontSize: 13, fontWeight: '700' }}>
               {t.label}
             </Text>
           </Pressable>

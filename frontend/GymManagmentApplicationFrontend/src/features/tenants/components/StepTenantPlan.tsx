@@ -55,6 +55,9 @@ export default function StepTenantPlan({ data, onChange, errors = {} }: Props) {
               key={p.value}
               onPress={() => onChange({ plan: p.value })}
               activeOpacity={0.75}
+              accessibilityRole="radio"
+              accessibilityLabel={`${p.label} plan`}
+              accessibilityState={{ checked: isSelected, selected: isSelected }}
               style={{
                 flexDirection: 'row', alignItems: 'center',
                 paddingHorizontal: 16, paddingVertical: 14,

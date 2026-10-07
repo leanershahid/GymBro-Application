@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, ImageBackground, ImageSourcePropType } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { T, withAlpha } from '../../../theme';
+import { T, R, withAlpha } from '../../../theme';
 
 interface FeaturedWorkoutCardProps {
   category: string;
@@ -20,7 +20,7 @@ export default function FeaturedWorkoutCard({
   category, title, dayLabel, exercisesCount, durationMin, calories, image, onPress, onExpand,
 }: FeaturedWorkoutCardProps) {
   return (
-    <View style={{ borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: T.line }}>
+    <View style={{ borderRadius: R.xl, overflow: 'hidden', borderWidth: 1, borderColor: T.line }}>
       <ImageBackground source={image} style={{ width: '100%' }} resizeMode="cover">
         <View style={{ backgroundColor: withAlpha(T.bg, 0.35), padding: 16 }}>
           {/* Top row: pills + expand */}

@@ -4,10 +4,11 @@
  */
 import React, { useCallback, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, Modal, ScrollView,
-  Platform, NativeSyntheticEvent, NativeScrollEvent,
+  View, Text, TouchableOpacity, ScrollView,
+  NativeSyntheticEvent, NativeScrollEvent,
 } from 'react-native';
 import { T } from '../../../theme';
+import BottomSheet from '../../common/components/BottomSheet';
 
 const ITEM_H  = 44;
 const VISIBLE = 5;
@@ -32,9 +33,11 @@ interface DrumProps {
   selectedIndex: number;
   onSelect: (i: number) => void;
   width?: number;
+  /** Screen-reader name of the column, e.g. "Hour". */
+  label?: string;
 }
 
-function Drum({ items, selectedIndex, onSelect, width = 72 }: DrumProps) {
+function Drum({ items, selectedIndex, onSelect, width = 72, label: colLabel }: DrumProps) {
   const ref    = useRef<ScrollView>(null);
   const listH  = VISIBLE * ITEM_H;
   const padded = [...Array(PAD).fill(''), ...items, ...Array(PAD).fill('')];
@@ -74,6 +77,10 @@ function Drum({ items, selectedIndex, onSelect, width = 72 }: DrumProps) {
                 }
               }}
               activeOpacity={0.7}
+              accessible={!!label}
+              accessibilityRole="button"
+              accessibilityLabel={colLabel ? `${colLabel} ${label}` : label}
+              accessibilityState={{ selected: isSelected }}
             >
               <Text style={{
                 fontSize:   isSelected ? 20 : 18,
@@ -124,36 +131,25 @@ function TimePickerModal({ visible, value, onConfirm, onClose }: ModalProps) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity className="flex-1 bg-black/60" activeOpacity={1} onPress={onClose} />
-      <View
-        className="bg-surface rounded-t-[20px]"
-        style={{ paddingBottom: Platform.OS === 'ios' ? 36 : 24 }}
-      >
-        {/* header */}
-        <View className="flex-row items-center justify-between px-5 py-4 border-b border-line">
-          <TouchableOpacity onPress={onClose}>
-            <Text className="text-[15px] text-sub">Cancel</Text>
-          </TouchableOpacity>
-          <Text className="text-[15px] font-bold text-white">Select Time</Text>
-          <TouchableOpacity onPress={handleConfirm}>
-            <Text className="text-[15px] font-bold text-brand">Done</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* drums */}
-        <View className="flex-row justify-center items-center px-5 pt-3 pb-1">
-          <Drum items={HOURS}   selectedIndex={hIdx}   onSelect={setHIdx}   width={88} />
-          <Text className="text-[28px] font-extrabold text-white px-2 mb-[2px]">:</Text>
-          <Drum items={MINUTES} selectedIndex={minIdx} onSelect={setMinIdx} width={88} />
-        </View>
-
-        {/* live preview */}
-        <Text className="text-center text-[13px] text-sub pb-2" style={{ letterSpacing: 0.5 }}>
-          {HOURS[hIdx]}:{MINUTES[minIdx]}
-        </Text>
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="Select Time"
+      leftAction={{ label: 'Cancel', onPress: onClose }}
+      rightAction={{ label: 'Done', onPress: handleConfirm, primary: true }}
+    >
+      {/* drums */}
+      <View className="flex-row justify-center items-center px-5 pt-3 pb-1">
+        <Drum items={HOURS}   selectedIndex={hIdx}   onSelect={setHIdx}   width={88} label="Hour" />
+        <Text className="text-[28px] font-extrabold text-white px-2 mb-[2px]" importantForAccessibility="no">:</Text>
+        <Drum items={MINUTES} selectedIndex={minIdx} onSelect={setMinIdx} width={88} label="Minute" />
       </View>
-    </Modal>
+
+      {/* live preview */}
+      <Text className="text-center text-[13px] text-sub pb-2" style={{ letterSpacing: 0.5 }} accessibilityLiveRegion="polite">
+        {HOURS[hIdx]}:{MINUTES[minIdx]}
+      </Text>
+    </BottomSheet>
   );
 }
 
@@ -177,8 +173,11 @@ export function TimeField({ label, value, onChange, placeholder = 'Select time' 
         }`}
         onPress={() => setOpen(true)}
         activeOpacity={0.75}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${value || placeholder}`}
+        accessibilityHint="Opens a time picker"
       >
-        <Text className={`flex-1 text-[15px] ${value ? 'text-white' : 'text-faint'}`}>
+        <Text numberOfLines={1} className={`flex-1 text-[15px] ${value ? 'text-white' : 'text-faint'}`}>
           {value || placeholder}
         </Text>
       </TouchableOpacity>

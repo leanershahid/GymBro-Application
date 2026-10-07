@@ -1,11 +1,14 @@
 import React, { useCallback, useState } from 'react';
 import {
   View, Text, ScrollView, RefreshControl,
-  ActivityIndicator, FlatList, Pressable, StatusBar, Platform,
+  FlatList, Pressable,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { T, withAlpha } from '../../../theme';
+import { T, SP } from '../../../theme';
+import { useLayout } from '../../../utils/useLayout';
+import ScreenRoot             from '../../common/components/Screen';
+import LoadingState           from '../../common/components/LoadingState';
+import BottomTabBar           from '../../common/components/BottomTabBar';
 
 import DashboardBanner        from '../components/DashboardBanner';
 import MonthlyInsightCard     from '../components/MonthlyInsightCard';
@@ -89,6 +92,8 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
   const roleLabel = isSuperAdmin(role) ? 'Super Admin' : isAdminRole(role) ? 'Administrator' : 'Staff';
   const [screen, setScreen] = useState<Screen>('home');
   const [activeTab, setActiveTab] = useState('home');
+  const { tileW, tileCols } = useLayout();
+  const quickTileW = tileW(tileCols, 10);
 
   const go = useCallback((s: Screen) => setScreen(s), []);
   const goHome = useCallback(() => { setScreen('home'); setActiveTab('home'); }, []);
@@ -125,20 +130,18 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
   if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} onLogout={onLogout} />;
 
   // ── Loading / Error states ─────────────────────────────────────
-  if (loading && !data) return (
-    <View style={{ flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center' }}>
-      <ActivityIndicator size="large" color={T.brand} />
-    </View>
-  );
+  if (loading && !data) return <LoadingState fullScreen label="Loading dashboard" />;
 
   if (error && !data) return (
-    <View style={{ flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
-      <Text style={{ color: T.text, fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>Something went wrong</Text>
-      <Text style={{ color: T.textSub, fontSize: 14, textAlign: 'center', marginBottom: 24 }}>{error}</Text>
-      <Pressable onPress={refresh} style={{ backgroundColor: T.brand, borderRadius: 999, paddingHorizontal: 28, paddingVertical: 14 }}>
-        <Text style={{ color: T.onBrand, fontSize: 16, fontWeight: '700' }}>Try again</Text>
-      </Pressable>
-    </View>
+    <ScreenRoot style={{ justifyContent: 'center' }}>
+      <EmptyState
+        icon="alert-triangle"
+        tone="error"
+        title="Something went wrong"
+        subtitle={error}
+        action={{ label: 'Try again', onPress: refresh }}
+      />
+    </ScreenRoot>
   );
 
   if (!data) return null;
@@ -146,16 +149,15 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
   const { stats, revenueTrend, branches, recentMembers } = data;
 
   return (
-    <View style={{ flex: 1, backgroundColor: T.bg, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
-
+    <ScreenRoot>
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: SP.xl, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={T.brand} colors={[T.brand]} />}
       >
         {/* Header */}
-        <View style={{ paddingTop: 16, marginBottom: 20 }}>
+        <View style={{ paddingTop: 16, marginBottom: 24 }}>
           <DashboardBanner
             adminName={adminName}
             roleLabel={roleLabel}
@@ -166,7 +168,7 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
         </View>
 
         {/* Monthly insight (replaces the old plain headline text) */}
-        <View style={{ marginBottom: 20 }}>
+        <View style={{ marginBottom: 24 }}>
           <MonthlyInsightCard
             growthPct={stats.revenueGrowthPct}
             activeBranches={stats.activeBranches}
@@ -200,8 +202,9 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             {actions.map(q => (
               <Pressable key={q.screen} onPress={() => go(q.screen as Screen)}
+                accessibilityRole="button" accessibilityLabel={q.label}
                 style={({ pressed }) => ({
-                  flexGrow: 1, flexBasis: '22%', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 14,
+                  width: quickTileW, alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 14,
                   backgroundColor: pressed ? T.brandDim : T.bgInput,
                   borderRadius: 18, borderWidth: 1,
                   borderColor: pressed ? T.brandBorder : T.line,
@@ -230,7 +233,7 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
         </View>
 
         {/* Recent sign-ups */}
-        <View style={{ marginBottom: 12 }}>
+        <View style={{ marginBottom: 24 }}>
           <SectionHeader title="Recent sign-ups" onPressAction={() => go('members')} />
           {recentMembers.length === 0 ? (
             <EmptyState icon="user-plus" title="No sign-ups yet" subtitle="New members will show up here as they join." />
@@ -242,45 +245,8 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
         </View>
       </ScrollView>
 
-      {/* ── Bottom nav ── */}
-      <View style={{
-        position: 'absolute', bottom: Platform.OS === 'ios' ? 32 : 20,
-        left: 24, right: 24,
-        backgroundColor: withAlpha(T.bg, 0.92),
-        borderRadius: 36, borderWidth: 1, borderColor: withAlpha(T.ok, 0.25),
-        flexDirection: 'row', alignItems: 'center',
-        paddingVertical: 10, paddingHorizontal: 8,
-        shadowColor: T.shadow, shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.55, shadowRadius: 24, elevation: 18,
-      }}>
-        {NAV_ITEMS.map((item) => {
-          const isActive = activeTab === item.key;
-          const isHub    = item.key === 'hub';
-          return (
-            <Pressable key={item.key} onPress={() => handleTab(item.key)} hitSlop={8}
-              style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
-              accessibilityRole="button" accessibilityLabel={item.label}>
-              {isHub ? (
-                <LinearGradient
-                  colors={T.brandGradient}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', shadowColor: T.brand, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 8 }}
-                >
-                  <Feather name="plus" size={22} color={T.onBrand} />
-                </LinearGradient>
-              ) : (
-                <View style={{ alignItems: 'center', justifyContent: 'center', height: 44 }}>
-                  <View style={{ width: 44, height: 36, borderRadius: 18, backgroundColor: isActive ? T.brandDim : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-                    <Feather name={item.icon} size={21} color={isActive ? T.brand : T.textSub} />
-                  </View>
-                  {/* Active indicator dot */}
-                  {isActive && <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: T.brand, marginTop: 2 }} />}
-                </View>
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
+      {/* ── Bottom nav — shared tab bar (same style as the member/trainer apps) ── */}
+      <BottomTabBar tabs={NAV_ITEMS} active={activeTab} onChange={handleTab} />
+    </ScreenRoot>
   );
 }

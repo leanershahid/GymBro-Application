@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, ImageBackground } from 'react-native';
+import { View, Text, Pressable, ImageBackground, useWindowDimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { T, Shadow, withAlpha } from '../../../theme';
 import { BranchSummary } from '../types/dashboard';
@@ -9,6 +9,8 @@ interface BranchCardProps {
   onPress?: () => void;
   /** Called when the overflow ("...") icon is tapped — currently a visual affordance with no menu wired up yet. */
   onPressMore?: () => void;
+  /** Card width; defaults to ~44% of the screen (max 220) so two cards and a peek fit. */
+  width?: number;
 }
 
 function formatRevenue(value: number): string {
@@ -33,7 +35,9 @@ const BRANCH_IMAGES = [
   require('../../../assets/dashboard/hero-athlete.jpg'),
 ];
 
-export default function BranchCard({ branch, onPress, onPressMore }: BranchCardProps) {
+export default function BranchCard({ branch, onPress, onPressMore, width }: BranchCardProps) {
+  const { width: screenW } = useWindowDimensions();
+  const cardWidth = width ?? Math.min(Math.round(screenW * 0.44), 220);
   const occupancyColor =
     branch.occupancyPct >= 80 ? T.brand :
     branch.occupancyPct >= 50 ? T.brandGold : T.err;
@@ -43,9 +47,9 @@ export default function BranchCard({ branch, onPress, onPressMore }: BranchCardP
   return (
     <Pressable
       onPress={onPress}
-      style={[glass, { borderRadius: 20, overflow: 'hidden', marginRight: 12, width: 172 }]}
+      style={[glass, { borderRadius: 20, overflow: 'hidden', marginRight: 12, width: cardWidth }]}
       accessibilityRole="button"
-      accessibilityLabel={branch.name}
+      accessibilityLabel={`${branch.name}, ${branch.city}, ${branch.isOpen ? 'open' : 'closed'}`}
     >
       <ImageBackground source={image} style={{ width: '100%', height: 72 }} imageStyle={{ opacity: 0.55 }} resizeMode="cover">
         <View style={{ flex: 1, backgroundColor: withAlpha(T.bg, 0.35), padding: 10, flexDirection: 'row', justifyContent: 'flex-end' }}>
@@ -93,7 +97,7 @@ export default function BranchCard({ branch, onPress, onPressMore }: BranchCardP
         {/* Members */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
           <Feather name="users" size={13} color={T.textFaint} />
-          <Text style={{ color: T.textSub, fontSize: 12, marginLeft: 5 }}>{branch.memberCount} members</Text>
+          <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 12, marginLeft: 5 }}>{branch.memberCount} members</Text>
         </View>
 
         {/* Revenue */}

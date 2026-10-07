@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, ImageBackground, ImageSourcePropType } from 'react-native';
 import DashboardHeader from './Dashboardheader';
-import { T, withAlpha } from '../../../theme';
+import { T, R, withAlpha } from '../../../theme';
 
 interface DashboardBannerProps {
   adminName: string;
@@ -21,7 +21,7 @@ const DEFAULT_IMAGE = require('../../../assets/dashboard/hero-athlete.jpg');
  */
 export default function DashboardBanner({ image = DEFAULT_IMAGE, ...headerProps }: DashboardBannerProps) {
   return (
-    <View style={{ borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: T.line }}>
+    <View style={{ borderRadius: R.xl, overflow: 'hidden', borderWidth: 1, borderColor: T.line }}>
       <ImageBackground source={image} style={{ width: '100%' }} imageStyle={{ opacity: 0.55 }} resizeMode="cover">
         <View style={{ backgroundColor: withAlpha(T.bg, 0.45), minHeight: 112, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 18 }}>
           <DashboardHeader {...headerProps} />

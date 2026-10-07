@@ -28,6 +28,8 @@ export default function RecentMemberRow({ member, onPress }: RecentMemberRowProp
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${member.name}, ${member.branchName}, joined ${member.joinedAgo}, ${s.label}`}
       style={[glass, {
         flexDirection: 'row',
         alignItems: 'center',
