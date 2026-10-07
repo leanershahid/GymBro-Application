@@ -23,8 +23,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Infrastructure.Data;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? currentUser = null) : DbContext(options)
+public class AppDbContext : DbContext
 {
+    private readonly ICurrentUser? currentUser;
+
+    public AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? currentUser = null) : base(options)
+    {
+        this.currentUser = currentUser;
+        ChangeTracker.Tracking += AssignIdOnTracking;
+    }
+
     // ── Tenant isolation ────────────────────────────────────────────────────
     // Every entity with a CLR TenantId gets a global query filter (see ApplyTenantFilters).
     // Evaluated per DbContext instance, i.e. per request:
@@ -487,69 +495,60 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
     }
 
     // ── Id generation ───────────────────────────────────────────────────────
-    // ulong PKs are ValueGenerated.Never (numeric(20,0), no identity), so any new row
-    // still carrying Id 0 is assigned MAX(Id)+1 here. Repositories that already set an
-    // Id are left alone.
-    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    // ulong PKs are ValueGenerated.Never (numeric(20,0), no identity). A new row still carrying
+    // Id 0 gets MAX(Id)+1 the moment it starts being tracked — before tracking, so several new
+    // rows can be added in one unit of work without clashing on key 0. MAX is read once per
+    // table per context (unfiltered, so other tenants' rows count) and then incremented
+    // locally. Code that already sets an Id is left alone.
+    private readonly Dictionary<string, ulong> _nextIds = [];
+
+    private void AssignIdOnTracking(object? sender, Microsoft.EntityFrameworkCore.ChangeTracking.EntityTrackingEventArgs e)
     {
-        await AssignMissingIdsAsync(cancellationToken);
-        return await base.SaveChangesAsync(cancellationToken);
+        if (e.State != EntityState.Added) return;
+        var key = e.Entry.Metadata.FindPrimaryKey();
+        if (key is not { Properties.Count: 1 } || key.Properties[0].Name != "Id" || key.Properties[0].ClrType != typeof(ulong))
+            return;
+
+        var idProp = e.Entry.Property("Id");
+        if ((ulong)idProp.CurrentValue! != 0UL) return;
+
+        var table = e.Entry.Metadata.GetTableName();
+        if (table is null) return;
+        var schema = e.Entry.Metadata.GetSchema();
+        var qualified = schema is null ? $"\"{table}\"" : $"\"{schema}\".\"{table}\"";
+
+        if (!_nextIds.TryGetValue(qualified, out var next))
+            next = ReadMaxId(qualified) + 1;
+
+        // Never hand out an id an explicitly-numbered row in this context already holds.
+        var trackedMax = ChangeTracker.Entries()
+            .Where(x => x.Metadata == e.Entry.Metadata)
+            .Select(x => (ulong)x.Property("Id").CurrentValue!)
+            .DefaultIfEmpty(0UL)
+            .Max();
+        next = Math.Max(next, trackedMax + 1);
+
+        idProp.CurrentValue = next;
+        _nextIds[qualified] = next + 1;
     }
 
-    public override int SaveChanges()
-    {
-        AssignMissingIdsAsync(CancellationToken.None).GetAwaiter().GetResult();
-        return base.SaveChanges();
-    }
-
-    private async Task AssignMissingIdsAsync(CancellationToken ct)
-    {
-        var pending = ChangeTracker.Entries()
-            .Where(e => e.State == EntityState.Added)
-            .Select(e => (Entry: e, Key: e.Metadata.FindPrimaryKey()))
-            .Where(x => x.Key is { Properties.Count: 1 }
-                        && x.Key.Properties[0].Name == "Id"
-                        && x.Key.Properties[0].ClrType == typeof(ulong)
-                        && (ulong)x.Entry.Property("Id").CurrentValue! == 0UL)
-            .GroupBy(x => x.Entry.Metadata)
-            .ToList();
-
-        foreach (var group in pending)
-        {
-            var table = group.Key.GetTableName();
-            if (table is null) continue;
-            var schema = group.Key.GetSchema();
-            var qualified = schema is null ? $"\"{table}\"" : $"\"{schema}\".\"{table}\"";
-
-            // Rows added in this same unit of work may already hold explicit ids.
-            var trackedMax = ChangeTracker.Entries()
-                .Where(e => e.Metadata == group.Key && e.State == EntityState.Added)
-                .Select(e => (ulong)e.Property("Id").CurrentValue!)
-                .DefaultIfEmpty(0UL)
-                .Max();
-
-            var next = Math.Max(await GetMaxIdAsync(qualified, ct), trackedMax) + 1;
-            foreach (var (entry, _) in group)
-                entry.Property("Id").CurrentValue = next++;
-        }
-    }
-
-    private async Task<ulong> GetMaxIdAsync(string qualifiedTable, CancellationToken ct)
+    private ulong ReadMaxId(string qualifiedTable)
     {
         var conn = Database.GetDbConnection();
         var wasOpen = conn.State == System.Data.ConnectionState.Open;
-        if (!wasOpen) await conn.OpenAsync(ct);
+        if (!wasOpen) conn.Open();
         try
         {
-            await using var cmd = conn.CreateCommand();
+            using var cmd = conn.CreateCommand();
             cmd.CommandText = $"SELECT COALESCE(MAX(\"Id\"), 0) FROM {qualifiedTable}";
-            if (Database.CurrentTransaction is { } tx) cmd.Transaction = Microsoft.EntityFrameworkCore.Storage.DbContextTransactionExtensions.GetDbTransaction(tx);
-            var result = await cmd.ExecuteScalarAsync(ct);
+            if (Database.CurrentTransaction is { } tx)
+                cmd.Transaction = Microsoft.EntityFrameworkCore.Storage.DbContextTransactionExtensions.GetDbTransaction(tx);
+            var result = cmd.ExecuteScalar();
             return result is DBNull or null ? 0UL : (ulong)Convert.ToDecimal(result);
         }
         finally
         {
-            if (!wasOpen) await conn.CloseAsync();
+            if (!wasOpen) conn.Close();
         }
     }
 }
