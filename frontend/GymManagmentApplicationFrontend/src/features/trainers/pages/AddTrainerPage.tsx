@@ -15,7 +15,7 @@ import StepBookingCommission from '../components/StepBookingCommission';
 import StepCertDocuments from '../components/StepCertDocuments';
 import StepMiscellaneous from '../components/StepMiscellaneous';
 import BranchDropdown from '../../branches/components/BranchDropdown';
-import { Branch } from '../../branches/types/branch.types';import { T } from '../components/theme';
+import { Branch } from '../../branches/types/branch.types';import { T } from '../../../theme';
 import { isValidEmail } from '../../../utils/validation';
 
 // ─── Steps ────────────────────────────────────────────────────────

@@ -8,11 +8,11 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before 
 
 Feature-based modules under `src/features/{auth,branches,common,dashboard,tenants,trainers}/`, each with `api/`, `components/`, `types/` subdirs (some also have `hooks/`, `pages/`). Shared layer at `src/api/` (axios instance, endpoints, query keys) and `src/config.ts` (hardcoded API base URL).
 
-Design system doc at `src/context.md` — dark mode only, `#AAFF00` accent, 390×844 base. Components use `scaleW/scaleH/rs` helpers for responsive sizing.
+Design system doc at `src/context.md` — dark mode only, `#7ED321` green accent (green→gold gradient), 390×844 base. Components use `scaleW/scaleH/rs` helpers for responsive sizing.
 
 # Styling
 
-NativeWind v4 (Tailwind for RN). Configured in `babel.config.js` (`nativewind/babel` preset) and `metro.config.js` (`withNativeWind`). Run `npx expo start --clear` to reset metro cache if styles don't update. Custom Tailwind theme (dark palette) in `tailwind.config.js`. Design tokens also available as `T` import from `src/features/trainers/components/theme.ts`.
+NativeWind v4 (Tailwind for RN). Configured in `babel.config.js` (`nativewind/babel` preset) and `metro.config.js` (`withNativeWind`). Run `npx expo start --clear` to reset metro cache if styles don't update. Custom Tailwind theme (dark palette) in `tailwind.config.js`. Design tokens: import `T`, `withAlpha` (and `Shadow`, `TY`, `SP`, `R`) from `src/theme.ts` — never hardcode hex/rgba colours in screens.
 
 # API & data
 

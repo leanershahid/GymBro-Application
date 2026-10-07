@@ -10,23 +10,24 @@ import BackButton from '../../common/components/BackButton';
 import PaginationFooter from '../../common/components/PaginationFooter';
 import Skeleton from '../../common/components/Skeleton';
 import { getDifficultyColor } from '../../common/constants/statusColors';
+import { T, withAlpha } from '../../../theme';
 
 const GOAL_COLOR: Record<string, string> = {
-  general: '#AAAAAA', weightloss: '#22D3EE', musclegain: '#7ED321', endurance: '#FACC15',
+  general: T.textSub, weightloss: T.sky, musclegain: T.brand, endurance: T.brandGold,
 };
 
 function PlanCard({ plan, onPress }: { plan: WorkoutPlan; onPress: () => void }) {
   const goal  = plan.goal?.toLowerCase() ?? 'general';
   const diff  = plan.difficulty?.toLowerCase() ?? 'beginner';
-  const gc    = GOAL_COLOR[goal] ?? '#AAAAAA';
+  const gc    = GOAL_COLOR[goal] ?? T.textSub;
   const dc    = getDifficultyColor(diff);
 
   return (
     <Pressable onPress={onPress}
       style={({ pressed }) => ({
-        backgroundColor: pressed ? '#1C211C' : '#151915',
+        backgroundColor: pressed ? T.bgInputActive : T.bgInput,
         borderRadius: 20, padding: 16, marginBottom: 12,
-        borderWidth: 1, borderColor: pressed ? 'rgba(126,211,33,0.20)' : '#1C211C',
+        borderWidth: 1, borderColor: pressed ? withAlpha(T.brand, 0.20) : T.bgInputActive,
       })}>
       {/* Accent bar */}
       <View style={{ height: 3, backgroundColor: gc, borderRadius: 2, marginBottom: 14, width: 40 }} />
@@ -37,9 +38,9 @@ function PlanCard({ plan, onPress }: { plan: WorkoutPlan; onPress: () => void })
           {!!plan.description && <Text className="text-sub text-[12px] mt-1" numberOfLines={2}>{plan.description}</Text>}
         </View>
         {/* Duration badge */}
-        <View style={{ backgroundColor: 'rgba(126,211,33,0.10)', borderWidth: 1, borderColor: 'rgba(126,211,33,0.25)', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center' }}>
-          <Text style={{ color: '#7ED321', fontSize: 18, fontWeight: '900' }}>{plan.durationWeeks}</Text>
-          <Text style={{ color: '#AAAAAA', fontSize: 9, fontWeight: '600' }}>WKS</Text>
+        <View style={{ backgroundColor: withAlpha(T.brand, 0.10), borderWidth: 1, borderColor: withAlpha(T.brand, 0.25), borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center' }}>
+          <Text style={{ color: T.brand, fontSize: 18, fontWeight: '900' }}>{plan.durationWeeks}</Text>
+          <Text style={{ color: T.textSub, fontSize: 9, fontWeight: '600' }}>WKS</Text>
         </View>
       </View>
 
@@ -54,8 +55,8 @@ function PlanCard({ plan, onPress }: { plan: WorkoutPlan; onPress: () => void })
             <Text style={{ color: dc, fontSize: 10, fontWeight: '700' }}>{plan.difficulty}</Text>
           </View>
         )}
-        <View style={{ backgroundColor: plan.isActive ? 'rgba(126,211,33,0.10)' : '#1C211C', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: plan.isActive ? 'rgba(126,211,33,0.25)' : '#242B24' }}>
-          <Text style={{ color: plan.isActive ? '#7ED321' : '#555', fontSize: 10, fontWeight: '600' }}>
+        <View style={{ backgroundColor: plan.isActive ? withAlpha(T.brand, 0.10) : T.bgInputActive, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: plan.isActive ? withAlpha(T.brand, 0.25) : T.line }}>
+          <Text style={{ color: plan.isActive ? T.brand : T.textFaint, fontSize: 10, fontWeight: '600' }}>
             {plan.isActive ? 'Active' : 'Inactive'}
           </Text>
         </View>
@@ -75,7 +76,7 @@ export default function ViewPlansPage({ onBack, onAddPlan }: Props) {
 
   return (
     <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0F0A" />
+      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
 
       <View className="px-5 pt-5 pb-4">
         <View className="flex-row items-center justify-between mb-5">
@@ -86,7 +87,7 @@ export default function ViewPlansPage({ onBack, onAddPlan }: Props) {
           </View>
           {onAddPlan && (
             <Pressable onPress={onAddPlan} className="flex-row items-center gap-2 bg-brand rounded-full px-4 py-2.5">
-              <Feather name="plus" size={15} color="#000" />
+              <Feather name="plus" size={15} color={T.onBrand} />
               <Text className="text-black text-[13px] font-bold">Add</Text>
             </Pressable>
           )}
@@ -108,7 +109,7 @@ export default function ViewPlansPage({ onBack, onAddPlan }: Props) {
         {isLoading && <Skeleton rows={4} height={110} borderRadius={20} gap={12} />}
         {isError && (
           <View className="items-center pt-16">
-            <Feather name="wifi-off" size={28} color="#EF4444" />
+            <Feather name="wifi-off" size={28} color={T.err} />
             <Text className="text-white font-bold mt-4 mb-4">Failed to load</Text>
             <Pressable onPress={() => refetch()} className="bg-brand rounded-full px-7 py-3">
               <Text className="text-black font-bold">Retry</Text>
@@ -118,7 +119,7 @@ export default function ViewPlansPage({ onBack, onAddPlan }: Props) {
         {!isLoading && !isError && items.length === 0 && (
           <View className="items-center pt-16">
             <View className="w-[68px] h-[68px] rounded-full bg-surface border border-line items-center justify-center mb-4">
-              <Feather name="book-open" size={28} color="#AAA" />
+              <Feather name="book-open" size={28} color={T.textSub} />
             </View>
             <Text className="text-white text-[16px] font-bold">No plans yet</Text>
           </View>

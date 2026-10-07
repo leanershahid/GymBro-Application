@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { TrainerPayload } from '../types/trainer.types';
-import { T } from './theme';
+import { T } from '../../../theme';
 
 type MCIcon = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -64,8 +64,8 @@ function StatTile({ icon, label, value, onChange }: {
       className="flex-1 items-center py-[14px] px-[10px] rounded-xl border gap-1"
       style={{
         minWidth: '45%',
-        borderColor: focused ? '#444444' : T.line,
-        backgroundColor: focused ? '#1C211C' : T.bgInput,
+        borderColor: focused ? T.textDisabled : T.line,
+        backgroundColor: focused ? T.bgInputActive : T.bgInput,
       }}
     >
       <MaterialCommunityIcons name={icon} size={18} color={focused ? T.textSub : T.textFaint} />
@@ -177,7 +177,7 @@ export default function StepBookingCommission({ data, onChange }: Props) {
         <PermissionCard icon="star-circle-outline" label="Trial Sessions"    sub="Free intro"        value={bs.canTakeTrialSessions ?? false}     onValueChange={(v) => updateBs({ canTakeTrialSessions: v })} />
 
         <TouchableOpacity
-          className="flex-row items-center gap-3 pt-3 mt-1 border-t border-[#151915]"
+          className="flex-row items-center gap-3 pt-3 mt-1 border-t border-input"
           onPress={() => updateBs({ requiresApprovalForBooking: !bs.requiresApprovalForBooking })}
           activeOpacity={0.75}
         >
@@ -194,14 +194,14 @@ export default function StepBookingCommission({ data, onChange }: Props) {
           <Switch
             value={bs.requiresApprovalForBooking ?? false}
             onValueChange={(v) => updateBs({ requiresApprovalForBooking: v })}
-            trackColor={{ false: '#2A2A2A', true: T.brand }}
-            thumbColor={bs.requiresApprovalForBooking ? T.onBrand : '#FFFFFF'}
-            ios_backgroundColor="#2A2A2A"
+            trackColor={{ false: T.line, true: T.brand }}
+            thumbColor={bs.requiresApprovalForBooking ? T.onBrand : T.text}
+            ios_backgroundColor={T.line}
           />
         </TouchableOpacity>
       </Block>
 
-      <View className="h-px bg-[#151915] mx-5" />
+      <View className="h-px bg-input mx-5" />
 
       <Block num="02" title="Session Limits">
         <View className="flex-row flex-wrap gap-[10px]">
@@ -213,7 +213,7 @@ export default function StepBookingCommission({ data, onChange }: Props) {
         </View>
       </Block>
 
-      <View className="h-px bg-[#151915] mx-5" />
+      <View className="h-px bg-input mx-5" />
 
       <Block num="03" title="Commission Eligibility">
         <PermissionCard icon="card-account-details-outline" label="Membership"    sub="Membership sales" value={cs.eligibleForMembershipCommission ?? false}       onValueChange={(v) => updateCs({ eligibleForMembershipCommission: v })} />
@@ -221,7 +221,7 @@ export default function StepBookingCommission({ data, onChange }: Props) {
         <PermissionCard icon="pill"                         label="Supplements"   sub="Product sales"     value={cs.eligibleForSupplementCommission ?? false}       onValueChange={(v) => updateCs({ eligibleForSupplementCommission: v })} />
       </Block>
 
-      <View className="h-px bg-[#151915] mx-5" />
+      <View className="h-px bg-input mx-5" />
 
       <Block num="04" title="Commission Rates">
         <Slider icon="card-account-details" label="Membership"       value={cs.membershipCommissionPercentage ?? 0} onChange={(v) => updateCs({ membershipCommissionPercentage: v })} />

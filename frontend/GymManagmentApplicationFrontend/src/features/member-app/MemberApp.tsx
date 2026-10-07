@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Pressable, Text, Platform, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { T } from '../trainers/components/theme';
+import { T } from '../../theme';
 import { ModuleAccessProvider, useModuleAccess } from '../module-access/context/ModuleAccessContext';
 import HomeScreen          from './screens/HomeScreen';
 import TrainScreen         from './screens/TrainScreen';
@@ -159,9 +159,9 @@ function MemberAppContent({ userId, onLogout }: Props) {
 const S = StyleSheet.create({
   tabBar: {
     flexDirection:   'row',
-    backgroundColor: '#111111',
+    backgroundColor: T.bgNav,
     borderTopWidth:  1,
-    borderTopColor:  '#151915',
+    borderTopColor:  T.bgInput,
     paddingBottom:   Platform.OS === 'ios' ? 24 : 8,
     paddingTop:      10,
     paddingHorizontal: 4,
@@ -180,14 +180,14 @@ const S = StyleSheet.create({
     width: 38, height: 38, borderRadius: 19,
     alignItems: 'center', justifyContent: 'center',
     marginTop: -14,
-    shadowColor: '#7ED321', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 8,
+    shadowColor: T.brand, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 8,
   },
   tabLabel: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#666666',
+    color: T.textFaint,
   },
   tabLabelActive: {
-    color: '#7ED321',
+    color: T.brand,
   },
 });

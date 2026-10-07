@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, StatusBar, Platform, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 import { useTrainers } from '../../trainers/api/trainerQueries';
 import { useMembers } from '../../members/api/memberQueries';
 import BackButton from '../../common/components/BackButton';

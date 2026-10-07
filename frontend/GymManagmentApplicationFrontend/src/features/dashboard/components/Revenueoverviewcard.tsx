@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, LayoutChangeEvent } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T, Shadow } from '../../trainers/components/theme';
+import { T, Shadow, withAlpha } from '../../../theme';
 import AreaChart from './AreaChart';
 import { RevenueTrendPoint } from '../types/dashboard';
 
@@ -87,9 +87,9 @@ export default function RevenueOverviewCard({
         <View style={{
           flexDirection: 'row', alignItems: 'center',
           borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginRight: 10,
-          backgroundColor: isPositive ? 'rgba(126,211,33,0.12)' : 'rgba(255,77,77,0.12)',
+          backgroundColor: isPositive ? withAlpha(T.brand, 0.12) : withAlpha(T.err, 0.12),
           borderWidth: 1,
-          borderColor: isPositive ? 'rgba(126,211,33,0.25)' : 'rgba(255,77,77,0.25)',
+          borderColor: isPositive ? withAlpha(T.brand, 0.25) : withAlpha(T.err, 0.25),
         }}>
           <Feather
             name={isPositive ? 'trending-up' : 'trending-down'}

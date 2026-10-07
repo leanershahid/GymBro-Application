@@ -1,5 +1,6 @@
 import { Pressable, PressableProps } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { T } from '../../../theme';
 
 interface Props extends Omit<PressableProps, 'onPress'> {
   onPress: () => void;
@@ -15,7 +16,7 @@ export default function BackButton({ onPress, ...rest }: Props) {
       className="w-[38px] h-[38px] rounded-full bg-surface border border-line items-center justify-center mr-3"
       {...rest}
     >
-      <Feather name="arrow-left" size={18} color="#FFF" />
+      <Feather name="arrow-left" size={18} color={T.text} />
     </Pressable>
   );
 }

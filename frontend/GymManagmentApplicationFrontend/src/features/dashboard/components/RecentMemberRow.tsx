@@ -1,13 +1,13 @@
 import React from 'react';
 import { View, Text, Image, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T, Shadow } from '../../trainers/components/theme';
+import { T, Shadow, withAlpha } from '../../../theme';
 import { RecentMember } from '../types/dashboard';
 
 const STATUS: Record<RecentMember['status'], { label: string; bg: string; border: string; color: string }> = {
-  active:  { label: 'Active',  bg: 'rgba(126,211,33,0.10)',  border: 'rgba(126,211,33,0.25)',  color: T.brand    },
-  pending: { label: 'Pending', bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.12)', color: T.textSub },
-  overdue: { label: 'Overdue', bg: T.errDim,   border: 'rgba(239,68,68,0.25)',   color: T.err  },
+  active:  { label: 'Active',  bg: withAlpha(T.brand, 0.10),  border: withAlpha(T.brand, 0.25),  color: T.brand    },
+  pending: { label: 'Pending', bg: withAlpha(T.text, 0.06), border: withAlpha(T.text, 0.12), color: T.textSub },
+  overdue: { label: 'Overdue', bg: T.errDim,   border: withAlpha(T.err, 0.25),   color: T.err  },
 };
 
 interface RecentMemberRowProps {

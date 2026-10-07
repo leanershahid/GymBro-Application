@@ -9,19 +9,20 @@ import { Member } from '../types/member.types';
 import BackButton from '../../common/components/BackButton';
 import Skeleton from '../../common/components/Skeleton';
 import ManageUserAccessPage from '../../module-access/pages/ManageUserAccessPage';
+import { T, withAlpha } from '../../../theme';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
-const TINTS = ['#7ED321', '#22D3EE', '#A78BFA', '#FACC15', '#F87171'];
+const TINTS = [T.brand, T.sky, T.violet, T.brandGold, T.err];
 const tint  = (id: number) => TINTS[id % TINTS.length];
 
 function StatusBadge({ status }: { status: string }) {
   const s = status.toLowerCase();
   const active  = s === 'active';
   const pending = s === 'pending';
-  const color  = active ? '#7ED321' : pending ? '#FACC15' : '#AAAAAA';
-  const bg     = active ? 'rgba(126,211,33,0.12)' : pending ? 'rgba(250,204,21,0.12)' : 'rgba(255,255,255,0.07)';
-  const border = active ? 'rgba(126,211,33,0.28)' : pending ? 'rgba(250,204,21,0.28)' : 'rgba(255,255,255,0.12)';
+  const color  = active ? T.brand : pending ? T.brandGold : T.textSub;
+  const bg     = active ? withAlpha(T.brand, 0.12) : pending ? withAlpha(T.brandGold, 0.12) : withAlpha(T.text, 0.07);
+  const border = active ? withAlpha(T.brand, 0.28) : pending ? withAlpha(T.brandGold, 0.28) : withAlpha(T.text, 0.12);
   return (
     <View style={{ backgroundColor: bg, borderWidth: 1, borderColor: border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -41,9 +42,9 @@ function MemberCard({ member, onPress }: { member: Member; onPress: () => void }
       onPress={onPress}
       style={({ pressed }) => ({
         flexDirection: 'row', alignItems: 'center',
-        backgroundColor: pressed ? '#1C211C' : '#151915',
+        backgroundColor: pressed ? T.bgInputActive : T.bgInput,
         borderRadius: 18, padding: 14, marginBottom: 10,
-        borderWidth: 1, borderColor: pressed ? 'rgba(126,211,33,0.20)' : '#1C211C',
+        borderWidth: 1, borderColor: pressed ? withAlpha(T.brand, 0.20) : T.bgInputActive,
       })}
     >
       {/* Avatar */}
@@ -65,7 +66,7 @@ function MemberCard({ member, onPress }: { member: Member; onPress: () => void }
         <Text className="text-sub text-[12px] mt-0.5" numberOfLines={1}>{member.email}</Text>
         {!!member.phone && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
-            <Feather name="phone" size={11} color="#777777" />
+            <Feather name="phone" size={11} color={T.textFaint} />
             <Text className="text-faint text-[11px]">{member.phone}</Text>
           </View>
         )}
@@ -76,9 +77,9 @@ function MemberCard({ member, onPress }: { member: Member; onPress: () => void }
         <StatusBadge status={member.status} />
         {/* Show trainer badge if assigned */}
         {!!member.trainerId && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(34,211,238,0.10)', borderWidth: 1, borderColor: 'rgba(34,211,238,0.25)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-            <Feather name="award" size={10} color="#22D3EE" />
-            <Text style={{ color: '#22D3EE', fontSize: 10, fontWeight: '700' }}>T#{member.trainerId}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: withAlpha(T.sky, 0.10), borderWidth: 1, borderColor: withAlpha(T.sky, 0.25), borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+            <Feather name="award" size={10} color={T.sky} />
+            <Text style={{ color: T.sky, fontSize: 10, fontWeight: '700' }}>T#{member.trainerId}</Text>
           </View>
         )}
         <Text className="text-faint text-[10px]">
@@ -94,17 +95,17 @@ function PaginationBar({ page, total, onPrev, onNext }: { page: number; total: n
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginVertical: 20 }}>
       <Pressable onPress={onPrev} disabled={page <= 1}
-        style={{ paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: page <= 1 ? '#151915' : 'rgba(126,211,33,0.12)', borderWidth: 1, borderColor: page <= 1 ? '#242B24' : 'rgba(126,211,33,0.30)', opacity: page <= 1 ? 0.4 : 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-        <Feather name="chevron-left" size={15} color={page <= 1 ? '#444' : '#7ED321'} />
-        <Text style={{ color: page <= 1 ? '#444' : '#7ED321', fontSize: 13, fontWeight: '700' }}>Prev</Text>
+        style={{ paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: page <= 1 ? T.bgInput : withAlpha(T.brand, 0.12), borderWidth: 1, borderColor: page <= 1 ? T.line : withAlpha(T.brand, 0.30), opacity: page <= 1 ? 0.4 : 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+        <Feather name="chevron-left" size={15} color={page <= 1 ? T.textDisabled : T.brand} />
+        <Text style={{ color: page <= 1 ? T.textDisabled : T.brand, fontSize: 13, fontWeight: '700' }}>Prev</Text>
       </Pressable>
-      <View style={{ paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999, backgroundColor: '#7ED321' }}>
-        <Text style={{ color: '#000', fontSize: 13, fontWeight: '900' }}>{page} / {total}</Text>
+      <View style={{ paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999, backgroundColor: T.brand }}>
+        <Text style={{ color: T.onBrand, fontSize: 13, fontWeight: '900' }}>{page} / {total}</Text>
       </View>
       <Pressable onPress={onNext} disabled={page >= total}
-        style={{ paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: page >= total ? '#151915' : 'rgba(126,211,33,0.12)', borderWidth: 1, borderColor: page >= total ? '#242B24' : 'rgba(126,211,33,0.30)', opacity: page >= total ? 0.4 : 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-        <Text style={{ color: page >= total ? '#444' : '#7ED321', fontSize: 13, fontWeight: '700' }}>Next</Text>
-        <Feather name="chevron-right" size={15} color={page >= total ? '#444' : '#7ED321'} />
+        style={{ paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: page >= total ? T.bgInput : withAlpha(T.brand, 0.12), borderWidth: 1, borderColor: page >= total ? T.line : withAlpha(T.brand, 0.30), opacity: page >= total ? 0.4 : 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+        <Text style={{ color: page >= total ? T.textDisabled : T.brand, fontSize: 13, fontWeight: '700' }}>Next</Text>
+        <Feather name="chevron-right" size={15} color={page >= total ? T.textDisabled : T.brand} />
       </Pressable>
     </View>
   );
@@ -134,7 +135,7 @@ export default function ViewMembersPage({ onBack, onAddMember }: Props) {
 
   return (
     <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0F0A" />
+      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
 
       {/* Header */}
       <View className="px-5 pt-5 pb-4">
@@ -145,11 +146,11 @@ export default function ViewMembersPage({ onBack, onAddMember }: Props) {
             <Text className="text-white text-[26px] font-extrabold tracking-tight">All Members</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {isFetching && !isLoading && <ActivityIndicator size="small" color="#7ED321" />}
+            {isFetching && !isLoading && <ActivityIndicator size="small" color={T.brand} />}
             {onAddMember && (
               <Pressable onPress={onAddMember}
                 className="flex-row items-center gap-2 bg-brand rounded-full px-4 py-2.5">
-                <Feather name="plus" size={15} color="#000" />
+                <Feather name="plus" size={15} color={T.onBrand} />
                 <Text className="text-black text-[13px] font-bold">Add</Text>
               </Pressable>
             )}
@@ -165,7 +166,7 @@ export default function ViewMembersPage({ onBack, onAddMember }: Props) {
               { label: 'Shown', value: String(items.length), icon: 'eye' as FeatherIconName },
             ].map((s) => (
               <View key={s.label} className="flex-1 bg-surface border border-line rounded-2xl p-3 items-center gap-1">
-                <Feather name={s.icon} size={16} color="#7ED321" />
+                <Feather name={s.icon} size={16} color={T.brand} />
                 <Text className="text-white text-[18px] font-extrabold">{s.value}</Text>
                 <Text className="text-sub text-[10px] font-semibold">{s.label}</Text>
               </View>
@@ -175,18 +176,18 @@ export default function ViewMembersPage({ onBack, onAddMember }: Props) {
 
         {/* Search */}
         <View className="flex-row items-center bg-surface border border-line rounded-2xl px-4 h-[48px]">
-          <Feather name="search" size={16} color="#777777" style={{ marginRight: 10 }} />
+          <Feather name="search" size={16} color={T.textFaint} style={{ marginRight: 10 }} />
           <TextInput
             className="flex-1 text-white text-[14px] h-full"
             placeholder="Search by name or email…"
-            placeholderTextColor="#555"
+            placeholderTextColor={T.textFaint}
             value={search}
             onChangeText={(v) => { setSearch(v); setPage(1); }}
             autoCorrect={false} autoCapitalize="none"
           />
           {search.length > 0 && (
             <Pressable onPress={() => { setSearch(''); setPage(1); }} hitSlop={8}>
-              <Feather name="x" size={15} color="#555" />
+              <Feather name="x" size={15} color={T.textFaint} />
             </Pressable>
           )}
         </View>
@@ -199,7 +200,7 @@ export default function ViewMembersPage({ onBack, onAddMember }: Props) {
         {isError && (
           <View className="items-center pt-16">
             <View className="w-[68px] h-[68px] rounded-full bg-red-500/10 border border-red-500/20 items-center justify-center mb-4">
-              <Feather name="wifi-off" size={28} color="#EF4444" />
+              <Feather name="wifi-off" size={28} color={T.err} />
             </View>
             <Text className="text-white text-[16px] font-bold mb-2">Failed to load</Text>
             <Text className="text-sub text-[13px] text-center mb-6">Check your connection and try again.</Text>
@@ -212,7 +213,7 @@ export default function ViewMembersPage({ onBack, onAddMember }: Props) {
         {!isLoading && !isError && items.length === 0 && (
           <View className="items-center pt-16">
             <View className="w-[68px] h-[68px] rounded-full bg-surface border border-line items-center justify-center mb-4">
-              <Feather name="users" size={28} color="#AAAAAA" />
+              <Feather name="users" size={28} color={T.textSub} />
             </View>
             <Text className="text-white text-[16px] font-bold mb-2">{search ? 'No results' : 'No members yet'}</Text>
             <Text className="text-sub text-[13px] text-center">

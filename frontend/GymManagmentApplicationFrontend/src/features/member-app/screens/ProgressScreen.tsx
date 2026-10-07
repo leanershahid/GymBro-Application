@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, StatusBar, Platform } from 'react-native';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 import { useMyPlans, useHealthToday } from '../api/memberAppQueries';
 import MetricBar from '../components/MetricBar';
 import EmptyState from '../../dashboard/components/EmptyState';

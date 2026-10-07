@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { T } from '../../trainers/components/theme';
+import { T, withAlpha } from '../../../theme';
 
 import DashboardBanner        from '../components/DashboardBanner';
 import MonthlyInsightCard     from '../components/MonthlyInsightCard';
@@ -62,10 +62,10 @@ type Screen =
   | 'more-actions';
 
 const dashboardStats = (s: { totalBranches: number; totalTrainers: number; totalTenants: number; totalMembers: number }): StatStripItem[] => [
-  { icon: 'map-pin',   label: 'Branches', value: s.totalBranches.toLocaleString('en-IN'), accent: '#7ED321' },
-  { icon: 'award',     label: 'Trainers', value: s.totalTrainers.toLocaleString('en-IN'), accent: '#7ED321' },
-  { icon: 'briefcase', label: 'Tenants',  value: s.totalTenants.toLocaleString('en-IN'),  accent: '#7ED321' },
-  { icon: 'users',     label: 'Members',  value: s.totalMembers.toLocaleString('en-IN'),  accent: '#7ED321' },
+  { icon: 'map-pin',   label: 'Branches', value: s.totalBranches.toLocaleString('en-IN'), accent: T.brand },
+  { icon: 'award',     label: 'Trainers', value: s.totalTrainers.toLocaleString('en-IN'), accent: T.brand },
+  { icon: 'briefcase', label: 'Tenants',  value: s.totalTenants.toLocaleString('en-IN'),  accent: T.brand },
+  { icon: 'users',     label: 'Members',  value: s.totalMembers.toLocaleString('en-IN'),  accent: T.brand },
 ];
 
 // Labels match the reference (Dashboard/Members/+/Activity/More); destinations are
@@ -246,11 +246,11 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
       <View style={{
         position: 'absolute', bottom: Platform.OS === 'ios' ? 32 : 20,
         left: 24, right: 24,
-        backgroundColor: 'rgba(10,30,15,0.92)',
-        borderRadius: 36, borderWidth: 1, borderColor: 'rgba(34,197,94,0.25)',
+        backgroundColor: withAlpha(T.bg, 0.92),
+        borderRadius: 36, borderWidth: 1, borderColor: withAlpha(T.ok, 0.25),
         flexDirection: 'row', alignItems: 'center',
         paddingVertical: 10, paddingHorizontal: 8,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
+        shadowColor: T.shadow, shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.55, shadowRadius: 24, elevation: 18,
       }}>
         {NAV_ITEMS.map((item) => {

@@ -1,9 +1,12 @@
 // ─── Design Tokens ────────────────────────────────────────────────
 // Dark mode. Green → gold gradient accent. Nike × premium gym aesthetic.
+// The single source of truth for colours — mirrored in tailwind.config.js for NativeWind
+// classes. Never hardcode a hex/rgba value in a screen; use a token or withAlpha(token, a).
 
 export const T = {
   bg:            '#0A0F0A',
   bgPanel:       '#0A0F0A',
+  bgNav:         '#111111', // bottom tab bars
   bgInput:       '#151915',
   bgInputActive: '#1C211C',
 
@@ -27,6 +30,11 @@ export const T = {
 
   onBrand: '#000000',
 
+  // Scrims over imagery, and the shadow colour for elevation.
+  overlay: 'rgba(0,0,0,0.55)',
+  shadow:  '#000000',
+  black:   '#000000',
+
   ok:    '#22C55E',
   okDim: 'rgba(34,197,94,0.12)',
   err:   '#EF4444',
@@ -40,6 +48,14 @@ export const T = {
   // Alias kept for existing call sites (AddBranchPage/AddTenantPage/dashboard header cards).
   border: '#242B24',
 };
+
+/** Token colour with opacity, e.g. withAlpha(T.brand, 0.12) for a tinted badge background. */
+export function withAlpha(hex: string, alpha: number): string {
+  const h = hex.replace('#', '');
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h.slice(0, 6);
+  const n = parseInt(full, 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
 
 export const Shadow = {
   card:  { shadowColor: '#000',    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.40, shadowRadius: 14, elevation: 7 },

@@ -14,6 +14,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useState, useRef, useEffect } from 'react';
+import { T, withAlpha } from '../../theme';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -51,7 +52,7 @@ function CTAButton({
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
       <TouchableOpacity
-        style={[styles.ctaButton, loading && { backgroundColor: '#5FA317' }]}
+        style={[styles.ctaButton, loading && { backgroundColor: T.brandDark }]}
         onPress={onPress}
         onPressIn={pressIn}
         onPressOut={pressOut}
@@ -59,7 +60,7 @@ function CTAButton({
         activeOpacity={1}
       >
         {loading
-          ? <ActivityIndicator color="#000000" />
+          ? <ActivityIndicator color={T.onBrand} />
           : <Text style={styles.ctaText}>{label}</Text>
         }
       </TouchableOpacity>
@@ -97,7 +98,7 @@ function InputField({
 
   const borderColor = borderAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#242B24', '#7ED321'],
+    outputRange: [T.line, T.brand],
   });
 
   return (
@@ -107,7 +108,7 @@ function InputField({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder ?? ''}
-        placeholderTextColor="#555555"
+        placeholderTextColor={T.textFaint}
         keyboardType={keyboardType ?? 'default'}
         secureTextEntry={secureTextEntry}
         autoCapitalize="none"
@@ -268,11 +269,11 @@ export default function LoginPage() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0A0F0A',
+    backgroundColor: T.bg,
   },
 
   heroOverlay: {
-    backgroundColor: 'rgba(0,0,0,0.48)',
+    backgroundColor: withAlpha(T.black, 0.48),
   },
 
   // GymManager label — always sits just above the sheet's top edge
@@ -284,13 +285,13 @@ const styles = StyleSheet.create({
   heroAppName: {
     fontSize: rs(28),
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: T.text,
     letterSpacing: -0.5,
   },
   heroTagline: {
     fontSize: rs(13),
     fontWeight: '400',
-    color: '#AAAAAA',
+    color: T.textSub,
     marginTop: scaleH(3),
   },
 
@@ -304,7 +305,7 @@ const styles = StyleSheet.create({
   },
   sheet: {
     flex: 1,
-    backgroundColor: 'rgba(26,26,26,0.72)',
+    backgroundColor: withAlpha(T.bgInput, 0.72),
     borderTopLeftRadius: rs(28),
     borderTopRightRadius: rs(28),
     paddingHorizontal: scaleW(20),
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
   headline: {
     fontSize: rs(22),
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: T.text,
     letterSpacing: -0.4,
     textAlign: 'center',
     marginBottom: scaleH(12),
@@ -334,28 +335,28 @@ const styles = StyleSheet.create({
   tabTextActive: {
     fontSize: rs(15),
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: T.text,
   },
   tabUnderline: {
     marginTop: scaleH(4),
     width: '100%',
     height: 2,
     borderRadius: 1,
-    backgroundColor: '#7ED321',
+    backgroundColor: T.brand,
   },
 
   hairline: {
     height: 1,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: T.line,
     marginBottom: scaleH(14),
   },
 
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: 'rgba(239,68,68,0.08)',
+    backgroundColor: withAlpha(T.err, 0.08),
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.28)',
+    borderColor: withAlpha(T.err, 0.28),
     borderRadius: rs(12),
     paddingHorizontal: scaleW(12),
     paddingVertical: scaleH(8),
@@ -366,13 +367,13 @@ const styles = StyleSheet.create({
     width: rs(6),
     height: rs(6),
     borderRadius: rs(3),
-    backgroundColor: '#EF4444',
+    backgroundColor: T.err,
     marginTop: scaleH(4),
   },
   errorText: {
     flex: 1,
     fontSize: rs(13),
-    color: '#F87171',
+    color: T.err,
     lineHeight: rs(18),
   },
 
@@ -385,15 +386,15 @@ const styles = StyleSheet.create({
     height: scaleH(50),
     borderRadius: scaleH(50),
     borderWidth: 1,
-    borderColor: '#242B24',
-    backgroundColor: '#1C211C',
+    borderColor: T.line,
+    backgroundColor: T.bgInputActive,
     overflow: 'hidden',
   },
   input: {
     flex: 1,
     paddingHorizontal: scaleW(20),
     fontSize: rs(14),
-    color: '#FFFFFF',
+    color: T.text,
     height: '100%',
   },
   showHideBtn: {
@@ -403,7 +404,7 @@ const styles = StyleSheet.create({
   showHideText: {
     fontSize: rs(11),
     fontWeight: '600',
-    color: '#7ED321',
+    color: T.brand,
   },
 
   ctaWrapper: {
@@ -412,14 +413,14 @@ const styles = StyleSheet.create({
   ctaButton: {
     height: scaleH(52),
     borderRadius: scaleH(52),
-    backgroundColor: '#7ED321',
+    backgroundColor: T.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   ctaText: {
     fontSize: rs(16),
     fontWeight: '700',
-    color: '#000000',
+    color: T.onBrand,
     letterSpacing: 0.3,
   },
 });

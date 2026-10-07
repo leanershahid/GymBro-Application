@@ -9,15 +9,16 @@ import { Lead, LeadStatus } from '../types/lead.types';
 import BackButton from '../../common/components/BackButton';
 import PaginationFooter from '../../common/components/PaginationFooter';
 import Skeleton from '../../common/components/Skeleton';
+import { T, withAlpha } from '../../../theme';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
 const STATUS_META: Record<LeadStatus, { color: string; bg: string; border: string }> = {
-  new:       { color: '#22D3EE', bg: 'rgba(34,211,238,0.12)',  border: 'rgba(34,211,238,0.28)' },
-  contacted: { color: '#A78BFA', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.28)' },
-  qualified: { color: '#7ED321', bg: 'rgba(126,211,33,0.12)',   border: 'rgba(126,211,33,0.28)'   },
-  converted: { color: '#22C55E', bg: 'rgba(34,197,94,0.12)',   border: 'rgba(34,197,94,0.28)'   },
-  lost:      { color: '#EF4444', bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.28)'   },
+  new:       { color: T.sky, bg: withAlpha(T.sky, 0.12),  border: withAlpha(T.sky, 0.28) },
+  contacted: { color: T.violet, bg: withAlpha(T.violet, 0.12), border: withAlpha(T.violet, 0.28) },
+  qualified: { color: T.brand, bg: withAlpha(T.brand, 0.12),   border: withAlpha(T.brand, 0.28)   },
+  converted: { color: T.ok, bg: withAlpha(T.ok, 0.12),   border: withAlpha(T.ok, 0.28)   },
+  lost:      { color: T.err, bg: withAlpha(T.err, 0.12),   border: withAlpha(T.err, 0.28)   },
 };
 
 const SOURCE_ICONS: Record<string, FeatherIconName> = {
@@ -33,8 +34,8 @@ function LeadCard({ lead, onConvert }: { lead: Lead; onConvert: (id: number) => 
 
   return (
     <View style={{
-      backgroundColor: '#151915', borderRadius: 18, padding: 14,
-      marginBottom: 10, borderWidth: 1, borderColor: '#1C211C',
+      backgroundColor: T.bgInput, borderRadius: 18, padding: 14,
+      marginBottom: 10, borderWidth: 1, borderColor: T.bgInputActive,
     }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
         {/* Source icon */}
@@ -61,8 +62,8 @@ function LeadCard({ lead, onConvert }: { lead: Lead; onConvert: (id: number) => 
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         {/* Source + date */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <View style={{ backgroundColor: '#1C211C', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#242B24' }}>
-            <Text style={{ color: '#AAAAAA', fontSize: 10, fontWeight: '600', textTransform: 'capitalize' }}>{src}</Text>
+          <View style={{ backgroundColor: T.bgInputActive, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: T.line }}>
+            <Text style={{ color: T.textSub, fontSize: 10, fontWeight: '600', textTransform: 'capitalize' }}>{src}</Text>
           </View>
           <Text className="text-faint text-[10px]">
             {new Date(lead.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
@@ -72,9 +73,9 @@ function LeadCard({ lead, onConvert }: { lead: Lead; onConvert: (id: number) => 
         {/* Convert CTA — only for non-converted leads */}
         {lead.status !== 'converted' && lead.status !== 'lost' && (
           <Pressable onPress={() => onConvert(lead.id)}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(126,211,33,0.12)', borderWidth: 1, borderColor: 'rgba(126,211,33,0.30)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
-            <Feather name="user-check" size={13} color="#7ED321" />
-            <Text style={{ color: '#7ED321', fontSize: 11, fontWeight: '700' }}>Convert</Text>
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: withAlpha(T.brand, 0.12), borderWidth: 1, borderColor: withAlpha(T.brand, 0.30), borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+            <Feather name="user-check" size={13} color={T.brand} />
+            <Text style={{ color: T.brand, fontSize: 11, fontWeight: '700' }}>Convert</Text>
           </Pressable>
         )}
       </View>
@@ -113,7 +114,7 @@ export default function ViewLeadsPage({ onBack, onAddLead }: Props) {
 
   return (
     <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0F0A" />
+      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
 
       {/* Header */}
       <View className="px-5 pt-5 pb-4">
@@ -125,7 +126,7 @@ export default function ViewLeadsPage({ onBack, onAddLead }: Props) {
           </View>
           {onAddLead && (
             <Pressable onPress={onAddLead} className="flex-row items-center gap-2 bg-brand rounded-full px-4 py-2.5">
-              <Feather name="plus" size={15} color="#000" />
+              <Feather name="plus" size={15} color={T.onBrand} />
               <Text className="text-black text-[13px] font-bold">Add</Text>
             </Pressable>
           )}
@@ -135,9 +136,9 @@ export default function ViewLeadsPage({ onBack, onAddLead }: Props) {
         {!isLoading && !isError && (
           <View className="flex-row gap-3 mb-4">
             {[
-              { label: 'Total',     value: totalRecs,                                              color: '#22D3EE' },
-              { label: 'Qualified', value: items.filter(l => l.status === 'qualified').length,     color: '#7ED321' },
-              { label: 'Converted', value: items.filter(l => l.status === 'converted').length,     color: '#22C55E' },
+              { label: 'Total',     value: totalRecs,                                              color: T.sky },
+              { label: 'Qualified', value: items.filter(l => l.status === 'qualified').length,     color: T.brand },
+              { label: 'Converted', value: items.filter(l => l.status === 'converted').length,     color: T.ok },
             ].map(s => (
               <View key={s.label} className="flex-1 bg-surface border border-line rounded-2xl p-3 items-center gap-1">
                 <Text style={{ color: s.color, fontSize: 18, fontWeight: '900' }}>{s.value}</Text>
@@ -154,9 +155,9 @@ export default function ViewLeadsPage({ onBack, onAddLead }: Props) {
             return (
               <Pressable key={f} onPress={() => { setFilter(f); setPage(1); }}
                 style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
-                  backgroundColor: active ? '#7ED321' : '#151915',
-                  borderWidth: 1, borderColor: active ? '#7ED321' : '#242B24' }}>
-                <Text style={{ color: active ? '#000' : '#AAAAAA', fontSize: 12, fontWeight: '700', textTransform: 'capitalize' }}>{f}</Text>
+                  backgroundColor: active ? T.brand : T.bgInput,
+                  borderWidth: 1, borderColor: active ? T.brand : T.line }}>
+                <Text style={{ color: active ? T.onBrand : T.textSub, fontSize: 12, fontWeight: '700', textTransform: 'capitalize' }}>{f}</Text>
               </Pressable>
             );
           })}
@@ -168,7 +169,7 @@ export default function ViewLeadsPage({ onBack, onAddLead }: Props) {
 
         {isError && (
           <View className="items-center pt-16">
-            <Feather name="wifi-off" size={28} color="#EF4444" />
+            <Feather name="wifi-off" size={28} color={T.err} />
             <Text className="text-white text-[16px] font-bold mt-4 mb-2">Failed to load</Text>
             <Pressable onPress={() => refetch()} className="bg-brand rounded-full px-7 py-3 mt-3">
               <Text className="text-black font-bold">Retry</Text>
@@ -179,7 +180,7 @@ export default function ViewLeadsPage({ onBack, onAddLead }: Props) {
         {!isLoading && !isError && filtered.length === 0 && (
           <View className="items-center pt-16">
             <View className="w-[68px] h-[68px] rounded-full bg-surface border border-line items-center justify-center mb-4">
-              <Feather name="target" size={28} color="#AAAAAA" />
+              <Feather name="target" size={28} color={T.textSub} />
             </View>
             <Text className="text-white text-[16px] font-bold mb-2">No leads {filter !== 'all' ? `with status "${filter}"` : 'yet'}</Text>
           </View>

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Switch, ScrollView, TouchableOpacity } from 'react-native';
 import { TrainerPayload, Availability } from '../types/trainer.types';
 import { TimeField } from './TimePicker';
-import { T } from './theme';
+import { T } from '../../../theme';
 
 interface Props {
   data: Partial<TrainerPayload>;
@@ -109,8 +109,8 @@ export default function StepAvailability({ data, onChange }: Props) {
             <Switch
               value={item.isAvailable}
               onValueChange={(v) => updateDay(index, { isAvailable: v })}
-              trackColor={{ false: '#2A2A2A', true: T.brand }}
-              thumbColor={item.isAvailable ? T.onBrand : '#FFFFFF'}
+              trackColor={{ false: T.line, true: T.brand }}
+              thumbColor={item.isAvailable ? T.onBrand : T.text}
             />
           </View>
 

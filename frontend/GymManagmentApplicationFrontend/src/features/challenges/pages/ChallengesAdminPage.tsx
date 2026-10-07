@@ -5,7 +5,7 @@ import {
   StatusBar, Platform, ActivityIndicator, Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 import BackButton from '../../common/components/BackButton';
 import EmptyState from '../../dashboard/components/EmptyState';
 import { useChallenges, useCreateChallenge, useUpdateChallengeStatus } from '../api/challengeQueries';

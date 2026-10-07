@@ -9,6 +9,7 @@ import { MemberPayload, MemberGender } from '../types/member.types';
 import { isValidEmail } from '../../../utils/validation';
 import BranchDropdown from '../../branches/components/BranchDropdown';
 import { currentTenantId, getSession } from '../../../api/session';
+import { T, withAlpha } from '../../../theme';
 
 const GENDERS: { label: string; value: MemberGender }[] = [
   { label: 'Male',   value: 'male'   },
@@ -25,9 +26,9 @@ function Field({ label, value, onChange, placeholder, keyboardType, autoCapitali
       <Text className="text-sub text-[13px] mb-1.5">{label}</Text>
       <TextInput
         className="bg-elevated border border-line rounded-2xl px-4 py-[14px] text-[15px] text-white"
-        style={error ? { borderColor: '#EF4444' } : undefined}
+        style={error ? { borderColor: T.err } : undefined}
         value={value} onChangeText={onChange}
-        placeholder={placeholder ?? ''} placeholderTextColor="#555"
+        placeholder={placeholder ?? ''} placeholderTextColor={T.textFaint}
         keyboardType={keyboardType ?? 'default'}
         autoCapitalize={autoCapitalize ?? 'sentences'}
         autoCorrect={false}
@@ -100,7 +101,7 @@ export default function AddMemberPage({ onBack }: Props) {
 
   return (
     <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0F0A" />
+      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
 
       {/* Nav */}
       <View className="flex-row items-center px-5 pt-4 pb-2">
@@ -137,9 +138,9 @@ export default function AddMemberPage({ onBack }: Props) {
             return (
               <Pressable key={g.value} onPress={() => setGender(g.value)}
                 style={{ flex: 1, paddingVertical: 12, borderRadius: 16, borderWidth: 1.5, alignItems: 'center',
-                  backgroundColor: sel ? 'rgba(126,211,33,0.12)' : '#1C211C',
-                  borderColor: sel ? 'rgba(126,211,33,0.50)' : '#242B24' }}>
-                <Text style={{ color: sel ? '#7ED321' : '#AAAAAA', fontSize: 13, fontWeight: '700' }}>{g.label}</Text>
+                  backgroundColor: sel ? withAlpha(T.brand, 0.12) : T.bgInputActive,
+                  borderColor: sel ? withAlpha(T.brand, 0.50) : T.line }}>
+                <Text style={{ color: sel ? T.brand : T.textSub, fontSize: 13, fontWeight: '700' }}>{g.label}</Text>
               </Pressable>
             );
           })}
@@ -151,9 +152,9 @@ export default function AddMemberPage({ onBack }: Props) {
         </Text>
 
         {/* Info note */}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: 'rgba(126,211,33,0.07)', borderWidth: 1, borderColor: 'rgba(126,211,33,0.20)', borderRadius: 14, padding: 12, marginBottom: 16, gap: 10 }}>
-          <Feather name="info" size={15} color="#7ED321" style={{ marginTop: 1 }} />
-          <Text style={{ flex: 1, color: '#AAAAAA', fontSize: 12, lineHeight: 18 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: withAlpha(T.brand, 0.07), borderWidth: 1, borderColor: withAlpha(T.brand, 0.20), borderRadius: 14, padding: 12, marginBottom: 16, gap: 10 }}>
+          <Feather name="info" size={15} color={T.brand} style={{ marginTop: 1 }} />
+          <Text style={{ flex: 1, color: T.textSub, fontSize: 12, lineHeight: 18 }}>
             Pick the member's home branch. Optionally enter a Trainer ID to assign them right after creation — the branch then defaults to the trainer's.
           </Text>
         </View>
@@ -184,7 +185,7 @@ export default function AddMemberPage({ onBack }: Props) {
           className="bg-elevated border border-line rounded-2xl px-4 pt-3 text-[15px] text-white mb-4"
           style={{ height: 88, textAlignVertical: 'top' }}
           value={form.notes ?? ''} onChangeText={v => update('notes', v)}
-          placeholder="Internal admin notes…" placeholderTextColor="#555"
+          placeholder="Internal admin notes…" placeholderTextColor={T.textFaint}
           multiline
         />
       </ScrollView>
@@ -194,7 +195,7 @@ export default function AddMemberPage({ onBack }: Props) {
         <Pressable
           onPress={handleSubmit} disabled={isPending}
           className={`h-14 rounded-full items-center justify-center ${isPending ? 'bg-brandDark' : 'bg-brand'}`}>
-          {isPending ? <ActivityIndicator color="#000" /> : <Text className="text-black text-base font-bold">Create Member</Text>}
+          {isPending ? <ActivityIndicator color={T.onBrand} /> : <Text className="text-black text-base font-bold">Create Member</Text>}
         </Pressable>
       </View>
     </View>

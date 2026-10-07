@@ -7,6 +7,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useMyProfile, useMyTimeline, useUpdateProfile } from '../api/memberAppQueries';
+import { T, withAlpha } from '../../../theme';
 
 function AvatarPicker({ uri, initials, onPick }: { uri?: string | null; initials: string; onPick: (u: string) => void }) {
   const pick = async () => {
@@ -32,16 +33,16 @@ function AvatarPicker({ uri, initials, onPick }: { uri?: string | null; initials
       {uri ? (
         <Image
           source={{ uri }}
-          style={{ width: 88, height: 88, borderRadius: 44, borderWidth: 2, borderColor: '#7ED321' }}
+          style={{ width: 88, height: 88, borderRadius: 44, borderWidth: 2, borderColor: T.brand }}
         />
       ) : (
-        <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: 'rgba(126,211,33,0.12)', borderWidth: 2, borderColor: '#7ED321', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: '#7ED321', fontSize: 28, fontWeight: '800' }}>{initials}</Text>
+        <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: withAlpha(T.brand, 0.12), borderWidth: 2, borderColor: T.brand, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: T.brand, fontSize: 28, fontWeight: '800' }}>{initials}</Text>
         </View>
       )}
       {/* camera badge */}
-      <View style={{ position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: 13, backgroundColor: '#7ED321', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#0A0F0A' }}>
-        <Feather name="camera" size={12} color="#000" />
+      <View style={{ position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: 13, backgroundColor: T.brand, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: T.bg }}>
+        <Feather name="camera" size={12} color={T.onBrand} />
       </View>
     </TouchableOpacity>
   );
@@ -53,16 +54,16 @@ function Field({ label, value, onChange, placeholder, keyboardType, editable = t
 }) {
   return (
     <View style={{ marginBottom: 14 }}>
-      <Text style={{ color: '#AAAAAA', fontSize: 12, fontWeight: '600', marginBottom: 6 }}>{label}</Text>
+      <Text style={{ color: T.textSub, fontSize: 12, fontWeight: '600', marginBottom: 6 }}>{label}</Text>
       <TextInput
         style={{
-          backgroundColor: editable ? '#1C211C' : '#151915', borderRadius: 14,
-          borderWidth: 1, borderColor: editable ? '#242B24' : '#1E1E1E',
-          color: editable ? '#FFFFFF' : '#666666',
+          backgroundColor: editable ? T.bgInputActive : T.bgInput, borderRadius: 14,
+          borderWidth: 1, borderColor: editable ? T.line : T.bgInputActive,
+          color: editable ? T.text : T.textFaint,
           paddingHorizontal: 14, paddingVertical: 13, fontSize: 14,
         }}
         value={value} onChangeText={onChange}
-        placeholder={placeholder ?? ''} placeholderTextColor="#555"
+        placeholder={placeholder ?? ''} placeholderTextColor={T.textFaint}
         keyboardType={keyboardType ?? 'default'}
         autoCapitalize="none" autoCorrect={false}
         editable={editable}
@@ -79,12 +80,12 @@ function TimelineRow({ event }: { event: { eventType: string; description: strin
   const icon = (icons[event.eventType] ?? icons.default) as any;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14 }}>
-      <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(126,211,33,0.10)', borderWidth: 1, borderColor: 'rgba(126,211,33,0.22)', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
-        <Feather name={icon} size={14} color="#7ED321" />
+      <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: withAlpha(T.brand, 0.10), borderWidth: 1, borderColor: withAlpha(T.brand, 0.22), alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
+        <Feather name={icon} size={14} color={T.brand} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>{event.description}</Text>
-        <Text style={{ color: '#666666', fontSize: 11, marginTop: 3 }}>
+        <Text style={{ color: T.text, fontSize: 13, fontWeight: '600' }}>{event.description}</Text>
+        <Text style={{ color: T.textFaint, fontSize: 11, marginTop: 3 }}>
           {new Date(event.occurredAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </Text>
       </View>
@@ -127,7 +128,7 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
 
   if (isLoading) return (
     <View className="flex-1 bg-bg items-center justify-center">
-      <ActivityIndicator size="large" color="#7ED321" />
+      <ActivityIndicator size="large" color={T.brand} />
     </View>
   );
 
@@ -135,7 +136,7 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
 
   return (
     <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0F0A" />
+      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
 
@@ -146,14 +147,14 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
             initials={initials}
             onPick={(uri) => setAvatarUri(uri)}
           />
-          <Text style={{ color: '#FFFFFF', fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }}>
+          <Text style={{ color: T.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }}>
             {profile?.firstName} {profile?.lastName}
           </Text>
-          <Text style={{ color: '#AAAAAA', fontSize: 13, marginTop: 4 }}>{profile?.email}</Text>
+          <Text style={{ color: T.textSub, fontSize: 13, marginTop: 4 }}>{profile?.email}</Text>
 
           {/* Status badge */}
-          <View style={{ marginTop: 10, backgroundColor: profile?.status === 'Active' ? 'rgba(126,211,33,0.12)' : '#151915', borderWidth: 1, borderColor: profile?.status === 'Active' ? 'rgba(126,211,33,0.30)' : '#242B24', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
-            <Text style={{ color: profile?.status === 'Active' ? '#7ED321' : '#AAAAAA', fontSize: 11, fontWeight: '700' }}>
+          <View style={{ marginTop: 10, backgroundColor: profile?.status === 'Active' ? withAlpha(T.brand, 0.12) : T.bgInput, borderWidth: 1, borderColor: profile?.status === 'Active' ? withAlpha(T.brand, 0.30) : T.line, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
+            <Text style={{ color: profile?.status === 'Active' ? T.brand : T.textSub, fontSize: 11, fontWeight: '700' }}>
               {profile?.status ?? 'Member'}
             </Text>
           </View>
@@ -162,15 +163,15 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
           {(!!profile?.trainerId || !!profile?.branchId) && (
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
               {!!profile?.trainerId && (
-                <View style={{ backgroundColor: 'rgba(34,211,238,0.10)', borderWidth: 1, borderColor: 'rgba(34,211,238,0.25)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <Feather name="award" size={12} color="#22D3EE" />
-                  <Text style={{ color: '#22D3EE', fontSize: 11, fontWeight: '700' }}>Trainer #{profile.trainerId}</Text>
+                <View style={{ backgroundColor: withAlpha(T.sky, 0.10), borderWidth: 1, borderColor: withAlpha(T.sky, 0.25), borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Feather name="award" size={12} color={T.sky} />
+                  <Text style={{ color: T.sky, fontSize: 11, fontWeight: '700' }}>Trainer #{profile.trainerId}</Text>
                 </View>
               )}
               {!!profile?.branchId && (
-                <View style={{ backgroundColor: 'rgba(167,139,250,0.10)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.25)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <Feather name="map-pin" size={12} color="#A78BFA" />
-                  <Text style={{ color: '#A78BFA', fontSize: 11, fontWeight: '700' }}>{profile.branchName ?? `Branch #${profile.branchId}`}</Text>
+                <View style={{ backgroundColor: withAlpha(T.violet, 0.10), borderWidth: 1, borderColor: withAlpha(T.violet, 0.25), borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Feather name="map-pin" size={12} color={T.violet} />
+                  <Text style={{ color: T.violet, fontSize: 11, fontWeight: '700' }}>{profile.branchName ?? `Branch #${profile.branchId}`}</Text>
                 </View>
               )}
             </View>
@@ -178,11 +179,11 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
         </View>
 
         {/* ── Tab switcher ── */}
-        <View style={{ flexDirection: 'row', marginHorizontal: 20, backgroundColor: '#151915', borderRadius: 16, padding: 4, borderWidth: 1, borderColor: '#1C211C', marginBottom: 20 }}>
+        <View style={{ flexDirection: 'row', marginHorizontal: 20, backgroundColor: T.bgInput, borderRadius: 16, padding: 4, borderWidth: 1, borderColor: T.bgInputActive, marginBottom: 20 }}>
           {(['info', 'timeline'] as const).map(t => (
             <Pressable key={t} onPress={() => setTab(t)}
-              style={{ flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: tab === t ? '#7ED321' : 'transparent' }}>
-              <Text style={{ color: tab === t ? '#000' : '#AAAAAA', fontSize: 13, fontWeight: '700', textTransform: 'capitalize' }}>{t}</Text>
+              style={{ flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: tab === t ? T.brand : 'transparent' }}>
+              <Text style={{ color: tab === t ? T.onBrand : T.textSub, fontSize: 13, fontWeight: '700', textTransform: 'capitalize' }}>{t}</Text>
             </Pressable>
           ))}
         </View>
@@ -191,16 +192,16 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
         {tab === 'info' && (
           <View style={{ paddingHorizontal: 20 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Personal Info</Text>
+              <Text style={{ color: T.text, fontSize: 16, fontWeight: '700' }}>Personal Info</Text>
               <Pressable onPress={() => editing ? handleSave() : setEditing(true)} disabled={isPending}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: editing ? '#7ED321' : '#151915', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: editing ? '#7ED321' : '#242B24' }}>
-                {isPending ? <ActivityIndicator size="small" color="#000" /> : <Feather name={editing ? 'check' : 'edit-2'} size={14} color={editing ? '#000' : '#AAAAAA'} />}
-                <Text style={{ color: editing ? '#000' : '#AAAAAA', fontSize: 12, fontWeight: '700' }}>{editing ? 'Save' : 'Edit'}</Text>
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: editing ? T.brand : T.bgInput, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: editing ? T.brand : T.line }}>
+                {isPending ? <ActivityIndicator size="small" color={T.onBrand} /> : <Feather name={editing ? 'check' : 'edit-2'} size={14} color={editing ? T.onBrand : T.textSub} />}
+                <Text style={{ color: editing ? T.onBrand : T.textSub, fontSize: 12, fontWeight: '700' }}>{editing ? 'Save' : 'Edit'}</Text>
               </Pressable>
             </View>
             {editing && (
               <Pressable onPress={() => setEditing(false)} style={{ marginBottom: 12, alignSelf: 'flex-start' }}>
-                <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: '600' }}>Cancel</Text>
+                <Text style={{ color: T.err, fontSize: 12, fontWeight: '600' }}>Cancel</Text>
               </Pressable>
             )}
             <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -221,9 +222,9 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
             <Pressable onPress={() => Alert.alert('Sign out', 'Are you sure?', [
               { text: 'Cancel', style: 'cancel' },
               { text: 'Sign out', style: 'destructive', onPress: onLogout },
-            ])} style={{ marginTop: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(239,68,68,0.10)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)', borderRadius: 999, paddingVertical: 14 }}>
-              <Feather name="log-out" size={16} color="#EF4444" />
-              <Text style={{ color: '#EF4444', fontSize: 14, fontWeight: '700' }}>Sign Out</Text>
+            ])} style={{ marginTop: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: withAlpha(T.err, 0.10), borderWidth: 1, borderColor: withAlpha(T.err, 0.25), borderRadius: 999, paddingVertical: 14 }}>
+              <Feather name="log-out" size={16} color={T.err} />
+              <Text style={{ color: T.err, fontSize: 14, fontWeight: '700' }}>Sign Out</Text>
             </Pressable>
           </View>
         )}
@@ -231,11 +232,11 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
         {/* ── Timeline tab ── */}
         {tab === 'timeline' && (
           <View style={{ paddingHorizontal: 20 }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700', marginBottom: 16 }}>Activity Timeline</Text>
+            <Text style={{ color: T.text, fontSize: 16, fontWeight: '700', marginBottom: 16 }}>Activity Timeline</Text>
             {timeline.length === 0 ? (
               <View style={{ alignItems: 'center', paddingTop: 32 }}>
-                <Feather name="clock" size={28} color="#444" />
-                <Text style={{ color: '#AAAAAA', fontSize: 13, marginTop: 10 }}>No activity yet</Text>
+                <Feather name="clock" size={28} color={T.textDisabled} />
+                <Text style={{ color: T.textSub, fontSize: 13, marginTop: 10 }}>No activity yet</Text>
               </View>
             ) : (
               timeline.slice(0, 20).map((ev, i) => <TimelineRow key={i} event={ev} />)

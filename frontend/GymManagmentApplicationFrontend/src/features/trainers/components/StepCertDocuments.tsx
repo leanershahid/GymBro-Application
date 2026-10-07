@@ -4,7 +4,7 @@ import { TrainerPayload, Certification, Document } from '../types/trainer.types'
 import { Field, RowGrid, GridCell } from './FormFields';
 import { DateField } from './DatePicker';
 import GlassCard from './GlassCard';
-import { T } from './theme';
+import { T } from '../../../theme';
 
 interface Props {
   data: Partial<TrainerPayload>;

@@ -2,6 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import Svg, { Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { RevenueTrendPoint } from '../types/dashboard';
+import { T } from '../../../theme';
 
 interface RevenueSparklineProps {
   data: RevenueTrendPoint[];
@@ -26,8 +27,8 @@ export default function RevenueSparkline({ data, height = 56 }: RevenueSparkline
       <Svg width={chartWidth} height={height} viewBox={`0 0 ${chartWidth} ${height}`}>
         <Defs>
           <LinearGradient id="sparklineFade" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor="#7ED321" stopOpacity="1" />
-            <Stop offset="1" stopColor="#7ED321" stopOpacity="0.35" />
+            <Stop offset="0" stopColor={T.brand} stopOpacity="1" />
+            <Stop offset="1" stopColor={T.brand} stopOpacity="0.35" />
           </LinearGradient>
         </Defs>
         {data.map((point, index) => {
@@ -43,7 +44,7 @@ export default function RevenueSparkline({ data, height = 56 }: RevenueSparkline
               width={barWidth}
               height={barHeight}
               rx={3}
-              fill={isLast ? '#7ED321' : 'url(#sparklineFade)'}
+              fill={isLast ? T.brand : 'url(#sparklineFade)'}
               opacity={isLast ? 1 : 0.85}
             />
           );

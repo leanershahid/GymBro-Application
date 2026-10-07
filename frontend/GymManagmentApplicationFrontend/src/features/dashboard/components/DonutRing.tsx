@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 
 interface DonutRingProps {
   pct: number; // 0-100

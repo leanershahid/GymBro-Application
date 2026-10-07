@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, Switch, TouchableOpacity,
   KeyboardTypeOptions,
 } from 'react-native';
-import { T } from './theme';
+import { T } from '../../../theme';
 
 /* ─── Field ──────────────────────────────────────────────────────── */
 interface FieldProps {
@@ -34,8 +34,8 @@ export function Field({
         <View
           className="flex-row items-center bg-input border rounded-xl overflow-hidden"
           style={
-            hasError    ? { borderColor: '#EF4444' } :
-            focused     ? { borderColor: '#444444', backgroundColor: '#1C211C' } :
+            hasError    ? { borderColor: T.err } :
+            focused     ? { borderColor: T.textDisabled, backgroundColor: T.bgInputActive } :
             undefined
           }
         >
@@ -61,8 +61,8 @@ export function Field({
             multiline ? 'h-[90px] pt-3' : 'py-[14px]',
           ].join(' ')}
           style={
-            hasError    ? { borderColor: '#EF4444' } :
-            focused     ? { borderColor: '#444444', backgroundColor: '#1C211C' } :
+            hasError    ? { borderColor: T.err } :
+            focused     ? { borderColor: T.textDisabled, backgroundColor: T.bgInputActive } :
             { borderColor: T.line }
           }
           value={value}
@@ -80,7 +80,7 @@ export function Field({
         />
       )}
       {hasError && (
-        <Text className="text-[12px] mt-1" style={{ color: '#EF4444' }}>{error}</Text>
+        <Text className="text-[12px] mt-1" style={{ color: T.err }}>{error}</Text>
       )}
     </View>
   );
@@ -112,9 +112,9 @@ export function SwitchRow({
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: '#2A2A2A', true: T.brand }}
-        thumbColor={value ? T.onBrand : '#FFFFFF'}
-        ios_backgroundColor="#2A2A2A"
+        trackColor={{ false: T.line, true: T.brand }}
+        thumbColor={value ? T.onBrand : T.text}
+        ios_backgroundColor={T.line}
       />
     </TouchableOpacity>
   );

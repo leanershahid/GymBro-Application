@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, StatusBar, Platform, ActivityIndicator, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T, Shadow } from '../../trainers/components/theme';
+import { T, Shadow } from '../../../theme';
 import BackButton from '../../common/components/BackButton';
 import EmptyState from '../../dashboard/components/EmptyState';
 import StatTile from '../../dashboard/components/Stattile';

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, ImageBackground } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T, Shadow } from '../../trainers/components/theme';
+import { T, Shadow, withAlpha } from '../../../theme';
 import { BranchSummary } from '../types/dashboard';
 
 interface BranchCardProps {
@@ -48,13 +48,13 @@ export default function BranchCard({ branch, onPress, onPressMore }: BranchCardP
       accessibilityLabel={branch.name}
     >
       <ImageBackground source={image} style={{ width: '100%', height: 72 }} imageStyle={{ opacity: 0.55 }} resizeMode="cover">
-        <View style={{ flex: 1, backgroundColor: 'rgba(10,15,10,0.35)', padding: 10, flexDirection: 'row', justifyContent: 'flex-end' }}>
+        <View style={{ flex: 1, backgroundColor: withAlpha(T.bg, 0.35), padding: 10, flexDirection: 'row', justifyContent: 'flex-end' }}>
           <Pressable
             onPress={onPressMore}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel={`More options for ${branch.name}`}
-            style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(10,15,10,0.55)', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: withAlpha(T.bg, 0.55), alignItems: 'center', justifyContent: 'center' }}
           >
             <Feather name="more-horizontal" size={15} color={T.text} />
           </Pressable>
@@ -77,9 +77,9 @@ export default function BranchCard({ branch, onPress, onPressMore }: BranchCardP
           </View>
           <View style={{
             borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
-            backgroundColor: branch.isOpen ? 'rgba(126,211,33,0.12)' : 'rgba(255,77,77,0.12)',
+            backgroundColor: branch.isOpen ? withAlpha(T.brand, 0.12) : withAlpha(T.err, 0.12),
             borderWidth: 1,
-            borderColor: branch.isOpen ? 'rgba(126,211,33,0.25)' : 'rgba(255,77,77,0.25)',
+            borderColor: branch.isOpen ? withAlpha(T.brand, 0.25) : withAlpha(T.err, 0.25),
           }}>
             <Text style={{ fontSize: 11, fontWeight: '700', color: branch.isOpen ? T.brand : T.err }}>
               {branch.isOpen ? 'Open' : 'Closed'}

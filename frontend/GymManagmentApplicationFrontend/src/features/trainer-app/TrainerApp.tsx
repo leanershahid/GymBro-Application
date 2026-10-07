@@ -7,6 +7,7 @@ import TrainerHomeScreen    from './screens/TrainerHomeScreen';
 import ClientsScreen        from './screens/ClientsScreen';
 import ProgramBuilderScreen from './screens/ProgramBuilderScreen';
 import TrainerProfileScreen from './screens/TrainerProfileScreen';
+import { T, withAlpha } from '../../theme';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -37,19 +38,19 @@ export default function TrainerApp({ userId, onLogout }: { userId: number; onLog
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0A0F0A', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color="#7ED321" />
+      <View style={{ flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={T.brand} />
       </View>
     );
   }
   if (isError || trainerId === 0) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0A0F0A', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
-        <Text style={{ color: '#FFFFFF', textAlign: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
+        <Text style={{ color: T.text, textAlign: 'center' }}>
           This account has no trainer profile yet. Ask your gym admin to finish setting it up.
         </Text>
         <Pressable onPress={onLogout} accessibilityRole="button">
-          <Text style={{ color: '#7ED321', fontWeight: '600' }}>Sign out</Text>
+          <Text style={{ color: T.brand, fontWeight: '600' }}>Sign out</Text>
         </Pressable>
       </View>
     );
@@ -103,7 +104,7 @@ function TrainerAppContent({ trainerId, onLogout }: Props) {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0A0F0A' }}>
+    <View style={{ flex: 1, backgroundColor: T.bg }}>
       <View style={{ flex: 1 }}>
         {screen.id === 'home' && (
           <TrainerHomeScreen trainerId={trainerId} onNavigate={navigateFrom} />
@@ -133,7 +134,7 @@ function TrainerAppContent({ trainerId, onLogout }: Props) {
               accessibilityLabel={tab.label}
             >
               <View style={[S.tabIcon, active && S.tabIconActive]}>
-                <Feather name={tab.icon} size={20} color={active ? '#7ED321' : '#666666'} />
+                <Feather name={tab.icon} size={20} color={active ? T.brand : T.textFaint} />
               </View>
               <Text style={[S.tabLabel, active && S.tabLabelActive]}>{tab.label}</Text>
               {active && <View style={S.activeDot} />}
@@ -148,9 +149,9 @@ function TrainerAppContent({ trainerId, onLogout }: Props) {
 const S = StyleSheet.create({
   tabBar: {
     flexDirection:    'row',
-    backgroundColor:  '#111111',
+    backgroundColor:  T.bgNav,
     borderTopWidth:   1,
-    borderTopColor:   '#151915',
+    borderTopColor:   T.bgInput,
     paddingBottom:    Platform.OS === 'ios' ? 24 : 8,
     paddingTop:       10,
     paddingHorizontal:8,
@@ -162,15 +163,15 @@ const S = StyleSheet.create({
     width: 42, height: 32, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
   },
   tabIconActive: {
-    backgroundColor: 'rgba(126,211,33,0.10)',
+    backgroundColor: withAlpha(T.brand, 0.10),
   },
   tabLabel: {
-    fontSize: 10, fontWeight: '600', color: '#666666',
+    fontSize: 10, fontWeight: '600', color: T.textFaint,
   },
   tabLabelActive: {
-    color: '#7ED321',
+    color: T.brand,
   },
   activeDot: {
-    width: 4, height: 4, borderRadius: 2, backgroundColor: '#7ED321', marginTop: 1,
+    width: 4, height: 4, borderRadius: 2, backgroundColor: T.brand, marginTop: 1,
   },
 });

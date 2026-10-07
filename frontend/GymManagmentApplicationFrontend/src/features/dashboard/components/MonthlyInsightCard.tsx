@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T, Shadow } from '../../trainers/components/theme';
+import { T, Shadow } from '../../../theme';
 import RevenueSparkline from './Revenuesparkline';
 import { RevenueTrendPoint } from '../types/dashboard';
 

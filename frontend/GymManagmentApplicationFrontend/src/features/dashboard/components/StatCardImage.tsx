@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ImageBackground, ImageSourcePropType } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T } from '../../trainers/components/theme';
+import { T, withAlpha } from '../../../theme';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -24,7 +24,7 @@ export default function StatCardImage({ icon, label, value, image, deltaLabel }:
       accessibilityLabel={`${label}: ${value}`}
     >
       <ImageBackground source={image} style={{ width: '100%' }} imageStyle={{ opacity: 0.5 }} resizeMode="cover">
-        <View style={{ backgroundColor: 'rgba(10,15,10,0.55)', padding: 16 }}>
+        <View style={{ backgroundColor: withAlpha(T.bg, 0.55), padding: 16 }}>
           <View
             style={{
               width: 38, height: 38, borderRadius: 19,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T, Shadow } from '../../trainers/components/theme';
+import { T, Shadow, withAlpha } from '../../../theme';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -44,7 +44,7 @@ export default function StatTile({ icon, label, value, deltaLabel, deltaPositive
       {deltaLabel && (
         <View style={{
           alignSelf: 'flex-start', marginTop: 8,
-          backgroundColor: deltaPositive ? 'rgba(126,211,33,0.10)' : 'rgba(255,77,77,0.10)',
+          backgroundColor: deltaPositive ? withAlpha(T.brand, 0.10) : withAlpha(T.err, 0.10),
           borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
         }}>
           <Text style={{ fontSize: 11, fontWeight: '700', color: deltaPositive ? T.brand : T.err }}>

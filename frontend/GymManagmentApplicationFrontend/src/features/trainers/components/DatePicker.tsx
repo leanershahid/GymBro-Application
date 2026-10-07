@@ -7,7 +7,7 @@ import {
   View, Text, TouchableOpacity, Modal, ScrollView,
   Platform, NativeSyntheticEvent, NativeScrollEvent,
 } from 'react-native';
-import { T } from './theme';
+import { T } from '../../../theme';
 
 const ITEM_H  = 44;
 const VISIBLE = 5;
@@ -152,7 +152,7 @@ function DatePickerModal({ visible, value, onConfirm, onClose, minYear = 1950, m
         style={{ paddingBottom: Platform.OS === 'ios' ? 36 : 24 }}
       >
         {/* header */}
-        <View className="flex-row items-center justify-between px-5 py-4 border-b border-[#2A2A2A]">
+        <View className="flex-row items-center justify-between px-5 py-4 border-b border-line">
           <TouchableOpacity onPress={onClose}>
             <Text className="text-[15px] text-sub">Cancel</Text>
           </TouchableOpacity>
@@ -198,8 +198,8 @@ export function DateField({ label, value, onChange, placeholder = 'Select date',
       <TouchableOpacity
         className="flex-row items-center bg-input border rounded-xl px-4 py-[14px]"
         style={
-          hasError ? { borderColor: '#EF4444' } :
-          open     ? { borderColor: '#444444', backgroundColor: '#1C211C' } :
+          hasError ? { borderColor: T.err } :
+          open     ? { borderColor: T.textDisabled, backgroundColor: T.bgInputActive } :
           { borderColor: T.line }
         }
         onPress={() => setOpen(true)}
@@ -210,7 +210,7 @@ export function DateField({ label, value, onChange, placeholder = 'Select date',
         </Text>
       </TouchableOpacity>
       {hasError && (
-        <Text className="text-[12px] mt-1" style={{ color: '#EF4444' }}>{error}</Text>
+        <Text className="text-[12px] mt-1" style={{ color: T.err }}>{error}</Text>
       )}
 
       <DatePickerModal

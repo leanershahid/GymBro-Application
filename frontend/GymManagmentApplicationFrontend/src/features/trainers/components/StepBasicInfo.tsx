@@ -5,7 +5,7 @@ import { TrainerPayload } from '../types/trainer.types';
 import { Field, RowGrid, GridCell } from './FormFields';
 import { DateField } from './DatePicker';
 import { BasicInfoErrors } from '../pages/AddTrainerPage';
-import { T } from './theme';
+import { T, withAlpha } from '../../../theme';
 import BranchDropdown from '../../branches/components/BranchDropdown';
 import { Branch } from '../../branches/types/branch.types';
 
@@ -43,19 +43,19 @@ function ProfileImagePicker({ value, onChange }: { value: string; onChange: (uri
           <Image
             source={{ uri: value }}
             className="w-24 h-24 rounded-full"
-            style={{ borderWidth: 2, borderColor: 'rgba(126,211,33,0.35)' }}
+            style={{ borderWidth: 2, borderColor: withAlpha(T.brand, 0.35) }}
           />
         ) : (
           <View
             className="w-24 h-24 rounded-full bg-input items-center justify-center"
-            style={{ borderWidth: 2, borderColor: 'rgba(255,255,255,0.08)' }}
+            style={{ borderWidth: 2, borderColor: withAlpha(T.text, 0.08) }}
           >
             <Text className="text-3xl">📷</Text>
           </View>
         )}
         <View
           className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-brand items-center justify-center"
-          style={{ borderWidth: 2, borderColor: '#09090B' }}
+          style={{ borderWidth: 2, borderColor: T.bg }}
         >
           <Text className="text-white text-xs font-bold">+</Text>
         </View>
@@ -83,7 +83,7 @@ function GenderPills({ value, onChange, error }: { value: string; onChange: (v: 
               value === o
                 ? 'border-[rgba(126,211,33,0.25)] bg-[rgba(126,211,33,0.10)]'
                 : error
-                ? 'border-[#EF4444] bg-input'
+                ? 'border-err bg-input'
                 : 'border-line bg-input'
             }`}
             onPress={() => onChange(o)}
@@ -95,7 +95,7 @@ function GenderPills({ value, onChange, error }: { value: string; onChange: (v: 
           </TouchableOpacity>
         ))}
       </View>
-      {error && <Text className="text-[12px] mt-1" style={{ color: '#EF4444' }}>{error}</Text>}
+      {error && <Text className="text-[12px] mt-1" style={{ color: T.err }}>{error}</Text>}
     </View>
   );
 }

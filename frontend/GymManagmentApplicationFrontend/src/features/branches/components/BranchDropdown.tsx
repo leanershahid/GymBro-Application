@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useBranches } from '../api/branchQueries';
 import { Branch } from '../types/branch.types';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 
 interface Props {
   value: number | null;        // selected branch id
@@ -33,7 +33,7 @@ export default function BranchDropdown({
       {/* Trigger ───────────────────────────────────────────── */}
       <TouchableOpacity
         className="flex-row items-center bg-input border rounded-xl px-4 py-[14px]"
-        style={hasError ? { borderColor: '#EF4444' } : { borderColor: open ? '#444444' : T.line }}
+        style={hasError ? { borderColor: T.err } : { borderColor: open ? T.textDisabled : T.line }}
         onPress={() => setOpen(true)}
         activeOpacity={0.75}
         disabled={isLoading}
@@ -59,7 +59,7 @@ export default function BranchDropdown({
       </TouchableOpacity>
 
       {hasError && (
-        <Text className="text-[12px] mt-1" style={{ color: '#EF4444' }}>{error}</Text>
+        <Text className="text-[12px] mt-1" style={{ color: T.err }}>{error}</Text>
       )}
 
       {/* Modal sheet ─────────────────────────────────────── */}
@@ -80,7 +80,7 @@ export default function BranchDropdown({
           style={{ paddingBottom: Platform.OS === 'ios' ? 36 : 20 }}
         >
           {/* sheet header */}
-          <View className="flex-row items-center justify-between px-5 py-4 border-b border-[#2A2A2A]">
+          <View className="flex-row items-center justify-between px-5 py-4 border-b border-line">
             <Text className="text-[15px] font-bold text-white">Select Branch</Text>
             <TouchableOpacity onPress={() => setOpen(false)}>
               <Text className="text-[15px] text-sub">Close</Text>
@@ -107,7 +107,7 @@ export default function BranchDropdown({
                 const isSelected = item.id === value;
                 return (
                   <TouchableOpacity
-                    className={`flex-row items-center px-5 py-4 border-b border-[#151915] ${
+                    className={`flex-row items-center px-5 py-4 border-b border-input ${
                       isSelected ? 'bg-[rgba(126,211,33,0.08)]' : ''
                     }`}
                     onPress={() => {

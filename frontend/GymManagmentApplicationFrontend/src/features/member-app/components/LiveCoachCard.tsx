@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, ImageBackground, ImageSourcePropType } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T } from '../../trainers/components/theme';
+import { T, withAlpha } from '../../../theme';
 
 interface LiveCoachCardProps {
   name: string;
@@ -27,7 +27,7 @@ export default function LiveCoachCard({ name, specialty, rating, image, onPress 
               <Text style={{ color: T.text, fontSize: 9, fontWeight: '800' }}>LIVE</Text>
             </View>
 
-            <View style={{ alignSelf: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <View style={{ alignSelf: 'flex-end', backgroundColor: withAlpha(T.black, 0.6), borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Feather name="award" size={10} color={T.brandGold} />
               <Text style={{ color: T.text, fontSize: 10, fontWeight: '700' }}>{rating.toFixed(1)}</Text>
             </View>

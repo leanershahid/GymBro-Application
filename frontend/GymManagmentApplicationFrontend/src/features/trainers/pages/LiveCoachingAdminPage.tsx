@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, Switch, StatusBar, Platform, ActivityIndicator, Pressable } from 'react-native';
-import { T } from '../components/theme';
+import { T } from '../../../theme';
 import BackButton from '../../common/components/BackButton';
 import EmptyState from '../../dashboard/components/EmptyState';
 import { useTrainers, useUpdateTrainerAvailability } from '../api/trainerQueries';

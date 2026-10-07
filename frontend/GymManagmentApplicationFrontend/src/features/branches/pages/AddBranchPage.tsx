@@ -9,7 +9,7 @@ import { BranchPayload } from '../types/branch.types';
 import StepBranchBasicInfo, { BranchBasicInfoErrors } from '../components/StepBranchBasicInfo';
 import StepBranchLocation, { BranchLocationErrors } from '../components/StepBranchLocation';
 import StepBranchSettings, { BranchSettingsErrors } from '../components/StepBranchSettings';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 import { isValidEmail } from '../../../utils/validation';
 
 // ─── Steps ────────────────────────────────────────────────────────

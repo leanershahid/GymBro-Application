@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, StatusBar, Platform, Animated } from 'react-native';
 import { useBranches } from '../api/branchQueries';
 import { Branch } from '../types/branch.types';
-import { T } from '../../trainers/components/theme';
+import { T, withAlpha } from '../../../theme';
 import StatsStrip from '../../common/StatsStrip';
 
 type BranchWithImage = Branch & { imageUrl?: string };
@@ -11,9 +11,9 @@ type BranchWithImage = Branch & { imageUrl?: string };
 // the rest use muted accent variants so they still feel cohesive in the dark palette.
 const TINTS = [
   { bg: T.brandDim,                     accent: T.brand },
-  { bg: 'rgba(34,211,238,0.10)',         accent: '#22D3EE' },
-  { bg: 'rgba(167,139,250,0.10)',        accent: '#A78BFA' },
-  { bg: 'rgba(250,204,21,0.10)',         accent: '#FACC15' },
+  { bg: withAlpha(T.sky, 0.10),         accent: T.sky },
+  { bg: withAlpha(T.violet, 0.10),        accent: T.violet },
+  { bg: withAlpha(T.brandGold, 0.10),         accent: T.brandGold },
 ];
 const tint = (id: number) => TINTS[id % TINTS.length];
 
@@ -38,13 +38,13 @@ function GlassIconBadge({ emoji }: { emoji: string }) {
 function BranchCard({ branch, index }: { branch: BranchWithImage; index: number }) {
   const c           = tint(branch.id);
   const lower       = branch.status.toLowerCase();
-  const accentColor = lower === 'active' ? T.brand : lower === 'trial' ? '#FACC15' : T.textSub;
+  const accentColor = lower === 'active' ? T.brand : lower === 'trial' ? T.brandGold : T.textSub;
   const hasImage    = !!branch.imageUrl;
 
   return (
     <View style={{
       marginHorizontal: 20, marginBottom: 18, borderRadius: 26,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
+      shadowColor: T.shadow, shadowOffset: { width: 0, height: 10 },
       shadowOpacity: 0.35, shadowRadius: 18, elevation: 8,
     }}>
       <TouchableOpacity
@@ -60,7 +60,7 @@ function BranchCard({ branch, index }: { branch: BranchWithImage; index: number 
               resizeMode="cover"
             />
             {/* Dark scrim — palette: rgba(0,0,0,0.55) */}
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.42)' }} />
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: withAlpha(T.black, 0.42) }} />
           </>
         )}
 
@@ -68,7 +68,7 @@ function BranchCard({ branch, index }: { branch: BranchWithImage; index: number 
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 14 }}>
           {/* Code pill */}
           <View style={{
-            backgroundColor: 'rgba(0,0,0,0.55)',
+            backgroundColor: T.overlay,
             borderWidth: 1, borderColor: c.accent,
             borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6,
           }}>
@@ -80,8 +80,8 @@ function BranchCard({ branch, index }: { branch: BranchWithImage; index: number 
           {/* Arrow button — Icon/Badge Stroke: #FFFFFF at 80% opacity */}
           <TouchableOpacity style={{
             width: 34, height: 34, borderRadius: 17,
-            backgroundColor: 'rgba(255,255,255,0.12)',
-            borderWidth: 1, borderColor: 'rgba(255,255,255,0.80)',
+            backgroundColor: withAlpha(T.text, 0.12),
+            borderWidth: 1, borderColor: withAlpha(T.text, 0.80),
             alignItems: 'center', justifyContent: 'center',
           }}>
             <Text style={{ fontSize: 14, color: T.text }}>↗</Text>
@@ -92,8 +92,8 @@ function BranchCard({ branch, index }: { branch: BranchWithImage; index: number 
         <View style={{
           position: 'absolute', left: 14, right: 14, bottom: 14,
           borderRadius: 20, overflow: 'hidden',
-          backgroundColor: 'rgba(0,0,0,0.55)',
-          borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+          backgroundColor: T.overlay,
+          borderWidth: 1, borderColor: withAlpha(T.text, 0.12),
         }}>
           {/* Accent hairline */}
           <View style={{ height: 2, backgroundColor: c.accent }} />
@@ -186,10 +186,10 @@ export default function BranchesPage() {
         {!isLoading && !isError && branches.length > 0 && (
           <View style={{ paddingHorizontal: 20, marginBottom: 8 }}>
             <StatsStrip items={[
-              { icon: 'map-pin',    label: 'Total',    value: String(branches.length),                                                          accent: '#7ED321' },
-              { icon: 'check-circle', label: 'Active', value: String(branches.filter((b) => b.status.toLowerCase() === 'active').length),       accent: '#22D3EE' },
-              { icon: 'clock',      label: 'Trial',    value: String(branches.filter((b) => b.status.toLowerCase() === 'trial').length),        accent: '#FACC15' },
-              { icon: 'x-circle',   label: 'Inactive', value: String(branches.filter((b) => !['active','trial'].includes(b.status.toLowerCase())).length), accent: '#A78BFA' },
+              { icon: 'map-pin',    label: 'Total',    value: String(branches.length),                                                          accent: T.brand },
+              { icon: 'check-circle', label: 'Active', value: String(branches.filter((b) => b.status.toLowerCase() === 'active').length),       accent: T.sky },
+              { icon: 'clock',      label: 'Trial',    value: String(branches.filter((b) => b.status.toLowerCase() === 'trial').length),        accent: T.brandGold },
+              { icon: 'x-circle',   label: 'Inactive', value: String(branches.filter((b) => !['active','trial'].includes(b.status.toLowerCase())).length), accent: T.violet },
             ]} />
           </View>
         )}

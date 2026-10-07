@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 
 interface StreakCardProps {
   days: number;

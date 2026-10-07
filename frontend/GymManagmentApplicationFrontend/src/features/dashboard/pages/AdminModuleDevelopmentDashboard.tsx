@@ -11,6 +11,7 @@ import AddBranchPage    from '../../branches/pages/AddBranchPage';
 import ViewBranchesPage from '../../branches/pages/ViewBranchesPage';
 import AddTenantPage    from '../../tenants/pages/AddTenantPage';
 import ViewTenantsPage  from '../../tenants/pages/ViewTenantsPage';
+import { T, withAlpha } from '../../../theme';
 
 // ─── Images ───────────────────────────────────────────────────────
 const IMG_COACH1  = require('../../../assets/dashboard/coach-1.jpg');
@@ -21,15 +22,15 @@ const IMG_HERO    = require('../../../assets/dashboard/hero-athlete.jpg');
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
 // ─── Color palette ────────────────────────────────────────────────
-const ACCENT      = '#7ED321';
-const ACCENT_DARK = '#5FA317';
-const ACCENT_FG   = '#000000';
-const BG          = '#0A0F0A';
-const SURFACE     = '#151915';
-const SURFACE_EL  = '#1C211C';
-const TEXT        = '#FFFFFF';
-const TEXT_SUB    = '#AAAAAA';
-const ICON_STROKE = 'rgba(255,255,255,0.80)';
+const ACCENT      = T.brand;
+const ACCENT_DARK = T.brandDark;
+const ACCENT_FG   = T.onBrand;
+const BG          = T.bg;
+const SURFACE     = T.bgInput;
+const SURFACE_EL  = T.bgInputActive;
+const TEXT        = T.text;
+const TEXT_SUB    = T.textSub;
+const ICON_STROKE = withAlpha(T.text, 0.80);
 
 // ─── Responsive breakpoints ───────────────────────────────────────
 // phone  : w < 480
@@ -106,7 +107,7 @@ function ModuleCard({
         accessibilityRole="button" accessibilityLabel={mod.label}
         style={{
           borderRadius: 24, overflow: 'hidden',
-          borderWidth: 1, borderColor: 'rgba(126,211,33,0.20)',
+          borderWidth: 1, borderColor: withAlpha(T.brand, 0.20),
           shadowColor: ACCENT, shadowOffset: { width: 0, height: 8 },
           shadowOpacity: 0.18, shadowRadius: 20, elevation: 10,
         }}
@@ -117,7 +118,7 @@ function ModuleCard({
           imageStyle={{ opacity: 0.45 }}
           resizeMode="cover"
         >
-          <View style={{ backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 24 }}>
+          <View style={{ backgroundColor: T.overlay, borderRadius: 24 }}>
 
             {/* Top content */}
             <View style={{ padding: cardW * 0.055, paddingBottom: 0 }}>
@@ -125,9 +126,9 @@ function ModuleCard({
               {/* Category pill + arrow */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: cardW * 0.045 }}>
                 <View style={{
-                  backgroundColor: 'rgba(0,0,0,0.55)',
+                  backgroundColor: T.overlay,
                   borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5,
-                  borderWidth: 1, borderColor: 'rgba(126,211,33,0.40)',
+                  borderWidth: 1, borderColor: withAlpha(T.brand, 0.40),
                 }}>
                   <Text style={{ color: ACCENT, fontSize: 11 * scale, fontWeight: '700', letterSpacing: 0.9, textTransform: 'uppercase' }}>
                     {mod.category}
@@ -153,7 +154,7 @@ function ModuleCard({
                   <Text style={{
                     color: TEXT, fontSize: titleSize, fontWeight: '800',
                     letterSpacing: -0.5, lineHeight: titleSize * 1.18,
-                    textShadowColor: 'rgba(0,0,0,0.7)',
+                    textShadowColor: withAlpha(T.black, 0.7),
                     textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8,
                   }}>
                     {mod.label}
@@ -166,7 +167,7 @@ function ModuleCard({
                 {/* Glassy icon circle — size proportional to card width */}
                 <View style={{
                   width: circleSize, height: circleSize, borderRadius: circleSize / 2,
-                  backgroundColor: 'rgba(255,255,255,0.08)',
+                  backgroundColor: withAlpha(T.text, 0.08),
                   borderWidth: 1.5, borderColor: ICON_STROKE,
                   alignItems: 'center', justifyContent: 'center',
                   shadowColor: ACCENT, shadowOffset: { width: 0, height: 4 },
@@ -180,17 +181,17 @@ function ModuleCard({
             {/* Glassy bottom dock */}
             <View style={{
               margin: 10, borderRadius: 18,
-              backgroundColor: 'rgba(26,26,26,0.85)',
-              borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+              backgroundColor: withAlpha(T.bgInput, 0.85),
+              borderWidth: 1, borderColor: withAlpha(T.text, 0.10),
               padding: 12,
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
             }}>
               {/* Level badge + avatars */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
                 <View style={{
-                  backgroundColor: 'rgba(126,211,33,0.12)',
+                  backgroundColor: withAlpha(T.brand, 0.12),
                   borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4,
-                  borderWidth: 1, borderColor: 'rgba(126,211,33,0.30)',
+                  borderWidth: 1, borderColor: withAlpha(T.brand, 0.30),
                   flexDirection: 'row', alignItems: 'center', gap: 5,
                 }}>
                   <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: ACCENT }} />
@@ -198,7 +199,7 @@ function ModuleCard({
                 </View>
 
                 <View style={{ flexDirection: 'row' }}>
-                  {[SURFACE_EL, '#2A2A2A', '#242B24'].map((c, i) => (
+                  {[SURFACE_EL, T.line, T.line].map((c, i) => (
                     <View key={i} style={{
                       width: 24, height: 24, borderRadius: 12,
                       backgroundColor: c, borderWidth: 1.5, borderColor: ICON_STROKE,
@@ -210,8 +211,8 @@ function ModuleCard({
                   ))}
                   <View style={{
                     width: 24, height: 24, borderRadius: 12,
-                    backgroundColor: 'rgba(126,211,33,0.15)',
-                    borderWidth: 1.5, borderColor: 'rgba(126,211,33,0.35)',
+                    backgroundColor: withAlpha(T.brand, 0.15),
+                    borderWidth: 1.5, borderColor: withAlpha(T.brand, 0.35),
                     marginLeft: -8, alignItems: 'center', justifyContent: 'center',
                   }}>
                     <Text style={{ color: ACCENT, fontSize: 11, fontWeight: '800' }}>{mod.stat}</Text>
@@ -318,7 +319,7 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack, st
                 accessibilityLabel="Go back"
                 style={{
                   width: btnSize, height: btnSize, borderRadius: btnSize / 2,
-                  backgroundColor: SURFACE, borderWidth: 1, borderColor: '#242B24',
+                  backgroundColor: SURFACE, borderWidth: 1, borderColor: T.line,
                   alignItems: 'center', justifyContent: 'center',
                 }}
               >
@@ -328,7 +329,7 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack, st
 
             <View style={{
               width: btnSize, height: btnSize, borderRadius: btnSize / 2,
-              backgroundColor: SURFACE, borderWidth: 1, borderColor: '#242B24',
+              backgroundColor: SURFACE, borderWidth: 1, borderColor: T.line,
               alignItems: 'center', justifyContent: 'center',
             }}>
               <Feather name="bell" size={17} color={ICON_STROKE} />
@@ -368,7 +369,7 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack, st
                   borderRadius: 999,
                   backgroundColor: active ? ACCENT : SURFACE,
                   borderWidth: 1,
-                  borderColor: active ? ACCENT : '#242B24',
+                  borderColor: active ? ACCENT : T.line,
                   shadowColor: active ? ACCENT : 'transparent',
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: active ? 0.40 : 0,
@@ -437,15 +438,15 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack, st
                   flexDirection: 'row', alignItems: 'center',
                   backgroundColor: pressed ? SURFACE_EL : SURFACE,
                   borderRadius: 18, padding: 14,
-                  borderWidth: 1, borderColor: pressed ? 'rgba(126,211,33,0.20)' : '#1C211C',
+                  borderWidth: 1, borderColor: pressed ? withAlpha(T.brand, 0.20) : T.bgInputActive,
                   // On tablet: each row takes ~half width minus gap
                   ...(isTablet && { flex: 1, minWidth: '45%' }),
                 })}
               >
                 <View style={{
                   width: 42, height: 42, borderRadius: 13,
-                  backgroundColor: 'rgba(126,211,33,0.10)',
-                  borderWidth: 1, borderColor: 'rgba(126,211,33,0.25)',
+                  backgroundColor: withAlpha(T.brand, 0.10),
+                  borderWidth: 1, borderColor: withAlpha(T.brand, 0.25),
                   alignItems: 'center', justifyContent: 'center',
                   marginRight: 12,
                 }}>
@@ -459,8 +460,8 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack, st
 
                 <View style={{
                   width: 28, height: 28, borderRadius: 14,
-                  backgroundColor: '#2A2A2A',
-                  borderWidth: 1, borderColor: '#242B24',
+                  backgroundColor: T.line,
+                  borderWidth: 1, borderColor: T.line,
                   alignItems: 'center', justifyContent: 'center',
                 }}>
                   <Feather name="chevron-right" size={13} color={ICON_STROKE} />

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, StatusBar, Platform } from 'react-native';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 import { useActiveChallenges } from '../api/memberAppQueries';
 import { useTrainers } from '../../trainers/api/trainerQueries';
 import { useModuleAccess } from '../../module-access/context/ModuleAccessContext';

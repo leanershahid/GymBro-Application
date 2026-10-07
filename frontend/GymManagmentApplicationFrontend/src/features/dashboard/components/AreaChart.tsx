@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop, Circle, Line } from 'react-native-svg';
 import { RevenueTrendPoint } from '../types/dashboard';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 
 interface AreaChartProps {
   data: RevenueTrendPoint[];

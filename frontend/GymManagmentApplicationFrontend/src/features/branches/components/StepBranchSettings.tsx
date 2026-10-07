@@ -3,6 +3,7 @@ import { getSession, isSuperAdmin } from '../../../api/session';
 import { ScrollView, Text } from 'react-native';
 import { BranchPayload } from '../types/branch.types';
 import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
+import { T } from '../../../theme';
 
 export type BranchSettingsErrors = {
   timezone?: string;
@@ -18,7 +19,7 @@ interface Props {
 
 function Section({ title }: { title: string }) {
   return (
-    <Text style={{ fontSize: 13, fontWeight: '600', color: '#AAAAAA', marginBottom: 12, marginTop: 4 }}>
+    <Text style={{ fontSize: 13, fontWeight: '600', color: T.textSub, marginBottom: 12, marginTop: 4 }}>
       {title}
     </Text>
   );
@@ -31,10 +32,10 @@ export default function StepBranchSettings({ data, onChange, errors = {} }: Prop
       contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 }}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={{ fontSize: 30, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5, marginBottom: 6 }}>
+      <Text style={{ fontSize: 30, fontWeight: '800', color: T.text, letterSpacing: -0.5, marginBottom: 6 }}>
         Settings
       </Text>
-      <Text style={{ fontSize: 14, color: '#AAAAAA', lineHeight: 20, marginBottom: 28 }}>
+      <Text style={{ fontSize: 14, color: T.textSub, lineHeight: 20, marginBottom: 28 }}>
         Capacity, timezone and tenant assignment
       </Text>
 

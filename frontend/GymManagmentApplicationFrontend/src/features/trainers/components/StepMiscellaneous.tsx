@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, View, Text } from 'react-native';
 import { TrainerPayload } from '../types/trainer.types';
 import { Field, SwitchRow, RowGrid, GridCell } from './FormFields';
-import { T } from './theme';
+import { T } from '../../../theme';
 
 interface Props {
   data: Partial<TrainerPayload>;
@@ -43,7 +43,7 @@ export default function StepMiscellaneous({ data, onChange }: Props) {
         <Field label="Address" value={ec.address ?? ''} onChangeText={(v) => updateEc({ address: v })} />
       </Block>
 
-      <View className="h-px bg-[#151915] mx-5" />
+      <View className="h-px bg-input mx-5" />
 
       <Block num="02" title="Social Links">
         <RowGrid>
@@ -56,7 +56,7 @@ export default function StepMiscellaneous({ data, onChange }: Props) {
         </RowGrid>
       </Block>
 
-      <View className="h-px bg-[#151915] mx-5" />
+      <View className="h-px bg-input mx-5" />
 
       <Block num="03" title="Attendance">
         <SwitchRow label="Attendance Required" value={att.attendanceRequired ?? false} onValueChange={(v) => updateAtt({ attendanceRequired: v })} />
@@ -68,7 +68,7 @@ export default function StepMiscellaneous({ data, onChange }: Props) {
         <Field label="Weekly Off Days"   value={(att.weeklyOffDays ?? []).join(', ')}  onChangeText={(v) => updateAtt({ weeklyOffDays: v.split(',').map((x: string) => x.trim()).filter(Boolean) })} placeholder="e.g. Saturday, Sunday" />
       </Block>
 
-      <View className="h-px bg-[#151915] mx-5" />
+      <View className="h-px bg-input mx-5" />
 
       <Block num="04" title="Notes">
         <Field

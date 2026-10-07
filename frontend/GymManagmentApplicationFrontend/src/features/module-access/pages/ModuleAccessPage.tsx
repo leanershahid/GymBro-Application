@@ -11,6 +11,7 @@ import {
   useUpsertModuleAccess, useDeleteModuleAccess, useDeleteRoleAccess,
 } from '../api/moduleAccessQueries';
 import { ModuleAccessEntry, ModuleAccessPayload } from '../types/moduleAccess.types';
+import { T, withAlpha } from '../../../theme';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 type ViewTab = 'byRole' | 'matrix';
@@ -25,11 +26,11 @@ const FLAGS: { key: Flag; label: string; icon: FeatherIconName }[] = [
 ];
 
 const FLAG_COLOR: Record<Flag, string> = {
-  canView:   '#22D3EE',
-  canCreate: '#7ED321',
-  canEdit:   '#FACC15',
-  canDelete: '#EF4444',
-  canExport: '#A78BFA',
+  canView:   T.sky,
+  canCreate: T.brand,
+  canEdit:   T.brandGold,
+  canDelete: T.err,
+  canExport: T.violet,
 };
 
 // Roles from the known API response
@@ -67,9 +68,9 @@ function PermissionRow({
           accessibilityRole="button"
           accessibilityLabel={`Remove ${entry.module} access`}
           className="w-7 h-7 rounded-full items-center justify-center"
-          style={{ backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)' }}
+          style={{ backgroundColor: withAlpha(T.err, 0.12), borderWidth: 1, borderColor: withAlpha(T.err, 0.25) }}
         >
-          <Feather name="trash-2" size={13} color="#EF4444" />
+          <Feather name="trash-2" size={13} color={T.err} />
         </Pressable>
       </View>
 
@@ -85,19 +86,19 @@ function PermissionRow({
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 5,
                 paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
-                backgroundColor: on ? col + '18' : '#1C211C',
-                borderWidth: 1, borderColor: on ? col + '40' : '#242B24',
+                backgroundColor: on ? col + '18' : T.bgInputActive,
+                borderWidth: 1, borderColor: on ? col + '40' : T.line,
                 opacity: saving ? 0.6 : 1,
               }}
             >
-              <Feather name={f.icon} size={11} color={on ? col : '#555555'} />
-              <Text style={{ color: on ? col : '#555555', fontSize: 11, fontWeight: '700' }}>
+              <Feather name={f.icon} size={11} color={on ? col : T.textFaint} />
+              <Text style={{ color: on ? col : T.textFaint, fontSize: 11, fontWeight: '700' }}>
                 {f.label}
               </Text>
             </Pressable>
           );
         })}
-        {saving && <ActivityIndicator size="small" color="#7ED321" style={{ marginLeft: 4 }} />}
+        {saving && <ActivityIndicator size="small" color={T.brand} style={{ marginLeft: 4 }} />}
       </View>
     </View>
   );
@@ -108,10 +109,10 @@ function MatrixCell({ has }: { has: boolean }) {
   return (
     <View style={{
       width: 20, height: 20, borderRadius: 6, alignItems: 'center', justifyContent: 'center',
-      backgroundColor: has ? 'rgba(126,211,33,0.15)' : '#151915',
-      borderWidth: 1, borderColor: has ? 'rgba(126,211,33,0.30)' : '#1C211C',
+      backgroundColor: has ? withAlpha(T.brand, 0.15) : T.bgInput,
+      borderWidth: 1, borderColor: has ? withAlpha(T.brand, 0.30) : T.bgInputActive,
     }}>
-      {has && <Feather name="check" size={11} color="#7ED321" />}
+      {has && <Feather name="check" size={11} color={T.brand} />}
     </View>
   );
 }
@@ -215,7 +216,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
       className="flex-1 bg-bg"
       style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#0A0F0A" />
+      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
 
       {/* ── Header ── */}
       <View className="px-5 pt-5 pb-4">
@@ -227,7 +228,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
               accessibilityLabel="Go back"
               className="w-9 h-9 rounded-full bg-surface border border-line items-center justify-center mr-3"
             >
-              <Feather name="arrow-left" size={18} color="#FFFFFF" />
+              <Feather name="arrow-left" size={18} color={T.text} />
             </Pressable>
           )}
           <View style={{ flex: 1 }}>
@@ -248,7 +249,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
             >
               <Text
                 className="text-[13px] font-bold"
-                style={{ color: viewTab === t ? '#000' : '#AAAAAA' }}
+                style={{ color: viewTab === t ? T.onBrand : T.textSub }}
               >
                 {t === 'byRole' ? 'By Role' : 'Full Matrix'}
               </Text>
@@ -270,11 +271,11 @@ export default function ModuleAccessPage({ onBack }: Props) {
                   onPress={() => setSelectedRoleId(r.id)}
                   style={{
                     paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999,
-                    backgroundColor: active ? '#7ED321' : '#151915',
-                    borderWidth: 1, borderColor: active ? '#7ED321' : '#242B24',
+                    backgroundColor: active ? T.brand : T.bgInput,
+                    borderWidth: 1, borderColor: active ? T.brand : T.line,
                   }}
                 >
-                  <Text style={{ color: active ? '#000' : '#AAAAAA', fontSize: 13, fontWeight: '700', textTransform: 'capitalize' }}>
+                  <Text style={{ color: active ? T.onBrand : T.textSub, fontSize: 13, fontWeight: '700', textTransform: 'capitalize' }}>
                     {r.name}
                   </Text>
                 </Pressable>
@@ -303,7 +304,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
               {/* Configured count badge */}
               <View
                 className="rounded-xl px-3 py-1.5 border"
-                style={{ backgroundColor: 'rgba(126,211,33,0.10)', borderColor: 'rgba(126,211,33,0.25)' }}
+                style={{ backgroundColor: withAlpha(T.brand, 0.10), borderColor: withAlpha(T.brand, 0.25) }}
               >
                 <Text className="text-brand text-[12px] font-bold">{entries.length} modules</Text>
               </View>
@@ -313,11 +314,11 @@ export default function ModuleAccessPage({ onBack }: Props) {
                   onPress={handleDeleteAll}
                   disabled={deletingAll}
                   className="rounded-xl px-3 py-1.5 border"
-                  style={{ backgroundColor: 'rgba(239,68,68,0.10)', borderColor: 'rgba(239,68,68,0.25)' }}
+                  style={{ backgroundColor: withAlpha(T.err, 0.10), borderColor: withAlpha(T.err, 0.25) }}
                 >
                   {deletingAll
-                    ? <ActivityIndicator size="small" color="#EF4444" />
-                    : <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: '700' }}>Clear all</Text>
+                    ? <ActivityIndicator size="small" color={T.err} />
+                    : <Text style={{ color: T.err, fontSize: 12, fontWeight: '700' }}>Clear all</Text>
                   }
                 </Pressable>
               )}
@@ -327,7 +328,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
           {/* Loading state */}
           {(entriesLoading || keysLoading) && (
             <View className="items-center py-12">
-              <ActivityIndicator size="large" color="#7ED321" />
+              <ActivityIndicator size="large" color={T.brand} />
             </View>
           )}
 
@@ -362,16 +363,16 @@ export default function ModuleAccessPage({ onBack }: Props) {
                     style={{
                       flexDirection: 'row', alignItems: 'center', gap: 6,
                       paddingHorizontal: 12, paddingVertical: 7,
-                      borderRadius: 999, backgroundColor: '#151915',
-                      borderWidth: 1, borderColor: '#242B24',
+                      borderRadius: 999, backgroundColor: T.bgInput,
+                      borderWidth: 1, borderColor: T.line,
                       opacity: savingModule === key ? 0.5 : 1,
                     }}
                   >
                     {savingModule === key
-                      ? <ActivityIndicator size="small" color="#7ED321" />
-                      : <Feather name="plus" size={12} color="#7ED321" />
+                      ? <ActivityIndicator size="small" color={T.brand} />
+                      : <Feather name="plus" size={12} color={T.brand} />
                     }
-                    <Text style={{ color: '#AAAAAA', fontSize: 12, fontWeight: '600' }}>{key}</Text>
+                    <Text style={{ color: T.textSub, fontSize: 12, fontWeight: '600' }}>{key}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -382,7 +383,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
           {!entriesLoading && !keysLoading && entries.length === 0 && unconfiguredKeys.length === 0 && (
             <View className="items-center py-16">
               <View className="w-16 h-16 rounded-full bg-surface border border-line items-center justify-center mb-4">
-                <Feather name="lock" size={26} color="#AAAAAA" />
+                <Feather name="lock" size={26} color={T.textSub} />
               </View>
               <Text className="text-white text-[16px] font-bold mb-2">No access configured</Text>
               <Text className="text-sub text-[13px] text-center">
@@ -404,13 +405,13 @@ export default function ModuleAccessPage({ onBack }: Props) {
         >
           {matrixLoading && (
             <View className="items-center py-12">
-              <ActivityIndicator size="large" color="#7ED321" />
+              <ActivityIndicator size="large" color={T.brand} />
             </View>
           )}
 
           {!matrixLoading && !matrix && (
             <View className="items-center py-16 px-5">
-              <Feather name="grid" size={28} color="#444" />
+              <Feather name="grid" size={28} color={T.textDisabled} />
               <Text className="text-white text-[16px] font-bold mt-4">No matrix data</Text>
             </View>
           )}
@@ -423,17 +424,17 @@ export default function ModuleAccessPage({ onBack }: Props) {
                   {/* Header row */}
                   <View
                     className="flex-row items-center px-5 py-3 border-b border-lineSubtle"
-                    style={{ backgroundColor: '#0A0F0A' }}
+                    style={{ backgroundColor: T.bg }}
                   >
-                    <Text style={{ width: isWide ? 160 : 120, color: '#AAAAAA', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                    <Text style={{ width: isWide ? 160 : 120, color: T.textSub, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 }}>
                       Module
                     </Text>
                     {DEFAULT_ROLES.map(r => (
                       <View key={r.id} style={{ width: isWide ? 90 : 72, alignItems: 'center' }}>
-                        <Text style={{ color: '#7ED321', fontSize: 11, fontWeight: '700', textTransform: 'capitalize' }}>
+                        <Text style={{ color: T.brand, fontSize: 11, fontWeight: '700', textTransform: 'capitalize' }}>
                           {r.name}
                         </Text>
-                        <Text style={{ color: '#555', fontSize: 11, marginTop: 2 }}>V·C·E·D·X</Text>
+                        <Text style={{ color: T.textFaint, fontSize: 11, marginTop: 2 }}>V·C·E·D·X</Text>
                       </View>
                     ))}
                   </View>
@@ -443,14 +444,14 @@ export default function ModuleAccessPage({ onBack }: Props) {
                     <View
                       key={mod}
                       className="flex-row items-center px-5 py-3 border-b border-lineSubtle"
-                      style={{ backgroundColor: idx % 2 === 0 ? '#0A0F0A' : '#111111' }}
+                      style={{ backgroundColor: idx % 2 === 0 ? T.bg : T.bgNav }}
                     >
                       {/* Module name */}
                       <View style={{ width: isWide ? 160 : 120, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <View style={{ width: 24, height: 24, borderRadius: 7, backgroundColor: '#151915', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#1C211C' }}>
-                          <Text style={{ color: '#7ED321', fontSize: 11, fontWeight: '800' }}>{mod[0].toUpperCase()}</Text>
+                        <View style={{ width: 24, height: 24, borderRadius: 7, backgroundColor: T.bgInput, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: T.bgInputActive }}>
+                          <Text style={{ color: T.brand, fontSize: 11, fontWeight: '800' }}>{mod[0].toUpperCase()}</Text>
                         </View>
-                        <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }} numberOfLines={1}>{mod}</Text>
+                        <Text style={{ color: T.text, fontSize: 12, fontWeight: '600' }} numberOfLines={1}>{mod}</Text>
                       </View>
 
                       {/* Per-role cells */}
@@ -467,7 +468,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
                                 <MatrixCell has={re.canExport} />
                               </>
                             ) : (
-                              <Text style={{ color: '#242B24', fontSize: 12 }}>—</Text>
+                              <Text style={{ color: T.line, fontSize: 12 }}>—</Text>
                             )}
                           </View>
                         );
@@ -478,7 +479,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
                   {/* Empty matrix */}
                   {Object.keys(matrix.matrix).length === 0 && (
                     <View className="items-center py-16">
-                      <Feather name="grid" size={28} color="#444" />
+                      <Feather name="grid" size={28} color={T.textDisabled} />
                       <Text className="text-sub text-[13px] mt-4 text-center px-8">
                         No module access configured for this tenant yet.
                       </Text>

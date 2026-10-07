@@ -6,7 +6,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { useBranches } from '../api/branchQueries';
 import { Branch } from '../types/branch.types';
-import { T } from '../../trainers/components/theme';
+import { T, withAlpha } from '../../../theme';
 
 import StatsStrip from '../../common/StatsStrip';
 
@@ -20,10 +20,10 @@ function formatDate(iso: string): string {
 }
 
 const TINTS = [
-  { bg: 'rgba(126,211,33,0.08)',   accent: '#7ED321' },
-  { bg: 'rgba(34,211,238,0.08)',  accent: '#22D3EE' },
-  { bg: 'rgba(167,139,250,0.08)', accent: '#A78BFA' },
-  { bg: 'rgba(250,204,21,0.08)',  accent: '#FACC15' },
+  { bg: withAlpha(T.brand, 0.08),   accent: T.brand },
+  { bg: withAlpha(T.sky, 0.08),  accent: T.sky },
+  { bg: withAlpha(T.violet, 0.08), accent: T.violet },
+  { bg: withAlpha(T.brandGold, 0.08),  accent: T.brandGold },
 ];
 const tint = (id: number) => TINTS[id % TINTS.length];
 
@@ -31,9 +31,9 @@ const tint = (id: number) => TINTS[id % TINTS.length];
 function StatusBadge({ status }: { status: string }) {
   const lower   = status.toLowerCase();
   const active  = lower === 'active';
-  const color   = active ? T.brand : lower === 'trial' ? '#FACC15' : T.textSub;
-  const bg      = active ? 'rgba(126,211,33,0.15)' : lower === 'trial' ? 'rgba(250,204,21,0.15)' : 'rgba(255,255,255,0.08)';
-  const border  = active ? 'rgba(126,211,33,0.30)' : lower === 'trial' ? 'rgba(250,204,21,0.30)' : 'rgba(255,255,255,0.14)';
+  const color   = active ? T.brand : lower === 'trial' ? T.brandGold : T.textSub;
+  const bg      = active ? withAlpha(T.brand, 0.15) : lower === 'trial' ? withAlpha(T.brandGold, 0.15) : withAlpha(T.text, 0.08);
+  const border  = active ? withAlpha(T.brand, 0.30) : lower === 'trial' ? withAlpha(T.brandGold, 0.30) : withAlpha(T.text, 0.14);
   return (
     <View style={{ backgroundColor: bg, borderWidth: 1, borderColor: border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -57,7 +57,7 @@ function BranchCard({ branch, index, onPress }: { branch: Branch; index: number;
         borderRadius: 26,
         overflow: 'hidden',
         opacity: pressed ? 0.92 : 1,
-        shadowColor: '#000',
+        shadowColor: T.shadow,
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.40,
         shadowRadius: 20,
@@ -65,7 +65,7 @@ function BranchCard({ branch, index, onPress }: { branch: Branch; index: number;
       })}
     >
       {/* ── Hero image / colour background ── */}
-      <View style={{ height: 200, backgroundColor: hasImage ? '#000' : c.bg }}>
+      <View style={{ height: 200, backgroundColor: hasImage ? T.onBrand : c.bg }}>
         {hasImage ? (
           <>
             <Image
@@ -74,14 +74,14 @@ function BranchCard({ branch, index, onPress }: { branch: Branch; index: number;
               resizeMode="cover"
             />
             {/* dark scrim */}
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)' }} />
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: withAlpha(T.black, 0.45) }} />
           </>
         ) : (
           /* fallback — initials on tinted bg */
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <View style={{
               width: 72, height: 72, borderRadius: 22,
-              backgroundColor: 'rgba(255,255,255,0.08)',
+              backgroundColor: withAlpha(T.text, 0.08),
               borderWidth: 1, borderColor: c.accent + '40',
               alignItems: 'center', justifyContent: 'center',
             }}>
@@ -99,7 +99,7 @@ function BranchCard({ branch, index, onPress }: { branch: Branch; index: number;
         }}>
           {/* Code pill */}
           <View style={{
-            backgroundColor: 'rgba(0,0,0,0.55)',
+            backgroundColor: T.overlay,
             borderWidth: 1, borderColor: c.accent + '50',
             borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6,
           }}>
@@ -111,8 +111,8 @@ function BranchCard({ branch, index, onPress }: { branch: Branch; index: number;
           {/* Arrow button */}
           <View style={{
             width: 34, height: 34, borderRadius: 17,
-            backgroundColor: 'rgba(255,255,255,0.12)',
-            borderWidth: 1, borderColor: 'rgba(255,255,255,0.80)',
+            backgroundColor: withAlpha(T.text, 0.12),
+            borderWidth: 1, borderColor: withAlpha(T.text, 0.80),
             alignItems: 'center', justifyContent: 'center',
           }}>
             <Feather name="arrow-up-right" size={16} color={T.text} />
@@ -123,8 +123,8 @@ function BranchCard({ branch, index, onPress }: { branch: Branch; index: number;
         <View style={{
           position: 'absolute', left: 14, right: 14, bottom: 14,
           borderRadius: 20,
-          backgroundColor: 'rgba(0,0,0,0.60)',
-          borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+          backgroundColor: withAlpha(T.black, 0.60),
+          borderWidth: 1, borderColor: withAlpha(T.text, 0.10),
         }}>
           {/* Accent hairline */}
           <View style={{ height: 2.5, backgroundColor: c.accent, borderTopLeftRadius: 20, borderTopRightRadius: 20 }} />
@@ -161,9 +161,9 @@ function BranchCard({ branch, index, onPress }: { branch: Branch; index: number;
 
       {/* ── Detail panel below image ── */}
       <View style={{
-        backgroundColor: 'rgba(255,255,255,0.04)',
+        backgroundColor: withAlpha(T.text, 0.04),
         borderWidth: 1, borderTopWidth: 0,
-        borderColor: 'rgba(255,255,255,0.08)',
+        borderColor: withAlpha(T.text, 0.08),
         borderBottomLeftRadius: 26, borderBottomRightRadius: 26,
         padding: 16,
       }}>
@@ -189,8 +189,8 @@ function BranchCard({ branch, index, onPress }: { branch: Branch; index: number;
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <View style={{
                 width: 28, height: 28, borderRadius: 8,
-                backgroundColor: 'rgba(255,255,255,0.05)',
-                borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+                backgroundColor: withAlpha(T.text, 0.05),
+                borderWidth: 1, borderColor: withAlpha(T.text, 0.10),
                 alignItems: 'center', justifyContent: 'center',
               }}>
                 <Feather name="phone" size={13} color={T.textSub} />
@@ -288,8 +288,8 @@ export default function ViewBranchesPage({ onBack, onAddBranch }: ViewBranchesPa
               hitSlop={12}
               style={{
                 width: 42, height: 42, borderRadius: 21,
-                backgroundColor: 'rgba(255,255,255,0.07)',
-                borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+                backgroundColor: withAlpha(T.text, 0.07),
+                borderWidth: 1, borderColor: withAlpha(T.text, 0.12),
                 alignItems: 'center', justifyContent: 'center',
                 marginRight: 14,
               }}
@@ -328,8 +328,8 @@ export default function ViewBranchesPage({ onBack, onAddBranch }: ViewBranchesPa
         {/* Search */}
         <View style={{
           flexDirection: 'row', alignItems: 'center',
-          backgroundColor: 'rgba(255,255,255,0.05)',
-          borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+          backgroundColor: withAlpha(T.text, 0.05),
+          borderWidth: 1, borderColor: withAlpha(T.text, 0.10),
           borderRadius: 16, paddingHorizontal: 14, height: 48,
         }}>
           <Feather name="search" size={16} color={T.textFaint} style={{ marginRight: 10 }} />
@@ -359,8 +359,8 @@ export default function ViewBranchesPage({ onBack, onAddBranch }: ViewBranchesPa
           <View style={{ marginBottom: 20 }}>
             <StatsStrip items={[
               { icon: 'map-pin', label: 'Total',  value: String(branches.length),                                                     accent: T.brand   },
-              { icon: 'check-circle', label: 'Active', value: String(branches.filter((b) => b.status.toLowerCase() === 'active').length), accent: '#22D3EE' },
-              { icon: 'eye',    label: 'Shown',  value: String(filtered.length),                                                     accent: '#A78BFA' },
+              { icon: 'check-circle', label: 'Active', value: String(branches.filter((b) => b.status.toLowerCase() === 'active').length), accent: T.sky },
+              { icon: 'eye',    label: 'Shown',  value: String(filtered.length),                                                     accent: T.violet },
             ]} />
           </View>
         )}
@@ -372,8 +372,8 @@ export default function ViewBranchesPage({ onBack, onAddBranch }: ViewBranchesPa
           <View style={{ alignItems: 'center', paddingTop: 60 }}>
             <View style={{
               width: 68, height: 68, borderRadius: 34,
-              backgroundColor: 'rgba(239,68,68,0.10)',
-              borderWidth: 1, borderColor: 'rgba(239,68,68,0.20)',
+              backgroundColor: withAlpha(T.err, 0.10),
+              borderWidth: 1, borderColor: withAlpha(T.err, 0.20),
               alignItems: 'center', justifyContent: 'center', marginBottom: 16,
             }}>
               <Feather name="wifi-off" size={30} color={T.err} />
@@ -395,8 +395,8 @@ export default function ViewBranchesPage({ onBack, onAddBranch }: ViewBranchesPa
           <View style={{ alignItems: 'center', paddingTop: 60 }}>
             <View style={{
               width: 68, height: 68, borderRadius: 34,
-              backgroundColor: 'rgba(255,255,255,0.06)',
-              borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+              backgroundColor: withAlpha(T.text, 0.06),
+              borderWidth: 1, borderColor: withAlpha(T.text, 0.10),
               alignItems: 'center', justifyContent: 'center', marginBottom: 16,
             }}>
               <Feather name="git-branch" size={30} color={T.textSub} />

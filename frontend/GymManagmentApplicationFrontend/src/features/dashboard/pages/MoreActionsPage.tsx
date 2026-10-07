@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable, StatusBar, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 import BackButton from '../../common/components/BackButton';
 import { useVisibleAdminActions } from '../adminActions';
 

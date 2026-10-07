@@ -8,7 +8,7 @@ import { TenantPayload, TenantPlan } from '../types/tenant.types';
 import StepTenantBasicInfo, { TenantBasicInfoErrors } from '../components/StepTenantBasicInfo';
 import StepTenantLocale,    { TenantLocaleErrors }    from '../components/StepTenantLocale';
 import StepTenantPlan,      { TenantPlanErrors }      from '../components/StepTenantPlan';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 
 // ─── Steps ────────────────────────────────────────────────────────
 const STEPS = [

@@ -6,15 +6,15 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { useTenants } from '../api/tenantQueries';
 import { Tenant } from '../types/tenant.types';
-import { T } from '../../trainers/components/theme';
+import { T, withAlpha } from '../../../theme';
 import StatsStrip from '../../common/StatsStrip';
 import Skeleton from '../../common/components/Skeleton';
 
 const TINTS = [
-  { bg: 'rgba(167,139,250,0.08)', accent: '#A78BFA' },
-  { bg: 'rgba(34,211,238,0.08)',  accent: '#22D3EE' },
-  { bg: 'rgba(126,211,33,0.08)',   accent: '#7ED321' },
-  { bg: 'rgba(250,204,21,0.08)',  accent: '#FACC15' },
+  { bg: withAlpha(T.violet, 0.08), accent: T.violet },
+  { bg: withAlpha(T.sky, 0.08),  accent: T.sky },
+  { bg: withAlpha(T.brand, 0.08),   accent: T.brand },
+  { bg: withAlpha(T.brandGold, 0.08),  accent: T.brandGold },
 ];
 const tint = (id: number) => TINTS[id % TINTS.length];
 
@@ -23,12 +23,12 @@ const tint = (id: number) => TINTS[id % TINTS.length];
 // ─── Plan badge ───────────────────────────────────────────────────
 function PlanBadge({ plan }: { plan: string }) {
   const colors: Record<string, { color: string; bg: string; border: string }> = {
-    starter:    { color: '#7ED321', bg: 'rgba(126,211,33,0.12)',   border: 'rgba(126,211,33,0.28)'   },
-    basic:      { color: '#22D3EE', bg: 'rgba(34,211,238,0.12)',  border: 'rgba(34,211,238,0.28)'  },
-    pro:        { color: '#A78BFA', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.28)' },
-    enterprise: { color: '#FACC15', bg: 'rgba(250,204,21,0.12)',  border: 'rgba(250,204,21,0.28)'  },
+    starter:    { color: T.brand, bg: withAlpha(T.brand, 0.12),   border: withAlpha(T.brand, 0.28)   },
+    basic:      { color: T.sky, bg: withAlpha(T.sky, 0.12),  border: withAlpha(T.sky, 0.28)  },
+    pro:        { color: T.violet, bg: withAlpha(T.violet, 0.12), border: withAlpha(T.violet, 0.28) },
+    enterprise: { color: T.brandGold, bg: withAlpha(T.brandGold, 0.12),  border: withAlpha(T.brandGold, 0.28)  },
   };
-  const c = colors[plan.toLowerCase()] ?? { color: T.textSub, bg: 'rgba(255,255,255,0.08)', border: 'rgba(255,255,255,0.14)' };
+  const c = colors[plan.toLowerCase()] ?? { color: T.textSub, bg: withAlpha(T.text, 0.08), border: withAlpha(T.text, 0.14) };
   return (
     <View style={{ backgroundColor: c.bg, borderWidth: 1, borderColor: c.border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
       <Text style={{ color: c.color, fontSize: 11, fontWeight: '700' }}>{plan}</Text>
@@ -41,9 +41,9 @@ function StatusBadge({ status }: { status: string }) {
   const lower  = status.toLowerCase();
   const active = lower === 'active';
   const trial  = lower === 'trial';
-  const color  = active ? T.brand : trial ? '#FACC15' : T.textSub;
-  const bg     = active ? 'rgba(126,211,33,0.15)' : trial ? 'rgba(250,204,21,0.15)' : 'rgba(255,255,255,0.08)';
-  const border = active ? 'rgba(126,211,33,0.30)' : trial ? 'rgba(250,204,21,0.30)' : 'rgba(255,255,255,0.14)';
+  const color  = active ? T.brand : trial ? T.brandGold : T.textSub;
+  const bg     = active ? withAlpha(T.brand, 0.15) : trial ? withAlpha(T.brandGold, 0.15) : withAlpha(T.text, 0.08);
+  const border = active ? withAlpha(T.brand, 0.30) : trial ? withAlpha(T.brandGold, 0.30) : withAlpha(T.text, 0.14);
   return (
     <View style={{ backgroundColor: bg, borderWidth: 1, borderColor: border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -73,10 +73,10 @@ function TenantCard({ tenant, onPress }: { tenant: Tenant; onPress: () => void }
         borderRadius: 24,
         overflow: 'hidden',
         opacity: pressed ? 0.92 : 1,
-        backgroundColor: 'rgba(34,197,94,0.06)',
+        backgroundColor: withAlpha(T.ok, 0.06),
         borderWidth: 1,
-        borderColor: 'rgba(34,197,94,0.18)',
-        shadowColor: '#22c55e',
+        borderColor: withAlpha(T.ok, 0.18),
+        shadowColor: T.ok,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.18,
         shadowRadius: 18,
@@ -120,7 +120,7 @@ function TenantCard({ tenant, onPress }: { tenant: Tenant; onPress: () => void }
               <View style={{
                 width: 14, height: 14, borderRadius: 4,
                 backgroundColor: tenant.primaryColor,
-                borderWidth: 1, borderColor: 'rgba(255,255,255,0.20)',
+                borderWidth: 1, borderColor: withAlpha(T.text, 0.20),
               }} />
               <Text style={{ color: T.textFaint, fontSize: 11 }}>{tenant.primaryColor}</Text>
             </View>
@@ -128,7 +128,7 @@ function TenantCard({ tenant, onPress }: { tenant: Tenant; onPress: () => void }
         </View>
 
         {/* Divider */}
-        <View style={{ height: 1, backgroundColor: 'rgba(34,197,94,0.12)', marginBottom: 12 }} />
+        <View style={{ height: 1, backgroundColor: withAlpha(T.ok, 0.12), marginBottom: 12 }} />
 
         {/* Details row */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
@@ -203,8 +203,8 @@ export default function ViewTenantsPage({ onBack, onAddTenant }: ViewTenantsPage
               hitSlop={12}
               style={{
                 width: 42, height: 42, borderRadius: 21,
-                backgroundColor: 'rgba(34,197,94,0.10)',
-                borderWidth: 1, borderColor: 'rgba(34,197,94,0.22)',
+                backgroundColor: withAlpha(T.ok, 0.10),
+                borderWidth: 1, borderColor: withAlpha(T.ok, 0.22),
                 alignItems: 'center', justifyContent: 'center',
                 marginRight: 14,
               }}
@@ -243,8 +243,8 @@ export default function ViewTenantsPage({ onBack, onAddTenant }: ViewTenantsPage
         {/* Search */}
         <View style={{
           flexDirection: 'row', alignItems: 'center',
-          backgroundColor: 'rgba(34,197,94,0.06)',
-          borderWidth: 1, borderColor: 'rgba(34,197,94,0.18)',
+          backgroundColor: withAlpha(T.ok, 0.06),
+          borderWidth: 1, borderColor: withAlpha(T.ok, 0.18),
           borderRadius: 16, paddingHorizontal: 14, height: 48,
         }}>
           <Feather name="search" size={16} color={T.textFaint} style={{ marginRight: 10 }} />
@@ -273,9 +273,9 @@ export default function ViewTenantsPage({ onBack, onAddTenant }: ViewTenantsPage
         {!isLoading && !isError && (
           <View style={{ marginBottom: 20 }}>
             <StatsStrip items={[
-              { icon: 'briefcase',    label: 'Total',  value: String(tenants.length),                                                        accent: '#A78BFA' },
+              { icon: 'briefcase',    label: 'Total',  value: String(tenants.length),                                                        accent: T.violet },
               { icon: 'check-circle', label: 'Active', value: String(tenants.filter((t) => t.status.toLowerCase() === 'active').length),      accent: T.brand   },
-              { icon: 'clock',        label: 'Trial',  value: String(tenants.filter((t) => t.status.toLowerCase() === 'trial').length),       accent: '#FACC15' },
+              { icon: 'clock',        label: 'Trial',  value: String(tenants.filter((t) => t.status.toLowerCase() === 'trial').length),       accent: T.brandGold },
             ]} />
           </View>
         )}
@@ -286,8 +286,8 @@ export default function ViewTenantsPage({ onBack, onAddTenant }: ViewTenantsPage
           <View style={{ alignItems: 'center', paddingTop: 60 }}>
             <View style={{
               width: 68, height: 68, borderRadius: 34,
-              backgroundColor: 'rgba(239,68,68,0.10)',
-              borderWidth: 1, borderColor: 'rgba(239,68,68,0.20)',
+              backgroundColor: withAlpha(T.err, 0.10),
+              borderWidth: 1, borderColor: withAlpha(T.err, 0.20),
               alignItems: 'center', justifyContent: 'center', marginBottom: 16,
             }}>
               <Feather name="wifi-off" size={30} color={T.err} />
@@ -309,8 +309,8 @@ export default function ViewTenantsPage({ onBack, onAddTenant }: ViewTenantsPage
           <View style={{ alignItems: 'center', paddingTop: 60 }}>
             <View style={{
               width: 68, height: 68, borderRadius: 34,
-              backgroundColor: 'rgba(255,255,255,0.06)',
-              borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+              backgroundColor: withAlpha(T.text, 0.06),
+              borderWidth: 1, borderColor: withAlpha(T.text, 0.10),
               alignItems: 'center', justifyContent: 'center', marginBottom: 16,
             }}>
               <Feather name="briefcase" size={30} color={T.textSub} />
