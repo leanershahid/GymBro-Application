@@ -1,6 +1,7 @@
 using System.Text.Json;
 using GymManagmentApplication.Application.Auth;
 using GymManagmentApplication.Application.Auth.Interfaces;
+using GymManagmentApplication.Application.Auth.Services;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Member.Interfaces;
 using GymManagmentApplication.Application.Member.Requests;
@@ -26,19 +27,17 @@ public class MemberService(
     AppDbContext db) : IMemberService
 {
     /// <summary>
-    /// Loads a member the caller may see. Queries are already tenant-filtered; on top of
-    /// that a client may only touch their own record. Throws (→ 403) for someone else's.
+    /// Loads a member the caller may act on (see <see cref="MemberScope"/>): clients only
+    /// themselves, trainers only their assigned clients, super admin accounts only by a
+    /// super admin. Throws (→ 403) otherwise; null when not found in the caller's gym.
     /// </summary>
-    private async Task<User?> GetAccessibleAsync(ulong id)
-    {
-        if (currentUser.Role == RoleNames.Client && currentUser.UserId != id)
-            throw new UnauthorizedAccessException("You can only access your own member profile.");
-        return await repository.GetByIdAsync(id);
-    }
+    private Task<User?> GetAccessibleAsync(ulong id) => db.GetActionableUserAsync(currentUser, id);
 
     public async Task<PagedResponse<MemberResponse>> GetAllAsync(MemberSearchRequest request)
     {
-        var (items, total) = await repository.GetAllAsync(request);
+        // Trainers list only the clients assigned to them.
+        var onlyAssignedTo = currentUser.IsTrainer() ? currentUser.UserId : null;
+        var (items, total) = await repository.GetAllAsync(request, onlyAssignedTo);
         return new PagedResponse<MemberResponse>
         {
             Items = items.Select(Map),
@@ -120,7 +119,7 @@ public class MemberService(
                 throw new ArgumentException($"Branch {newBranch} does not belong to this gym.");
             user.BranchId = newBranch;
         }
-        if (request.Notes is not null && currentUser.Role != RoleNames.Client) user.Notes = request.Notes;
+        if (request.Notes is not null && !currentUser.IsClient()) user.Notes = request.Notes;
         if (request.FirstName is not null) user.FirstName = request.FirstName;
         if (request.LastName is not null) user.LastName = request.LastName;
         if (request.Phone is not null) user.Phone = request.Phone;
@@ -131,7 +130,15 @@ public class MemberService(
         return Map(user);
     }
 
-    public Task<bool> DeleteAsync(ulong id) => repository.SoftDeleteAsync(id);
+    public async Task<bool> DeleteAsync(ulong id)
+    {
+        if (await GetAccessibleAsync(id) is null) return false;
+        if (id == currentUser.UserId)
+            throw new ArgumentException("You cannot archive your own account.");
+        var deleted = await repository.SoftDeleteAsync(id);
+        if (deleted) AuthService.RevokeRefreshTokens(id); // signed-in sessions end at next request
+        return deleted;
+    }
 
     public async Task<List<MemberResponse>> BulkImportAsync(BulkImportMemberRequest request)
     {

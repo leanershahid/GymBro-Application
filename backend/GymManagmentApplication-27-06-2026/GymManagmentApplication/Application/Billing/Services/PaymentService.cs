@@ -12,7 +12,8 @@ namespace GymManagmentApplication.Application.Billing.Services;
 public class PaymentService(AppDbContext db, ICurrentUser currentUser) : IPaymentService
 {
     // In-memory payment method store until a dedicated table is added
-    private static readonly List<(ulong MemberId, PaymentMethodResponse Method)> _methods = [];
+    // Mock store (no gateway yet). Keyed by gym so one gym can't see or remove another's.
+    private static readonly List<(ulong TenantId, ulong MemberId, PaymentMethodResponse Method)> _methods = [];
     private static ulong _methodId = 1;
 
     public async Task<PaymentResponse> ChargeAsync(ChargeRequest request)
@@ -79,27 +80,38 @@ public class PaymentService(AppDbContext db, ICurrentUser currentUser) : IPaymen
         };
     }
 
-    public Task<PaymentMethodResponse> SaveMethodAsync(SavePaymentMethodRequest request)
+    public async Task<PaymentMethodResponse> SaveMethodAsync(SavePaymentMethodRequest request)
     {
+        var tenantId = currentUser.ResolveTenantId();
+        await db.EnsureUserAsync(request.MemberId, tenantId);
         var method = new PaymentMethodResponse
         {
             Id = _methodId++, Type = request.Type, Provider = request.Provider,
             Last4 = "4242", Brand = "Visa", IsDefault = request.SetAsDefault,
             AddedAt = DateTime.UtcNow
         };
-        _methods.Add((request.MemberId, method));
-        return Task.FromResult(method);
+        lock (_methods) _methods.Add((tenantId, request.MemberId, method));
+        return method;
     }
 
-    public Task<List<PaymentMethodResponse>> GetMethodsAsync(ulong memberId) =>
-        Task.FromResult(_methods.Where(m => m.MemberId == memberId).Select(m => m.Method).ToList());
+    public async Task<List<PaymentMethodResponse>> GetMethodsAsync(ulong memberId)
+    {
+        var tenantId = currentUser.ResolveTenantId();
+        await db.EnsureUserAsync(memberId, tenantId);
+        lock (_methods)
+            return _methods.Where(m => m.TenantId == tenantId && m.MemberId == memberId).Select(m => m.Method).ToList();
+    }
 
     public Task<bool> RemoveMethodAsync(ulong methodId)
     {
-        var idx = _methods.FindIndex(m => m.Method.Id == methodId);
-        if (idx < 0) return Task.FromResult(false);
-        _methods.RemoveAt(idx);
-        return Task.FromResult(true);
+        var tenantId = currentUser.ResolveTenantId();
+        lock (_methods)
+        {
+            var idx = _methods.FindIndex(m => m.Method.Id == methodId && m.TenantId == tenantId);
+            if (idx < 0) return Task.FromResult(false);
+            _methods.RemoveAt(idx);
+            return Task.FromResult(true);
+        }
     }
 
     public Task<PaymentIntentResponse> CreateIntentAsync(CreatePaymentIntentRequest request) =>

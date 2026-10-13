@@ -104,6 +104,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         // Ensures short JWT claim names ("sub", "role", ...) are mapped to their
         // long ClaimTypes.* equivalents, which is what controllers/AuthorizeRolesAttribute read.
         options.MapInboundClaims = true;
+        options.Events = new JwtBearerEvents
+        {
+            // Reject tokens of users who were deleted, deactivated, demoted or whose gym closed.
+            OnTokenValidated = async ctx =>
+            {
+                var db = ctx.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                var cache = ctx.HttpContext.RequestServices.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
+                var reason = await GymManagmentApplication.Application.Auth.TokenValidator.GetRejectionReasonAsync(ctx.Principal!, db, cache);
+                if (reason is not null) ctx.Fail(reason);
+            }
+        };
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
@@ -118,6 +129,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddMemoryCache();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 

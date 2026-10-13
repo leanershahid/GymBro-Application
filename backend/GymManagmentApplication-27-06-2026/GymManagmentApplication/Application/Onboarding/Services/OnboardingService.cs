@@ -16,13 +16,10 @@ public class OnboardingService(IOnboardingRepository repository, ICurrentUser cu
     private static readonly string[] DefaultSteps = ["profile", "goals", "health", "payment", "agreement"];
 
     /// <summary>Member must exist in the caller's gym; a client may only act on themselves.</summary>
-    private async Task<Domain.Entities.Identity.User> GetMemberAsync(ulong memberId)
-    {
-        if (currentUser.Role == RoleNames.Client && currentUser.UserId != memberId)
-            throw new UnauthorizedAccessException("You can only access your own onboarding.");
-        return await db.Users.FirstOrDefaultAsync(u => u.Id == memberId && u.DeletedAt == null)
-               ?? throw new KeyNotFoundException($"Member {memberId} not found.");
-    }
+    private async Task<Domain.Entities.Identity.User> GetMemberAsync(ulong memberId) =>
+        // Clients: themselves; trainers: assigned clients; admins/staff: anyone in their gym.
+        await db.GetActionableUserAsync(currentUser, memberId)
+        ?? throw new KeyNotFoundException($"Member {memberId} not found.");
 
     public async Task<OnboardingStatusResponse> StartAsync(StartOnboardingRequest request)
     {

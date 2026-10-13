@@ -1,3 +1,4 @@
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.WorkoutBuilder.Interfaces;
 using GymManagmentApplication.Application.WorkoutBuilder.Requests;
 using GymManagmentApplication.Application.WorkoutBuilder.Responses;
@@ -8,10 +9,24 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.WorkoutBuilder.Services;
 
-public class WorkoutBuilderService(AppDbContext db) : IWorkoutBuilderService
+public class WorkoutBuilderService(AppDbContext db, ICurrentUser currentUser) : IWorkoutBuilderService
 {
+    /// <summary>
+    /// WorkoutSection has no TenantId, so check the parent workout through the tenant-filtered
+    /// WorkoutTemplates set (another gym's workout is "not found"). Trainers may only build
+    /// workouts they created; admins and staff any workout in their gym.
+    /// </summary>
+    private async Task EnsureWorkoutAsync(ulong workoutId)
+    {
+        var workout = await db.WorkoutTemplates.FirstOrDefaultAsync(w => w.Id == workoutId)
+            ?? throw new KeyNotFoundException($"Workout {workoutId} not found.");
+        if (currentUser.IsTrainer() && workout.CreatedBy != currentUser.UserId)
+            throw new UnauthorizedAccessException("You can only edit workouts you created.");
+    }
+
     public async Task<SectionResponse> AddCircuitAsync(ulong workoutId, AddCircuitRequest request)
     {
+        await EnsureWorkoutAsync(workoutId);
         var section = await CreateSectionAsync(workoutId, request.Name ?? "Circuit",
             SectionType.Circuit, request.Rounds, request.RestSeconds);
         return MapSection(section);
@@ -19,6 +34,7 @@ public class WorkoutBuilderService(AppDbContext db) : IWorkoutBuilderService
 
     public async Task<SectionResponse?> UpdateCircuitAsync(ulong workoutId, ulong circuitId, UpdateCircuitRequest request)
     {
+        await EnsureWorkoutAsync(workoutId);
         var section = await db.WorkoutSections
             .FirstOrDefaultAsync(s => s.Id == circuitId && s.TemplateId == workoutId);
         if (section is null) return null;
@@ -32,6 +48,7 @@ public class WorkoutBuilderService(AppDbContext db) : IWorkoutBuilderService
 
     public async Task<SectionResponse> AddSupersetAsync(ulong workoutId, AddSupersetRequest request)
     {
+        await EnsureWorkoutAsync(workoutId);
         var section = await CreateSectionAsync(workoutId, "Superset",
             SectionType.Superset, request.Sets, request.RestSeconds);
         return MapSection(section);
@@ -39,28 +56,42 @@ public class WorkoutBuilderService(AppDbContext db) : IWorkoutBuilderService
 
     public async Task<SectionResponse> AddDropsetAsync(ulong workoutId, AddDropsetRequest request)
     {
+        await EnsureWorkoutAsync(workoutId);
         var section = await CreateSectionAsync(workoutId, "Dropset", SectionType.Dropset, 1, null);
         return MapSection(section);
     }
 
     public async Task<SectionResponse> AddPyramidAsync(ulong workoutId, AddPyramidRequest request)
     {
+        await EnsureWorkoutAsync(workoutId);
         var section = await CreateSectionAsync(workoutId,
             $"Pyramid ({request.Direction})", SectionType.Pyramid, 1, null);
         return MapSection(section);
     }
 
-    public Task<BuilderConfigResponse> SetTempoAsync(ulong workoutId, SetTempoRequest request)
-        => Task.FromResult(BuildConfig(workoutId, "tempo", request));
+    public async Task<BuilderConfigResponse> SetTempoAsync(ulong workoutId, SetTempoRequest request)
+    {
+        await EnsureWorkoutAsync(workoutId);
+        return BuildConfig(workoutId, "tempo", request);
+    }
 
-    public Task<BuilderConfigResponse> SetRestIntervalsAsync(ulong workoutId, SetRestIntervalsRequest request)
-        => Task.FromResult(BuildConfig(workoutId, "rest-intervals", request));
+    public async Task<BuilderConfigResponse> SetRestIntervalsAsync(ulong workoutId, SetRestIntervalsRequest request)
+    {
+        await EnsureWorkoutAsync(workoutId);
+        return BuildConfig(workoutId, "rest-intervals", request);
+    }
 
-    public Task<BuilderConfigResponse> ConfigureTimerAsync(ulong workoutId, ConfigureTimerRequest request)
-        => Task.FromResult(BuildConfig(workoutId, "timer", request));
+    public async Task<BuilderConfigResponse> ConfigureTimerAsync(ulong workoutId, ConfigureTimerRequest request)
+    {
+        await EnsureWorkoutAsync(workoutId);
+        return BuildConfig(workoutId, "timer", request);
+    }
 
-    public Task<BuilderConfigResponse> SetDifficultyAsync(ulong workoutId, SetDifficultyRequest request)
-        => Task.FromResult(BuildConfig(workoutId, "difficulty", request));
+    public async Task<BuilderConfigResponse> SetDifficultyAsync(ulong workoutId, SetDifficultyRequest request)
+    {
+        await EnsureWorkoutAsync(workoutId);
+        return BuildConfig(workoutId, "difficulty", request);
+    }
 
     // ── helpers ──────────────────────────────────────────────────────────────
 

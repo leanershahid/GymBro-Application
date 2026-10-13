@@ -1,3 +1,4 @@
+using GymManagmentApplication.Application.Auth.Services;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Roles.Interfaces;
 using GymManagmentApplication.Application.Roles.Requests;
@@ -55,6 +56,7 @@ public class RolesService(AppDbContext db, ICurrentUser currentUser) : IRolesSer
         if (!ulong.TryParse(id, out var uid)) return null;
         var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == uid);
         if (role is null) return null;
+        EnsureEditable(role);
         if (request.Name is not null)
         {
             role.Name = request.Name;
@@ -103,6 +105,7 @@ public class RolesService(AppDbContext db, ICurrentUser currentUser) : IRolesSer
         if (!ulong.TryParse(id, out var uid)) return null;
         var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == uid);
         if (role is null) return null;
+        EnsureEditable(role);
 
         // Remove existing
         var existing = await db.RolePermissions.Where(rp => rp.RoleId == uid).ToListAsync();
@@ -166,8 +169,10 @@ public class RolesService(AppDbContext db, ICurrentUser currentUser) : IRolesSer
             throw new UnauthorizedAccessException("Only a super admin can grant the super admin role.");
         if (user.Id == currentUser.UserId)
             throw new ArgumentException("You cannot change your own role.");
+        await EnsureNotSuperAdminTargetAsync(user);
         user.RoleId    = roleId;
         user.UpdatedAt = DateTime.UtcNow;
+        AuthService.RevokeRefreshTokens(user.Id); // the old role must not be refreshable
         await db.SaveChangesAsync();
         return true;
     }
@@ -179,14 +184,33 @@ public class RolesService(AppDbContext db, ICurrentUser currentUser) : IRolesSer
         if (user is null || user.RoleId != rid) return false;
         if (user.Id == currentUser.UserId)
             throw new ArgumentException("You cannot change your own role.");
+        await EnsureNotSuperAdminTargetAsync(user);
         // Revert to the client role of the user's own gym
         var clientRole = await db.Roles.IgnoreQueryFilters()
             .FirstOrDefaultAsync(r => r.Slug == RoleNames.Client && r.TenantId == user.TenantId)
             ?? throw new InvalidOperationException("This gym has no client role.");
         user.RoleId    = clientRole.Id;
         user.UpdatedAt = DateTime.UtcNow;
+        AuthService.RevokeRefreshTokens(user.Id); // the old role must not be refreshable
         await db.SaveChangesAsync();
         return true;
+    }
+
+    /// <summary>The super admin role row itself can only be edited by a super admin.</summary>
+    private void EnsureEditable(Role role)
+    {
+        if (role.Slug == RoleNames.SuperAdmin && !currentUser.IsSuperAdmin)
+            throw new UnauthorizedAccessException("Only a super admin can edit the super admin role.");
+    }
+
+    /// <summary>Only a super admin may change the role of a super admin account.</summary>
+    private async Task EnsureNotSuperAdminTargetAsync(User user)
+    {
+        if (currentUser.IsSuperAdmin) return;
+        var targetSlug = await db.Roles.IgnoreQueryFilters()
+            .Where(r => r.Id == user.RoleId).Select(r => r.Slug).FirstOrDefaultAsync();
+        if (targetSlug == RoleNames.SuperAdmin)
+            throw new UnauthorizedAccessException("Only a super admin can change a super admin's role.");
     }
 
     private static RoleResponse Map(Role r) => new()

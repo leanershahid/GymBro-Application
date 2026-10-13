@@ -56,10 +56,18 @@ public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentU
         return w is null ? null : Map(w);
     }
 
+    /// <summary>Trainers may only change workouts they created; admins/staff any in their gym.</summary>
+    private void EnsureCanEdit(WorkoutTemplate w)
+    {
+        if (currentUser.IsTrainer() && w.CreatedBy != currentUser.UserId)
+            throw new UnauthorizedAccessException("You can only edit workouts you created.");
+    }
+
     public async Task<WorkoutResponse?> UpdateAsync(ulong id, UpdateWorkoutRequest request)
     {
         var w = await repository.GetByIdAsync(id);
         if (w is null) return null;
+        EnsureCanEdit(w);
         if (request.Name is not null) w.Name = request.Name;
         if (request.Description is not null) w.Description = request.Description;
         if (request.Category is not null) w.Category = request.Category;
@@ -71,7 +79,13 @@ public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentU
         return Map(w);
     }
 
-    public Task<bool> DeleteAsync(ulong id) => repository.DeleteAsync(id);
+    public async Task<bool> DeleteAsync(ulong id)
+    {
+        var w = await repository.GetByIdAsync(id);
+        if (w is null) return false;
+        EnsureCanEdit(w);
+        return await repository.DeleteAsync(id);
+    }
 
     public async Task<WorkoutResponse?> CloneAsync(ulong id, ulong userId)
     {
@@ -107,6 +121,8 @@ public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentU
         var invalid = memberIds.Except(validMembers).ToList();
         if (invalid.Count > 0)
             throw new ArgumentException($"Members not found in this gym: {string.Join(", ", invalid)}.");
+        await db.EnsureCanActOnAllAsync(currentUser, memberIds); // trainers: assigned clients only
+        var trainerId = await db.ResolveAssigningTrainerAsync(currentUser, request.TrainerId);
 
         var results = new List<WorkoutLogResponse>();
         foreach (var memberId in memberIds)
@@ -114,7 +130,7 @@ public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentU
             var assignment = new WorkoutAssignment
             {
                 TenantId = workout.TenantId,
-                TrainerId = request.TrainerId,
+                TrainerId = trainerId,
                 ClientId = memberId,
                 TemplateId = request.WorkoutId,
                 AssignedAt = request.AssignedAt,
@@ -129,7 +145,7 @@ public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentU
 
     public async Task<WorkoutProgressResponse?> GetProgressAsync(ulong id, ulong clientId)
     {
-        EnsureSelfOrStaff(clientId);
+        await EnsureSelfOrStaff(clientId);
         var logs = await repository.GetLogsByWorkoutAndClientAsync(id, clientId);
         var total = logs.Count;
         var completed = logs.Count(l => l.EndedAt.HasValue);
@@ -144,16 +160,12 @@ public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentU
         };
     }
 
-    /// <summary>A client may only read or log their own workouts.</summary>
-    private void EnsureSelfOrStaff(ulong clientId)
-    {
-        if (currentUser.Role == Domain.Constants.RoleNames.Client && currentUser.UserId != clientId)
-            throw new UnauthorizedAccessException("You can only access your own workouts.");
-    }
+    /// <summary>Clients only their own workouts; trainers only their assigned clients'.</summary>
+    private Task EnsureSelfOrStaff(ulong clientId) => db.EnsureCanActOnAllAsync(currentUser, [clientId]);
 
     public async Task<WorkoutLogResponse> CompleteAsync(ulong id, CompleteWorkoutRequest request)
     {
-        EnsureSelfOrStaff(request.ClientId);
+        await EnsureSelfOrStaff(request.ClientId);
         var client = await db.Users.FirstOrDefaultAsync(u => u.Id == request.ClientId && u.DeletedAt == null)
             ?? throw new KeyNotFoundException($"Member {request.ClientId} not found.");
         if (await repository.GetByIdAsync(id) is null)
@@ -190,7 +202,7 @@ public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentU
 
     public async Task<WorkoutScoreResponse?> GetScoreAsync(ulong id, ulong clientId)
     {
-        EnsureSelfOrStaff(clientId);
+        await EnsureSelfOrStaff(clientId);
         var logs = await repository.GetLogsByWorkoutAndClientAsync(id, clientId);
         var lastLog = logs.OrderByDescending(l => l.CreatedAt).FirstOrDefault();
         if (lastLog is null) return null;

@@ -27,7 +27,7 @@ public class TrainerService(
         var (items, total) = await repository.GetAllAsync(pageNumber, pageSize);
         return new PagedResponse<TrainerResponse>
         {
-            Items = items.Select(MapToResponse),
+            Items = items.Select(MapToResponse).Select(ForCaller),
             PageNumber = pageNumber,
             PageSize = pageSize,
             TotalRecords = total
@@ -111,7 +111,21 @@ public class TrainerService(
     public async Task<TrainerResponse?> GetByIdAsync(ulong id)
     {
         var trainer = await repository.GetByIdAsync(id);
-        return trainer is null ? null : MapToResponse(trainer);
+        return trainer is null ? null : ForCaller(MapToResponse(trainer));
+    }
+
+    /// <summary>
+    /// HR, pay and personal fields are visible only to admins/staff and to the trainer
+    /// themselves. Clients and other trainers get the public profile.
+    /// </summary>
+    private TrainerResponse ForCaller(TrainerResponse r)
+    {
+        if (currentUser.IsAdmin || currentUser.IsDelegatedRole || r.UserId == currentUser.UserId) return r;
+        r.Salary = null; r.Allowances = null; r.Deductions = null; r.PaymentDetails = null;
+        r.Employment = null; r.CommissionSettings = null; r.AttendanceSettings = null;
+        r.Documents = null; r.EmergencyContact = null; r.DateOfBirth = null;
+        r.Address = null; r.Notes = null; r.Phone = null;
+        return r;
     }
 
     public async Task<TrainerResponse?> UpdateAsync(ulong id, UpdateTrainerRequest request)
@@ -191,6 +205,8 @@ public class TrainerService(
 
     public async Task<List<TrainerScheduleResponse>> GetScheduleAsync(ulong id)
     {
+        // Slots have no TenantId — only read them for a trainer of the caller's gym.
+        if (await repository.GetByIdAsync(id) is null) return [];
         var slots = await repository.GetSlotsAsync(id);
         return slots.Select(s => new TrainerScheduleResponse
         {

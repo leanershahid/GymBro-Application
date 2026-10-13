@@ -45,10 +45,18 @@ public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser 
         return p is null ? null : Map(p);
     }
 
+    /// <summary>Trainers may only change plans they created; admins/staff any in their gym.</summary>
+    private void EnsureCanEdit(Domain.Entities.Training.WorkoutPlan p)
+    {
+        if (currentUser.IsTrainer() && p.CreatedBy != currentUser.UserId)
+            throw new UnauthorizedAccessException("You can only edit plans you created.");
+    }
+
     public async Task<PlanResponse?> UpdateAsync(ulong id, UpdatePlanRequest request)
     {
         var p = await repository.GetByIdAsync(id);
         if (p is null) return null;
+        EnsureCanEdit(p);
         if (request.Name is not null) p.Name = request.Name;
         if (request.Description is not null) p.Description = request.Description;
         if (request.DurationWeeks.HasValue) p.DurationWeeks = request.DurationWeeks.Value;
@@ -59,7 +67,13 @@ public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser 
         return Map(p);
     }
 
-    public Task<bool> DeleteAsync(ulong id) => repository.DeleteAsync(id);
+    public async Task<bool> DeleteAsync(ulong id)
+    {
+        var p = await repository.GetByIdAsync(id);
+        if (p is null) return false;
+        EnsureCanEdit(p);
+        return await repository.DeleteAsync(id);
+    }
 
     public async Task<PlanTreeResponse?> GetTreeAsync(ulong id)
     {
@@ -82,6 +96,12 @@ public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser 
 
     public async Task<bool> AddBranchAsync(ulong id, AddBranchRequest request)
     {
+        // WorkoutPlanBranch has no TenantId: verify both plans through the tenant-filtered set.
+        var plan = await repository.GetByIdAsync(id);
+        if (plan is null) return false;
+        EnsureCanEdit(plan);
+        if (request.NextPlanId is { } next && await repository.GetByIdAsync(next) is null)
+            throw new ArgumentException($"Plan {next} not found in this gym.");
         var branch = new WorkoutPlanBranch
         {
             PlanId = id,
@@ -98,6 +118,7 @@ public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser 
     {
         var p = await repository.GetByIdAsync(id);
         if (p is null) return false;
+        EnsureCanEdit(p);
         p.ProgressionRules = request.Rules;
         await repository.UpdateAsync(p);
         return true;
@@ -109,6 +130,8 @@ public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser 
         var memberIds = request.MemberIds.Distinct().ToList();
         foreach (var memberId in memberIds)
             await db.EnsureUserAsync(memberId, plan.TenantId);
+        await db.EnsureCanActOnAllAsync(currentUser, memberIds); // trainers: assigned clients only
+        var trainerId = await db.ResolveAssigningTrainerAsync(currentUser, request.TrainerId);
 
         var results = new List<PlanMemberResponse>();
         foreach (var memberId in memberIds)
@@ -118,7 +141,7 @@ public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser 
                 TenantId = plan.TenantId,
                 PlanId = id,
                 ClientId = memberId,
-                TrainerId = request.TrainerId,
+                TrainerId = trainerId,
                 StartDate = request.StartDate
             };
             var created = await repository.CreateAssignmentAsync(assignment);

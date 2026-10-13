@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -21,9 +22,9 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
     private readonly JwtSettings _jwt = jwtOptions.Value;
 
     // In-memory stores for refresh/reset tokens and OTPs (stateless; replace with DB-backed if needed)
-    private static readonly Dictionary<string, (ulong UserId, DateTime Expiry)> _refreshTokens = [];
-    private static readonly Dictionary<string, (ulong UserId, DateTime Expiry)> _passwordResetTokens = [];
-    private static readonly Dictionary<string, (string Otp, DateTime Expiry)> _otpStore = [];
+    private static readonly ConcurrentDictionary<string, (ulong UserId, DateTime Expiry)> _refreshTokens = new();
+    private static readonly ConcurrentDictionary<string, (ulong UserId, DateTime Expiry)> _passwordResetTokens = new();
+    private static readonly ConcurrentDictionary<string, (string Otp, DateTime Expiry)> _otpStore = new();
 
     public async Task<AuthResponse?> RegisterAsync(RegisterRequest request)
     {
@@ -100,14 +101,13 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
         if (user is null || !PasswordHasher.Verify(request.Password, user.PasswordHash, out var needsRehash))
             return null;
 
+        await EnsureCanSignInAsync(user);
+
         // Upgrade legacy unsalted hashes transparently.
         if (needsRehash) user.PasswordHash = PasswordHasher.Hash(request.Password);
 
         // Load role separately so a missing/0 RoleId doesn't block login
-        var role = user.RoleId != 0
-            ? await db.Roles.FirstOrDefaultAsync(r => r.Id == user.RoleId)
-            : null;
-        var roleSlug = role?.Slug ?? "client";
+        var roleSlug = await ResolveRoleSlugAsync(user);
 
         // Update last login
         user.LastLoginAt = DateTime.UtcNow;
@@ -121,7 +121,7 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
     public Task LogoutAsync(ulong userId)
     {
         var keys = _refreshTokens.Where(kv => kv.Value.UserId == userId).Select(kv => kv.Key).ToList();
-        foreach (var k in keys) _refreshTokens.Remove(k);
+        foreach (var k in keys) _refreshTokens.TryRemove(k, out _);
         return Task.CompletedTask;
     }
 
@@ -130,17 +130,16 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
         if (!_refreshTokens.TryGetValue(refreshToken, out var entry) || entry.Expiry < DateTime.UtcNow)
             return null;
 
-        _refreshTokens.Remove(refreshToken);
+        _refreshTokens.TryRemove(refreshToken, out _);
 
         var user = await db.Users
             .FirstOrDefaultAsync(u => u.Id == entry.UserId && u.DeletedAt == null);
 
         if (user is null) return null;
 
-        var role = user.RoleId != 0
-            ? await db.Roles.FirstOrDefaultAsync(r => r.Id == user.RoleId)
-            : null;
-        var roleSlug = role?.Slug ?? "client";
+        await EnsureCanSignInAsync(user);
+
+        var roleSlug = await ResolveRoleSlugAsync(user);
         return GenerateTokens(user, roleSlug);
     }
 
@@ -168,7 +167,7 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
-        _passwordResetTokens.Remove(request.Token);
+        _passwordResetTokens.TryRemove(request.Token, out _);
         return true;
     }
 
@@ -190,9 +189,7 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
 
         if (user is null) return null;
 
-        var role = user.RoleId != 0
-            ? await db.Roles.FirstOrDefaultAsync(r => r.Id == user.RoleId)
-            : null;
+        var roleSlug = await ResolveRoleSlugAsync(user);
 
         return new UserProfileResponse
         {
@@ -200,7 +197,7 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
             Email           = user.Email ?? string.Empty,
             FirstName       = user.FirstName ?? string.Empty,
             LastName        = user.LastName ?? string.Empty,
-            Role            = role?.Slug ?? "client",
+            Role            = roleSlug,
             TenantId        = user.TenantId,
             BranchId        = user.BranchId,
             IsEmailVerified = user.EmailVerifiedAt.HasValue
@@ -220,7 +217,7 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
-        _otpStore.Remove(request.Email);
+        _otpStore.TryRemove(request.Email, out _);
         return true;
     }
 
@@ -234,6 +231,40 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
         _otpStore[request.Email] = (otp, DateTime.UtcNow.AddMinutes(10));
         // In production: send via email/SMS based on request.Channel
         return true;
+    }
+
+    /// <summary>
+    /// The user's role slug — only if the role row belongs to the user's own tenant. A RoleId
+    /// pointing at another gym's role is treated as a plain client.
+    /// </summary>
+    private async Task<string> ResolveRoleSlugAsync(User user)
+    {
+        if (user.RoleId == 0) return RoleNames.Client;
+        var slug = await db.Roles.IgnoreQueryFilters()
+            .Where(r => r.Id == user.RoleId && r.TenantId == user.TenantId)
+            .Select(r => r.Slug).FirstOrDefaultAsync();
+        return slug ?? RoleNames.Client;
+    }
+
+    /// <summary>Clears every refresh token of a user (role change, deactivation, deletion).</summary>
+    public static void RevokeRefreshTokens(ulong userId)
+    {
+        foreach (var k in _refreshTokens.Where(kv => kv.Value.UserId == userId).Select(kv => kv.Key).ToList())
+            _refreshTokens.TryRemove(k, out _);
+    }
+
+    /// <summary>
+    /// Suspended/deactivated accounts, and every account of a suspended or cancelled gym,
+    /// cannot sign in or refresh. (Pending = self-registered, not yet verified — still allowed.)
+    /// </summary>
+    private async Task EnsureCanSignInAsync(User user)
+    {
+        if (user.Status is UserStatus.Suspended or UserStatus.Inactive)
+            throw new UnauthorizedAccessException("This account has been deactivated. Please contact your gym.");
+
+        var tenantStatus = await db.Tenants.Where(t => t.Id == user.TenantId).Select(t => t.Status).FirstOrDefaultAsync();
+        if (tenantStatus is TenantStatus.Suspended or TenantStatus.Cancelled)
+            throw new UnauthorizedAccessException("This gym's account is not active. Please contact support.");
     }
 
     private AuthResponse GenerateTokens(User user, string roleSlug)

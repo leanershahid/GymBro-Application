@@ -10,7 +10,6 @@ namespace GymManagmentApplication.Controllers;
 
 [ApiController]
 [Route("api/module-access")]
-[AuthorizeRoles(RoleNames.Admin)]
 public class ModuleAccessController(
     IModuleAccessService service,
     IValidator<SetModuleAccessRequest> setValidator,
@@ -27,12 +26,14 @@ public class ModuleAccessController(
     // ── GET api/module-access/modules ─────────────────────────────────────
     /// <summary>List all platform module keys available for access configuration.</summary>
     [HttpGet("modules")]
+    [AuthorizeRoles(RoleNames.Admin)]
     public ActionResult<ApiResponse<object>> GetModules()
         => Ok(ApiResponse<object>.Ok(service.GetAvailableModules(), "Available modules."));
 
     // ── GET api/module-access?tenantId=1&roleId=2 ─────────────────────────
     /// <summary>Get all module access entries for a specific role in a tenant.</summary>
     [HttpGet]
+    [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> GetByRole(
         [FromQuery] ulong tenantId,
         [FromQuery] ulong roleId)
@@ -47,6 +48,7 @@ public class ModuleAccessController(
     // ── GET api/module-access/matrix?tenantId=1 ───────────────────────────
     /// <summary>Get the full module access matrix for all roles in a tenant.</summary>
     [HttpGet("matrix")]
+    [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> GetMatrix([FromQuery] ulong tenantId = 0)
     {
         var result = await service.GetMatrixAsync(tenantId);
@@ -56,6 +58,7 @@ public class ModuleAccessController(
     // ── POST api/module-access ────────────────────────────────────────────
     /// <summary>Set (upsert) access for a single module + role combination.</summary>
     [HttpPost]
+    [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> Set([FromBody] SetModuleAccessRequest request)
     {
         var v = await setValidator.ValidateAsync(request);
@@ -69,6 +72,7 @@ public class ModuleAccessController(
     // ── POST api/module-access/bulk ───────────────────────────────────────
     /// <summary>Bulk upsert access for multiple modules for a role in one call.</summary>
     [HttpPost("bulk")]
+    [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> BulkSet([FromBody] BulkSetModuleAccessRequest request)
     {
         var v = await bulkValidator.ValidateAsync(request);
@@ -82,6 +86,7 @@ public class ModuleAccessController(
     // ── POST api/module-access/check ──────────────────────────────────────
     /// <summary>Check whether a role has a specific action on a module.</summary>
     [HttpPost("check")]
+    [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> Check(
         [FromQuery] ulong tenantId,
         [FromBody] CheckModuleAccessRequest request)
@@ -97,6 +102,7 @@ public class ModuleAccessController(
     // ── DELETE api/module-access?tenantId=1&roleId=2&module=members ───────
     /// <summary>Revoke access for a role on a specific module.</summary>
     [HttpDelete]
+    [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> Revoke(
         [FromQuery] ulong tenantId,
         [FromQuery] ulong roleId,
@@ -114,6 +120,7 @@ public class ModuleAccessController(
     // ── DELETE api/module-access/role?tenantId=1&roleId=2 ─────────────────
     /// <summary>Revoke ALL module access for a role (e.g. before deleting the role).</summary>
     [HttpDelete("role")]
+    [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> RevokeAllForRole(
         [FromQuery] ulong tenantId,
         [FromQuery] ulong roleId)

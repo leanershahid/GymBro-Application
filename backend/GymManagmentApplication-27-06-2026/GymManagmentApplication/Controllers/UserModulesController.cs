@@ -13,7 +13,9 @@ namespace GymManagmentApplication.Controllers;
 public class UserModulesController(IUserModulesService service) : ControllerBase
 {
     private ulong CurrentUserId => ulong.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
-    private bool IsAdmin => string.Equals(User.FindFirstValue(ClaimTypes.Role), RoleNames.Admin, StringComparison.OrdinalIgnoreCase);
+    private bool IsAdmin =>
+        string.Equals(User.FindFirstValue(ClaimTypes.Role), RoleNames.Admin, StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(User.FindFirstValue(ClaimTypes.Role), RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>List all gate-able feature modules (admin-only, for the assignment UI).</summary>
     [HttpGet("modules")]
@@ -29,7 +31,8 @@ public class UserModulesController(IUserModulesService service) : ControllerBase
         if (!IsAdmin && id != CurrentUserId)
             return Forbid();
 
-        return Ok(ApiResponse<object>.Ok(await service.GetUserModulesAsync(id)));
+        var result = await service.GetUserModulesAsync(id);
+        return result is null ? NotFound(ApiResponse<object>.Fail($"User {id} not found.")) : Ok(ApiResponse<object>.Ok(result));
     }
 
     /// <summary>Bulk update which modules are enabled for a given Trainer or Client (admin-only).</summary>
@@ -38,6 +41,8 @@ public class UserModulesController(IUserModulesService service) : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> SetUserModules(ulong id, [FromBody] UpdateUserModulesRequest request)
     {
         var result = await service.SetUserModulesAsync(id, CurrentUserId, request);
-        return Ok(ApiResponse<object>.Ok(result, "Module access updated."));
+        return result is null
+            ? NotFound(ApiResponse<object>.Fail($"User {id} not found."))
+            : Ok(ApiResponse<object>.Ok(result, "Module access updated."));
     }
 }

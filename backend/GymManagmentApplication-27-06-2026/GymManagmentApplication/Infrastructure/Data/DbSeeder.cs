@@ -40,14 +40,17 @@ public static class DbSeeder
         // users must hold a role row from their own tenant). The platform tenant — the first
         // one — additionally owns the 'superadmin' role.
         var platformTenant = await db.Tenants.OrderBy(t => t.Id).FirstAsync();
+        var superRoleIsNew = !await db.Roles.AnyAsync(r => r.TenantId == platformTenant.Id && r.Slug == RoleNames.SuperAdmin);
         await EnsureSystemRolesAsync(db, platformTenant.Id, includeSuperAdmin: true);
         foreach (var tenantId in await db.Tenants.Where(t => t.Id != platformTenant.Id).Select(t => t.Id).ToListAsync())
             await EnsureSystemRolesAsync(db, tenantId, includeSuperAdmin: false);
 
         // One-time bootstrap: before 'superadmin' existed, the platform tenant's admin managed
         // all gyms. Promote the earliest such admin so tenant management stays reachable.
+        // Runs only in the deploy that creates the role — never again — so archiving the super
+        // admin can't be used to get some other admin promoted on the next restart.
         var superRole = await db.Roles.FirstAsync(r => r.TenantId == platformTenant.Id && r.Slug == RoleNames.SuperAdmin);
-        if (!await db.Users.AnyAsync(u => u.RoleId == superRole.Id && u.DeletedAt == null))
+        if (superRoleIsNew && !await db.Users.AnyAsync(u => u.RoleId == superRole.Id && u.DeletedAt == null))
         {
             var adminRoleIds = await db.Roles.Where(r => r.Slug == RoleNames.Admin).Select(r => r.Id).ToListAsync();
             var firstAdmin = await db.Users

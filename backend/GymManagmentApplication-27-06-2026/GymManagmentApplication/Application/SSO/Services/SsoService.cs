@@ -27,21 +27,10 @@ public class SsoService(AppDbContext db, IAuthService authService, ICurrentUser 
         return Task.FromResult(new SsoInitResponse { AuthorizationUrl = url, State = state });
     }
 
-    public async Task<AuthResponse?> CallbackAsync(SsoCallbackRequest request)
-    {
-        var mockEmail = $"sso_{request.Code[..6]}@{request.Provider.ToLower()}.example.com";
-
-        var authResult = await authService.RegisterAsync(new RegisterRequest
-        {
-            Email = mockEmail, Password = Guid.NewGuid().ToString("N"),
-            FirstName = "SSO", LastName = request.Provider
-        });
-
-        if (authResult is null)
-            authResult = await authService.LoginAsync(new LoginRequest { Email = mockEmail, Password = string.Empty });
-
-        return authResult;
-    }
+    public Task<AuthResponse?> CallbackAsync(SsoCallbackRequest request) =>
+        // The previous mock never verified the provider code, so it created/signed in an account
+        // for anyone who called it. Closed until a real OAuth token exchange is implemented.
+        throw new ArgumentException("SSO sign-in is not configured for this platform yet.");
 
     public async Task<List<SsoProviderResponse>> GetProvidersAsync(ulong tenantId)
     {

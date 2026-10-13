@@ -1,3 +1,4 @@
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Member.Requests;
 using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Domain.Enums;
@@ -8,9 +9,15 @@ namespace GymManagmentApplication.Infrastructure.Repositories.Member;
 
 public class MemberRepository(AppDbContext db) : IMemberRepository
 {
-    public async Task<(List<User> Items, int Total)> GetAllAsync(MemberSearchRequest request)
+    public async Task<(List<User> Items, int Total)> GetAllAsync(MemberSearchRequest request, ulong? onlyAssignedToTrainerUserId = null)
     {
         var q = db.Users.Where(u => u.DeletedAt == null && u.Role != null && u.Role.Slug == "client");
+
+        if (onlyAssignedToTrainerUserId is { } trainerUserId)
+        {
+            var assigned = db.AssignedClientIds(trainerUserId);
+            q = q.Where(u => assigned.Contains(u.Id));
+        }
 
         if (!string.IsNullOrWhiteSpace(request.Status) &&
             Enum.TryParse<UserStatus>(request.Status, true, out var status))

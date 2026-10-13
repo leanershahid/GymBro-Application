@@ -15,8 +15,14 @@ public class UserModulesService(AppDbContext db) : IUserModulesService
             .Select(m => new ModuleResponse { Id = m.Id, Key = m.Key, Name = m.Name, Description = m.Description, Icon = m.Icon })
             .ToListAsync();
 
-    public async Task<List<UserModuleAccessResponse>> GetUserModulesAsync(ulong userId)
+    // UserModuleAccess has no TenantId, so it isn't covered by the tenant query filter.
+    // Users is — checking the target user through it confines admins to their own gym.
+    private Task<bool> UserInScopeAsync(ulong userId) =>
+        db.Users.AnyAsync(u => u.Id == userId && u.DeletedAt == null);
+
+    public async Task<List<UserModuleAccessResponse>?> GetUserModulesAsync(ulong userId)
     {
+        if (!await UserInScopeAsync(userId)) return null;
         var modules = await db.Modules.OrderBy(m => m.Name).ToListAsync();
         var access = await db.UserModuleAccesses
             .Where(a => a.UserId == userId)
@@ -38,8 +44,9 @@ public class UserModulesService(AppDbContext db) : IUserModulesService
         }).ToList();
     }
 
-    public async Task<List<UserModuleAccessResponse>> SetUserModulesAsync(ulong userId, ulong? adminId, UpdateUserModulesRequest request)
+    public async Task<List<UserModuleAccessResponse>?> SetUserModulesAsync(ulong userId, ulong? adminId, UpdateUserModulesRequest request)
     {
+        if (!await UserInScopeAsync(userId)) return null;
         var modules = await db.Modules.ToDictionaryAsync(m => m.Key, StringComparer.OrdinalIgnoreCase);
         var existing = await db.UserModuleAccesses.Where(a => a.UserId == userId).ToListAsync();
         var nextId = (await db.UserModuleAccesses.IgnoreQueryFilters().MaxAsync(a => (ulong?)a.Id) ?? 0) + 1;
