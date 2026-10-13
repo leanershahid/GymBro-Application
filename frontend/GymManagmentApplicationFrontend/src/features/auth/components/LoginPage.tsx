@@ -6,7 +6,8 @@ import {
   StatusBar,
   Platform,
   ActivityIndicator,
-  KeyboardAvoidingView,
+  Keyboard,
+  KeyboardEvent,
   Animated,
   Easing,
   ImageBackground,
@@ -23,6 +24,30 @@ import { T, withAlpha } from '../../../theme';
 
 /** Scaled font size that never drops below the 11px legibility floor. */
 const fs = (px: number) => Math.max(11, rs(px));
+
+/**
+ * How many pixels of the screen the software keyboard covers. Measured from the keyboard's
+ * top edge against our own root view, so it is right on both iOS and Android, whether or not
+ * Android resized the window (edge-to-edge apps don't get resized — that's why the old
+ * KeyboardAvoidingView left the fields hidden behind the keyboard on Android).
+ */
+function useKeyboardOverlap(rootHeight: number) {
+  const [keyboardTop, setKeyboardTop] = useState<number | null>(null);
+
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = (e: KeyboardEvent) => setKeyboardTop(e.endCoordinates.screenY);
+    const onHide = () => setKeyboardTop(null);
+    const a = Keyboard.addListener(showEvt, onShow);
+    const b = Keyboard.addListener(hideEvt, onHide);
+    return () => { a.remove(); b.remove(); };
+  }, []);
+
+  const visible = keyboardTop !== null;
+  const overlap = visible && rootHeight > 0 ? Math.max(0, rootHeight - keyboardTop) : 0;
+  return { visible, overlap };
+}
 
 /** Layout split from the live window size — adjusts on very small screens (< 700 px tall). */
 function useLoginLayout() {
@@ -86,8 +111,14 @@ function InputField({
   accessibilityLabel,
   textContentType,
   autoComplete,
+  inputRef,
+  returnKeyType,
+  onSubmitEditing,
 }: {
   accessibilityLabel: string;
+  inputRef?: React.Ref<TextInput>;
+  returnKeyType?: 'next' | 'go';
+  onSubmitEditing?: () => void;
   textContentType?: 'username' | 'password';
   autoComplete?: 'email' | 'password';
   value: string;
@@ -117,6 +148,10 @@ function InputField({
   return (
     <Animated.View style={[styles.inputWrapper, { borderColor }]}>
       <TextInput
+        ref={inputRef}
+        returnKeyType={returnKeyType}
+        onSubmitEditing={onSubmitEditing}
+        blurOnSubmit={returnKeyType !== 'next'}
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
@@ -155,6 +190,23 @@ export default function LoginPage({
   const { mutate, isPending } = useLogin();
   const insets = useSafeAreaInsets();
   const { heroHeight, sheetHeight, logoHeight, logoWidth } = useLoginLayout();
+
+  // Keyboard handling: lift the sheet above the keyboard, let it grow into the hero area if it
+  // needs the room, and scroll the inputs + Sign In button into view.
+  const [rootHeight, setRootHeight] = useState(0);
+  // `visible` drives the "typing" layout; `overlap` is how far to lift the sheet (0 when
+  // Android already resized the window for us).
+  const { visible: keyboardOpen, overlap: keyboardOverlap } = useKeyboardOverlap(rootHeight);
+  const scrollRef = useRef<ScrollView>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const availableForSheet = rootHeight - keyboardOverlap - insets.top - 8;
+  const currentSheetHeight = keyboardOpen
+    ? Math.max(Math.min(sheetHeight, availableForSheet), Math.min(availableForSheet, 280))
+    : sheetHeight;
+
+  useEffect(() => {
+    if (keyboardOpen) requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+  }, [keyboardOpen, keyboardOverlap]);
 
   const sheetTranslateY = useRef(new Animated.Value(sheetHeight)).current;
   const sheetOpacity    = useRef(new Animated.Value(0)).current;
@@ -227,7 +279,7 @@ export default function LoginPage({
   };
 
   return (
-    <View style={styles.root}>
+    <View style={styles.root} onLayout={(e) => setRootHeight(e.nativeEvent.layout.height)}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       {/* ── Full-screen background image — visible behind hero AND form ── */}
@@ -246,7 +298,7 @@ export default function LoginPage({
       <Animated.View
         style={[
           styles.heroLabel,
-          { opacity: heroOpacity, top: Math.max(insets.top + 8, heroHeight - logoHeight * (150 / 190)) },
+          { opacity: keyboardOpen ? 0 : heroOpacity, top: Math.max(insets.top + 8, heroHeight - logoHeight * (150 / 190)) },
         ]}
         pointerEvents="none"
       >
@@ -260,25 +312,28 @@ export default function LoginPage({
         />
       </Animated.View>
 
-      {/* ── Bottom sheet — shrinks above the keyboard and scrolls when content doesn't fit ── */}
-      <KeyboardAvoidingView
-        style={styles.sheetContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      {/* ── Bottom sheet — sits above the keyboard and scrolls when content doesn't fit ── */}
+      <View style={[styles.sheetContainer, { paddingBottom: keyboardOverlap }]}>
         <Animated.View
           style={[
             styles.sheet,
             {
-              height: sheetHeight,
+              height: currentSheetHeight,
               opacity: sheetOpacity,
               transform: [{ translateY: sheetTranslateY }],
             },
           ]}
         >
           <ScrollView
+            ref={scrollRef}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[styles.sheetContent, { paddingBottom: scaleH(28) + insets.bottom }]}
+            contentContainerStyle={[
+              styles.sheetContent,
+              // The home-indicator inset only matters when the keyboard isn't covering it.
+              { paddingBottom: scaleH(28) + (keyboardOpen ? 0 : insets.bottom) },
+            ]}
           >
           {/* Headline */}
           <Text style={styles.headline} accessibilityRole="header">Welcome to the gym</Text>
@@ -313,6 +368,8 @@ export default function LoginPage({
                 accessibilityLabel="Email"
                 textContentType="username"
                 autoComplete="email"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
               />
               {!!fieldErrors.email && (
                 <Text style={styles.fieldError} accessibilityLiveRegion="polite">{fieldErrors.email}</Text>
@@ -327,6 +384,9 @@ export default function LoginPage({
                 accessibilityLabel="Password"
                 textContentType="password"
                 autoComplete="password"
+                inputRef={passwordRef}
+                returnKeyType="go"
+                onSubmitEditing={handleSignIn}
                 rightElement={
                   <TouchableOpacity
                     style={styles.showHideBtn}
@@ -352,7 +412,7 @@ export default function LoginPage({
           </View>
           </ScrollView>
         </Animated.View>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }
