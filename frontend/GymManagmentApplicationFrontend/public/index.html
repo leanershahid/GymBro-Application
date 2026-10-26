@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <!--
+      App-like viewport on phones: no pinch zoom, no double-tap zoom, and no automatic zoom
+      when an input is focused (iOS Safari zooms into inputs unless maximum-scale is 1).
+      viewport-fit=cover lets the layout use the safe-area insets on notched phones.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no"
+    />
+    <meta name="theme-color" content="#0A0F0A" />
+    <title>GymBro</title>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+        background-color: #0A0F0A;
+        /* Stop iOS/Android inflating text sizes in landscape */
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+        /* Remove the 300ms double-tap-to-zoom gesture */
+        touch-action: manipulation;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+        overscroll-behavior: none;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>
+      You need to enable JavaScript to run this app.
+    </noscript>
+    <!-- The root element for your Expo app. -->
+    <div id="root"></div>
+  </body>
+</html>
