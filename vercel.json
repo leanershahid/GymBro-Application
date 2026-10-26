@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd frontend/GymManagmentApplicationFrontend && npm ci",
+  "buildCommand": "cd frontend/GymManagmentApplicationFrontend && npx expo export --platform web",
+  "outputDirectory": "frontend/GymManagmentApplicationFrontend/dist",
+  "framework": null,
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
