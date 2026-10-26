@@ -4,6 +4,8 @@ namespace GymManagmentApplication.Application.Billing.Requests;
 public class CreateMembershipPlanRequest
 {
     public ulong TenantId { get; set; }
+    /// <summary>Optional branch; must belong to the same gym.</summary>
+    public ulong? BranchId { get; set; }
     public string Name { get; set; } = default!;
     public string? Description { get; set; }
     public decimal Price { get; set; }
@@ -34,6 +36,8 @@ public class UpdatePlanFeaturesRequest
 public class CreateSubscriptionRequest
 {
     public ulong TenantId { get; set; }
+    /// <summary>Optional branch; must belong to the same gym.</summary>
+    public ulong? BranchId { get; set; }
     public ulong MemberId { get; set; }
     public ulong PlanId { get; set; }
     public DateOnly StartDate { get; set; }

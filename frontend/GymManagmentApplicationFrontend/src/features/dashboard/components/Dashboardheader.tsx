@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 
 interface DashboardHeaderProps {
   adminName: string;
@@ -45,6 +45,7 @@ export default function DashboardHeader({
         onPress={onPressAvatar}
         style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
         accessibilityRole="button"
+        accessibilityLabel={`${adminName}${roleLabel ? `, ${roleLabel}` : ''}, profile`}
       >
         {/* Avatar */}
         {avatarUrl ? (

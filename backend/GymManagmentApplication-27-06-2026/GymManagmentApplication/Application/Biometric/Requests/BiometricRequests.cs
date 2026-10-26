@@ -9,7 +9,10 @@ public class EnrollFaceRequest
 public class VerifyFaceRequest
 {
     public string FaceImageBase64 { get; set; } = default!;
+    /// <summary>Only honoured for super admins; otherwise the caller's gym.</summary>
     public ulong TenantId { get; set; }
+    /// <summary>Scanner that captured the entry; the event is logged against it.</summary>
+    public ulong? DeviceId { get; set; }
 }
 
 public class EnrollFingerprintRequest
@@ -21,5 +24,8 @@ public class EnrollFingerprintRequest
 public class VerifyFingerprintRequest
 {
     public string FingerprintData { get; set; } = default!;
+    /// <summary>Only honoured for super admins; otherwise the caller's gym.</summary>
     public ulong TenantId { get; set; }
+    /// <summary>Scanner that captured the entry; the event is logged against it.</summary>
+    public ulong? DeviceId { get; set; }
 }

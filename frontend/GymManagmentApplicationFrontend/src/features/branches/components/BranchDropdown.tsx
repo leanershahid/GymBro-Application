@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, Modal,
-  FlatList, ActivityIndicator, Platform,
+  View, Text, TouchableOpacity,
+  FlatList, ActivityIndicator,
 } from 'react-native';
 import { useBranches } from '../api/branchQueries';
 import { Branch } from '../types/branch.types';
-import { T } from '../../trainers/components/theme';
+import { T, withAlpha } from '../../../theme';
+import BottomSheet from '../../common/components/BottomSheet';
+import EmptyState from '../../dashboard/components/EmptyState';
 
 interface Props {
-  value: number | null;        // selected branch id (maps to tenantId)
+  value: number | null;        // selected branch id
   onChange: (branch: Branch) => void;
   error?: string;
   label?: string;
@@ -33,16 +35,20 @@ export default function BranchDropdown({
       {/* Trigger ───────────────────────────────────────────── */}
       <TouchableOpacity
         className="flex-row items-center bg-input border rounded-xl px-4 py-[14px]"
-        style={hasError ? { borderColor: '#EF4444' } : { borderColor: open ? '#444444' : T.line }}
+        style={hasError ? { borderColor: T.err } : { borderColor: open ? T.textDisabled : T.line }}
         onPress={() => setOpen(true)}
         activeOpacity={0.75}
         disabled={isLoading}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${isLoading ? 'Loading branches' : isError ? 'Failed to load' : selected ? selected.name : 'Select a branch'}`}
+        accessibilityHint="Opens the branch list"
+        accessibilityState={{ disabled: isLoading, expanded: open }}
       >
         {isLoading ? (
           <ActivityIndicator size="small" color={T.textFaint} style={{ marginRight: 8 }} />
         ) : null}
 
-        <Text className={`flex-1 text-[15px] ${selected ? 'text-white' : 'text-faint'}`}>
+        <Text numberOfLines={1} className={`flex-1 text-[15px] ${selected ? 'text-white' : 'text-faint'}`}>
           {isLoading  ? 'Loading branches…'
            : isError  ? 'Failed to load'
            : selected ? selected.name
@@ -51,6 +57,7 @@ export default function BranchDropdown({
 
         {/* chevron */}
         <Text
+          importantForAccessibility="no"
           className="text-[12px] text-faint ml-2"
           style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}
         >
@@ -59,43 +66,16 @@ export default function BranchDropdown({
       </TouchableOpacity>
 
       {hasError && (
-        <Text className="text-[12px] mt-1" style={{ color: '#EF4444' }}>{error}</Text>
+        <Text className="text-[12px] mt-1" style={{ color: T.err }}>{error}</Text>
       )}
 
       {/* Modal sheet ─────────────────────────────────────── */}
-      <Modal
-        visible={open}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setOpen(false)}
-      >
-        <TouchableOpacity
-          className="flex-1 bg-black/60"
-          activeOpacity={1}
-          onPress={() => setOpen(false)}
-        />
-
-        <View
-          className="bg-surface rounded-t-[20px]"
-          style={{ paddingBottom: Platform.OS === 'ios' ? 36 : 20 }}
-        >
-          {/* sheet header */}
-          <View className="flex-row items-center justify-between px-5 py-4 border-b border-[#2A2A2A]">
-            <Text className="text-[15px] font-bold text-white">Select Branch</Text>
-            <TouchableOpacity onPress={() => setOpen(false)}>
-              <Text className="text-[15px] text-sub">Close</Text>
-            </TouchableOpacity>
-          </View>
-
+      <BottomSheet visible={open} onClose={() => setOpen(false)} title="Select Branch">
           {/* list */}
           {isError ? (
-            <View className="items-center py-10">
-              <Text className="text-[14px] text-faint">Failed to load branches.</Text>
-            </View>
+            <EmptyState icon="wifi-off" tone="error" title="Failed to load branches." />
           ) : branches.length === 0 && !isLoading ? (
-            <View className="items-center py-10">
-              <Text className="text-[14px] text-faint">No branches found.</Text>
-            </View>
+            <EmptyState icon="map-pin" title="No branches found." />
           ) : (
             <FlatList
               data={branches}
@@ -107,20 +87,22 @@ export default function BranchDropdown({
                 const isSelected = item.id === value;
                 return (
                   <TouchableOpacity
-                    className={`flex-row items-center px-5 py-4 border-b border-[#151915] ${
-                      isSelected ? 'bg-[rgba(126,211,33,0.08)]' : ''
-                    }`}
+                    className="flex-row items-center px-5 py-4 border-b border-input"
+                    style={isSelected ? { backgroundColor: withAlpha(T.brand, 0.08) } : undefined}
                     onPress={() => {
                       onChange(item);
                       setOpen(false);
                     }}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.name}${item.city ? `, ${item.city}` : ''}, ${item.status}`}
+                    accessibilityState={{ selected: isSelected }}
                   >
                     <View className="flex-1">
-                      <Text className={`text-[15px] font-medium ${isSelected ? 'text-brand' : 'text-white'}`}>
+                      <Text numberOfLines={1} className={`text-[15px] font-medium ${isSelected ? 'text-brand' : 'text-white'}`}>
                         {item.name}
                       </Text>
-                      <Text className="text-[12px] text-faint mt-[2px]">
+                      <Text numberOfLines={1} className="text-[12px] text-faint mt-[2px]">
                         {item.city ? `${item.city}  ·  ` : ''}{item.status}
                       </Text>
                     </View>
@@ -132,8 +114,7 @@ export default function BranchDropdown({
               }}
             />
           )}
-        </View>
-      </Modal>
+      </BottomSheet>
     </View>
   );
 }

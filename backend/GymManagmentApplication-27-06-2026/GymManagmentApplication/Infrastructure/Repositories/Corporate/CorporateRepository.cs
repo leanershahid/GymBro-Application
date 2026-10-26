@@ -20,7 +20,7 @@ public class CorporateRepository(AppDbContext db) : ICorporateRepository
 
     public async Task<CorporateAccount> CreateAsync(CorporateAccount account)
     {
-        var maxId = await db.CorporateAccounts.MaxAsync(a => (ulong?)a.Id) ?? 0;
+        var maxId = await db.CorporateAccounts.IgnoreQueryFilters().MaxAsync(a => (ulong?)a.Id) ?? 0;
         account.Id        = maxId + 1;
         account.CreatedAt = DateTime.UtcNow;
         db.CorporateAccounts.Add(account);
@@ -47,7 +47,7 @@ public class CorporateRepository(AppDbContext db) : ICorporateRepository
 
     public async Task<GymMembership> AddMembershipAsync(GymMembership membership)
     {
-        var maxId = await db.GymMemberships.MaxAsync(m => (ulong?)m.Id) ?? 0;
+        var maxId = await db.GymMemberships.IgnoreQueryFilters().MaxAsync(m => (ulong?)m.Id) ?? 0;
         membership.Id        = maxId + 1;
         membership.CreatedAt = DateTime.UtcNow;
         membership.UpdatedAt = DateTime.UtcNow;

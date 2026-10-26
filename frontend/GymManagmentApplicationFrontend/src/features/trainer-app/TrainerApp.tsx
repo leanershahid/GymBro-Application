@@ -1,15 +1,20 @@
 import React, { useState } from 'react';
-import { View, Pressable, Text, Platform, StyleSheet } from 'react-native';
+import { View, Pressable, Text } from 'react-native';
+import { useMyTrainerProfileId } from './api/trainerAppQueries';
 import { Feather } from '@expo/vector-icons';
 import { ModuleAccessProvider, useModuleAccess } from '../module-access/context/ModuleAccessContext';
 import TrainerHomeScreen    from './screens/TrainerHomeScreen';
 import ClientsScreen        from './screens/ClientsScreen';
 import ProgramBuilderScreen from './screens/ProgramBuilderScreen';
 import TrainerProfileScreen from './screens/TrainerProfileScreen';
+import { T } from '../../theme';
+import BottomTabBar from '../common/components/BottomTabBar';
+import LoadingState from '../common/components/LoadingState';
+import Screen from '../common/components/Screen';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
-type Screen =
+type Route =
   | { id: 'home'    }
   | { id: 'clients' }
   | { id: 'builder' }
@@ -29,16 +34,42 @@ interface Props {
   onLogout: () => void;
 }
 
-export default function TrainerApp({ trainerId, onLogout }: Props) {
+// `userId` is the login account; per-user module toggles are keyed by it, while every
+// /trainers/{id} endpoint needs the TrainerProfile id, resolved via /trainers/me.
+export default function TrainerApp({ userId, onLogout }: { userId: number; onLogout: () => void }) {
+  const { data: trainerId = 0, isLoading, isError } = useMyTrainerProfileId();
+
+  if (isLoading) {
+    return <LoadingState fullScreen label="Loading your profile" />;
+  }
+  if (isError || trainerId === 0) {
+    return (
+      <Screen style={{ alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
+        <Text style={{ color: T.text, textAlign: 'center' }}>
+          This account has no trainer profile yet. Ask your gym admin to finish setting it up.
+        </Text>
+        <Pressable
+          onPress={onLogout}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
+          style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 }}
+        >
+          <Text style={{ color: T.brand, fontWeight: '600' }}>Sign out</Text>
+        </Pressable>
+      </Screen>
+    );
+  }
+
   return (
-    <ModuleAccessProvider userId={trainerId}>
+    <ModuleAccessProvider userId={userId}>
       <TrainerAppContent trainerId={trainerId} onLogout={onLogout} />
     </ModuleAccessProvider>
   );
 }
 
 function TrainerAppContent({ trainerId, onLogout }: Props) {
-  const [screen,    setScreen]    = useState<Screen>({ id: 'home' });
+  const [screen,    setScreen]    = useState<Route>({ id: 'home' });
   const [activeTab, setActiveTab] = useState('home');
 
   const canWorkouts = useModuleAccess('workouts');
@@ -78,7 +109,7 @@ function TrainerAppContent({ trainerId, onLogout }: Props) {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0A0F0A' }}>
+    <View style={{ flex: 1, backgroundColor: T.bg }}>
       <View style={{ flex: 1 }}>
         {screen.id === 'home' && (
           <TrainerHomeScreen trainerId={trainerId} onNavigate={navigateFrom} />
@@ -95,57 +126,7 @@ function TrainerAppContent({ trainerId, onLogout }: Props) {
       </View>
 
       {/* ── Bottom tab bar ── */}
-      <View style={S.tabBar}>
-        {visibleTabs.map(tab => {
-          const active = activeTab === tab.key;
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => goTo(tab.key)}
-              hitSlop={8}
-              style={S.tabItem}
-              accessibilityRole="button"
-              accessibilityLabel={tab.label}
-            >
-              <View style={[S.tabIcon, active && S.tabIconActive]}>
-                <Feather name={tab.icon} size={20} color={active ? '#7ED321' : '#666666'} />
-              </View>
-              <Text style={[S.tabLabel, active && S.tabLabelActive]}>{tab.label}</Text>
-              {active && <View style={S.activeDot} />}
-            </Pressable>
-          );
-        })}
-      </View>
+      <BottomTabBar tabs={visibleTabs} active={activeTab} onChange={goTo} />
     </View>
   );
 }
-
-const S = StyleSheet.create({
-  tabBar: {
-    flexDirection:    'row',
-    backgroundColor:  '#111111',
-    borderTopWidth:   1,
-    borderTopColor:   '#151915',
-    paddingBottom:    Platform.OS === 'ios' ? 24 : 8,
-    paddingTop:       10,
-    paddingHorizontal:8,
-  },
-  tabItem: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4,
-  },
-  tabIcon: {
-    width: 42, height: 32, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
-  },
-  tabIconActive: {
-    backgroundColor: 'rgba(126,211,33,0.10)',
-  },
-  tabLabel: {
-    fontSize: 10, fontWeight: '600', color: '#666666',
-  },
-  tabLabelActive: {
-    color: '#7ED321',
-  },
-  activeDot: {
-    width: 4, height: 4, borderRadius: 2, backgroundColor: '#7ED321', marginTop: 1,
-  },
-});

@@ -5,11 +5,13 @@ using GymManagmentApplication.Application.Workout.Requests;
 using GymManagmentApplication.Application.Workout.Responses;
 using GymManagmentApplication.Domain.Entities.Training;
 using GymManagmentApplication.Domain.Enums;
+using GymManagmentApplication.Infrastructure.Data;
 using GymManagmentApplication.Infrastructure.Repositories.Workout;
+using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Workout.Services;
 
-public class WorkoutService(IWorkoutRepository repository) : IWorkoutService
+public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentUser, AppDbContext db) : IWorkoutService
 {
     private static readonly HashSet<(ulong WorkoutId, ulong UserId)> _bookmarks = [];
 
@@ -33,7 +35,7 @@ public class WorkoutService(IWorkoutRepository repository) : IWorkoutService
 
         var template = new WorkoutTemplate
         {
-            TenantId = request.TenantId,
+            TenantId = currentUser.ResolveTenantId(request.TenantId),
             CreatedBy = userId,
             Name = request.Name,
             Description = request.Description,
@@ -54,10 +56,18 @@ public class WorkoutService(IWorkoutRepository repository) : IWorkoutService
         return w is null ? null : Map(w);
     }
 
+    /// <summary>Trainers may only change workouts they created; admins/staff any in their gym.</summary>
+    private void EnsureCanEdit(WorkoutTemplate w)
+    {
+        if (currentUser.IsTrainer() && w.CreatedBy != currentUser.UserId)
+            throw new UnauthorizedAccessException("You can only edit workouts you created.");
+    }
+
     public async Task<WorkoutResponse?> UpdateAsync(ulong id, UpdateWorkoutRequest request)
     {
         var w = await repository.GetByIdAsync(id);
         if (w is null) return null;
+        EnsureCanEdit(w);
         if (request.Name is not null) w.Name = request.Name;
         if (request.Description is not null) w.Description = request.Description;
         if (request.Category is not null) w.Category = request.Category;
@@ -69,7 +79,13 @@ public class WorkoutService(IWorkoutRepository repository) : IWorkoutService
         return Map(w);
     }
 
-    public Task<bool> DeleteAsync(ulong id) => repository.DeleteAsync(id);
+    public async Task<bool> DeleteAsync(ulong id)
+    {
+        var w = await repository.GetByIdAsync(id);
+        if (w is null) return false;
+        EnsureCanEdit(w);
+        return await repository.DeleteAsync(id);
+    }
 
     public async Task<WorkoutResponse?> CloneAsync(ulong id, ulong userId)
     {
@@ -95,13 +111,26 @@ public class WorkoutService(IWorkoutRepository repository) : IWorkoutService
 
     public async Task<List<WorkoutLogResponse>> AssignAsync(AssignWorkoutRequest request)
     {
+        // Workout (tenant-filtered) decides the tenant; every member must be in the same gym.
+        var workout = await repository.GetByIdAsync(request.WorkoutId)
+            ?? throw new KeyNotFoundException($"Workout {request.WorkoutId} not found.");
+        var memberIds = request.MemberIds.Distinct().ToList();
+        var validMembers = await db.Users
+            .Where(u => memberIds.Contains(u.Id) && u.TenantId == workout.TenantId && u.DeletedAt == null)
+            .Select(u => u.Id).ToListAsync();
+        var invalid = memberIds.Except(validMembers).ToList();
+        if (invalid.Count > 0)
+            throw new ArgumentException($"Members not found in this gym: {string.Join(", ", invalid)}.");
+        await db.EnsureCanActOnAllAsync(currentUser, memberIds); // trainers: assigned clients only
+        var trainerId = await db.ResolveAssigningTrainerAsync(currentUser, request.TrainerId);
+
         var results = new List<WorkoutLogResponse>();
-        foreach (var memberId in request.MemberIds)
+        foreach (var memberId in memberIds)
         {
             var assignment = new WorkoutAssignment
             {
-                TenantId = 0,
-                TrainerId = request.TrainerId,
+                TenantId = workout.TenantId,
+                TrainerId = trainerId,
                 ClientId = memberId,
                 TemplateId = request.WorkoutId,
                 AssignedAt = request.AssignedAt,
@@ -116,6 +145,7 @@ public class WorkoutService(IWorkoutRepository repository) : IWorkoutService
 
     public async Task<WorkoutProgressResponse?> GetProgressAsync(ulong id, ulong clientId)
     {
+        await EnsureSelfOrStaff(clientId);
         var logs = await repository.GetLogsByWorkoutAndClientAsync(id, clientId);
         var total = logs.Count;
         var completed = logs.Count(l => l.EndedAt.HasValue);
@@ -130,11 +160,21 @@ public class WorkoutService(IWorkoutRepository repository) : IWorkoutService
         };
     }
 
+    /// <summary>Clients only their own workouts; trainers only their assigned clients'.</summary>
+    private Task EnsureSelfOrStaff(ulong clientId) => db.EnsureCanActOnAllAsync(currentUser, [clientId]);
+
     public async Task<WorkoutLogResponse> CompleteAsync(ulong id, CompleteWorkoutRequest request)
     {
+        await EnsureSelfOrStaff(request.ClientId);
+        var client = await db.Users.FirstOrDefaultAsync(u => u.Id == request.ClientId && u.DeletedAt == null)
+            ?? throw new KeyNotFoundException($"Member {request.ClientId} not found.");
+        if (await repository.GetByIdAsync(id) is null)
+            throw new KeyNotFoundException($"Workout {id} not found.");
         var duration = (short)(request.EndedAt - request.StartedAt).TotalMinutes;
         var log = new WorkoutLog
         {
+            TenantId = client.TenantId,
+            BranchId = client.BranchId,
             ClientId = request.ClientId,
             TemplateId = id,
             StartedAt = request.StartedAt,
@@ -162,6 +202,7 @@ public class WorkoutService(IWorkoutRepository repository) : IWorkoutService
 
     public async Task<WorkoutScoreResponse?> GetScoreAsync(ulong id, ulong clientId)
     {
+        await EnsureSelfOrStaff(clientId);
         var logs = await repository.GetLogsByWorkoutAndClientAsync(id, clientId);
         var lastLog = logs.OrderByDescending(l => l.CreatedAt).FirstOrDefault();
         if (lastLog is null) return null;

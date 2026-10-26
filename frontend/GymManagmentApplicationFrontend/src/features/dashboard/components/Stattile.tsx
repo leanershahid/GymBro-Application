@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T, Shadow } from '../../trainers/components/theme';
+import { T, R, Shadow, withAlpha } from '../../../theme';
+import { useLayout } from '../../../utils/useLayout';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -21,8 +22,10 @@ const glass = {
 };
 
 export default function StatTile({ icon, label, value, deltaLabel, deltaPositive = true }: StatTileProps) {
+  // Two per row with the parent's 12px gap.
+  const { tileW } = useLayout();
   return (
-    <View style={[glass, { borderRadius: 20, padding: 16, width: '47%' }]}>
+    <View style={[glass, { borderRadius: R.xl, padding: 16, width: tileW(2, 12) }]}>
       {/* Icon badge */}
       <View style={{
         width: 38, height: 38, borderRadius: 19,
@@ -44,7 +47,7 @@ export default function StatTile({ icon, label, value, deltaLabel, deltaPositive
       {deltaLabel && (
         <View style={{
           alignSelf: 'flex-start', marginTop: 8,
-          backgroundColor: deltaPositive ? 'rgba(126,211,33,0.10)' : 'rgba(255,77,77,0.10)',
+          backgroundColor: deltaPositive ? withAlpha(T.brand, 0.10) : withAlpha(T.err, 0.10),
           borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
         }}>
           <Text style={{ fontSize: 11, fontWeight: '700', color: deltaPositive ? T.brand : T.err }}>

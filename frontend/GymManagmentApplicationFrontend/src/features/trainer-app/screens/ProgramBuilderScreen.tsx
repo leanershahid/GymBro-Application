@@ -1,47 +1,44 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
+import { currentTenantId } from '../../../api/session';
 import {
-  View, Text, ScrollView, Pressable, TextInput,
-  StatusBar, Platform, Animated, Alert, ActivityIndicator,
+  View, Text, ScrollView, Pressable,
+  Platform, Alert, KeyboardAvoidingView,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useExerciseList } from '../../member-app/api/memberAppQueries';
 import { useWorkouts, useCreateWorkout, usePlans, useCreatePlan } from '../../workouts/api/workoutQueries';
 import { WorkoutPayload, WorkoutPlanPayload, WorkoutGoal, WorkoutDifficulty } from '../../workouts/types/workout.types';
+import { T, R, withAlpha } from '../../../theme';
+import Screen from '../../common/components/Screen';
+import ScreenHeader from '../../common/components/ScreenHeader';
+import SegmentedTabs from '../../common/components/SegmentedTabs';
+import SearchBar from '../../common/components/SearchBar';
+import PrimaryButton from '../../common/components/PrimaryButton';
+import Skeleton from '../../common/components/Skeleton';
+import StatusPill from '../../common/components/StatusPill';
+import { Field } from '../../trainers/components/FormFields';
+import { difficultyTone, goalTone } from '../../member-app/components/pillTones';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
 const GOAL_COLOR: Record<string, string> = {
-  general: '#AAAAAA', weightloss: '#22D3EE', musclegain: '#7ED321', endurance: '#FACC15',
+  general: T.textSub, weightloss: T.sky, musclegain: T.brand, endurance: T.brandGold,
 };
 const CAT_ICON: Record<string, FeatherIconName> = {
   strength: 'zap', cardio: 'activity', flexibility: 'wind', balance: 'target',
 };
 const DIFF_COLOR: Record<string, string> = {
-  beginner: '#22C55E', intermediate: '#FACC15', advanced: '#EF4444',
+  beginner: T.ok, intermediate: T.brandGold, advanced: T.err,
 };
-
-function Skeleton({ count = 3, h = 90 }: { count?: number; h?: number }) {
-  const op = useRef(new Animated.Value(0.25)).current;
-  React.useEffect(() => {
-    const l = Animated.loop(Animated.sequence([
-      Animated.timing(op, { toValue: 0.65, duration: 700, useNativeDriver: true }),
-      Animated.timing(op, { toValue: 0.25, duration: 700, useNativeDriver: true }),
-    ]));
-    l.start(); return () => l.stop();
-  }, []);
-  return <>{Array.from({ length: count }).map((_, k) => <Animated.View key={k} style={{ height: h, borderRadius: 18, backgroundColor: '#151915', marginBottom: 10, opacity: op }} />)}</>;
-}
 
 function ComingSoonBanner({ feature }: { feature: string }) {
   return (
-    <View style={{ backgroundColor: '#151915', borderRadius: 18, padding: 20, borderWidth: 1, borderColor: '#1C211C', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-      <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(167,139,250,0.12)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.25)', alignItems: 'center', justifyContent: 'center' }}>
-        <Feather name="cpu" size={22} color="#A78BFA" />
+    <View style={{ backgroundColor: T.bgInput, borderRadius: R.lg, padding: 20, borderWidth: 1, borderColor: T.bgInputActive, alignItems: 'center', gap: 10, marginBottom: 14 }}>
+      <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: withAlpha(T.violet, 0.12), borderWidth: 1, borderColor: withAlpha(T.violet, 0.25), alignItems: 'center', justifyContent: 'center' }}>
+        <Feather name="cpu" size={22} color={T.violet} />
       </View>
-      <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }}>{feature}</Text>
-      <View style={{ backgroundColor: '#1C211C', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4, borderWidth: 1, borderColor: '#242B24' }}>
-        <Text style={{ color: '#666', fontSize: 11, fontWeight: '700' }}>COMING SOON</Text>
-      </View>
+      <Text style={{ color: T.text, fontSize: 14, fontWeight: '700' }}>{feature}</Text>
+      <StatusPill label="COMING SOON" tone="neutral" />
     </View>
   );
 }
@@ -86,7 +83,7 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
 
   const handleCreateWorkout = () => {
     if (!wName.trim()) return;
-    const payload: WorkoutPayload = { tenantId: 1, name: wName.trim(), goal: wGoal, difficulty: wDiff, durationMin: wDuration ? Number(wDuration) : undefined, isPublic: false };
+    const payload: WorkoutPayload = { tenantId: currentTenantId(), name: wName.trim(), goal: wGoal, difficulty: wDiff, durationMin: wDuration ? Number(wDuration) : undefined, isPublic: false };
     createWorkout(payload, {
       onSuccess: res => { if (res.success) { Alert.alert('Created ✓', 'Workout created.'); setShowWForm(false); setWName(''); wRefetch(); } },
       onError:   () => Alert.alert('Error', 'Failed to create workout.'),
@@ -95,7 +92,7 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
 
   const handleCreatePlan = () => {
     if (!pName.trim() || !pWeeks) return;
-    const payload: WorkoutPlanPayload = { tenantId: 1, name: pName.trim(), durationWeeks: Number(pWeeks), goal: pGoal };
+    const payload: WorkoutPlanPayload = { tenantId: currentTenantId(), name: pName.trim(), durationWeeks: Number(pWeeks), goal: pGoal };
     createPlan(payload, {
       onSuccess: res => { if (res.success) { Alert.alert('Created ✓', 'Plan created.'); setShowPForm(false); setPName(''); pRefetch(); } },
       onError:   () => Alert.alert('Error', 'Failed to create plan.'),
@@ -107,36 +104,25 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
   const DIFFS: WorkoutDifficulty[] = ['Beginner', 'Intermediate', 'Advanced'];
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0A0F0A', paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0F0A" />
+    <Screen>
 
       {/* Header */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-          {onBack && (
-            <Pressable onPress={onBack} hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-              style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#151915', borderWidth: 1, borderColor: '#242B24', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-              <Feather name="arrow-left" size={18} color="#FFFFFF" />
-            </Pressable>
-          )}
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: '#AAAAAA', fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 }}>Trainer</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 26, fontWeight: '800', letterSpacing: -0.5 }}>Program Builder</Text>
-          </View>
-        </View>
-
+      <ScreenHeader eyebrow="Trainer" title="Program Builder" onBack={onBack} />
+      <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
         {/* Tabs */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          {(['exercises', 'workouts', 'plans', 'ai'] as Tab[]).map(t => (
-            <Pressable key={t} onPress={() => setTab(t)}
-              style={{ paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999, backgroundColor: tab === t ? '#7ED321' : '#151915', borderWidth: 1, borderColor: tab === t ? '#7ED321' : '#242B24' }}>
-              <Text style={{ color: tab === t ? '#000' : '#AAAAAA', fontSize: 12, fontWeight: '700', textTransform: 'capitalize' }}>{t === 'ai' ? 'AI Draft' : t}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+        <SegmentedTabs<Tab>
+          tabs={[
+            { key: 'exercises', label: 'Exercises' },
+            { key: 'workouts',  label: 'Workouts' },
+            { key: 'plans',     label: 'Plans' },
+            { key: 'ai',        label: 'AI Draft' },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
       </View>
+
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 
       {/* ── Exercise Library ── */}
       {tab === 'exercises' && (
@@ -147,46 +133,39 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
                 const a = f === exFilter;
                 return (
                   <Pressable key={f} onPress={() => { setExFilter(f); setExPage(1); }}
-                    style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: a ? '#7ED321' : '#151915', borderWidth: 1, borderColor: a ? '#7ED321' : '#242B24' }}>
-                    <Text style={{ color: a ? '#000' : '#AAAAAA', fontSize: 12, fontWeight: '700' }}>{f}</Text>
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Filter: ${f}`}
+                    accessibilityState={{ selected: a }}
+                    style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: a ? T.brand : T.bgInput, borderWidth: 1, borderColor: a ? T.brand : T.line }}>
+                    <Text style={{ color: a ? T.onBrand : T.textSub, fontSize: 12, fontWeight: '700' }}>{f}</Text>
                   </Pressable>
                 );
               })}
             </ScrollView>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#151915', borderRadius: 14, borderWidth: 1, borderColor: '#242B24', paddingHorizontal: 12, height: 44 }}>
-              <Feather name="search" size={14} color="#555" style={{ marginRight: 8 }} />
-              <TextInput style={{ flex: 1, color: '#FFF', fontSize: 14 }} placeholder="Search…" placeholderTextColor="#555"
-                value={exSearch} onChangeText={setExSearch} autoCapitalize="none" autoCorrect={false} />
-              {exSearch.length > 0 && (
-                <Pressable onPress={() => setExSearch('')} hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Clear search">
-                  <Feather name="x" size={13} color="#555" />
-                </Pressable>
-              )}
-            </View>
+            <SearchBar value={exSearch} onChangeText={setExSearch} placeholder="Search…" label="Search exercises" />
           </View>
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
-            {exLoad && <Skeleton />}
+          <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+            {exLoad && <Skeleton rows={3} height={90} />}
             {!exLoad && filteredEx.map(ex => {
               const diff  = ex.difficulty?.toLowerCase() ?? 'beginner';
               const cat   = ex.category?.toLowerCase()   ?? 'strength';
-              const color = DIFF_COLOR[diff] ?? '#AAAAAA';
+              const color = DIFF_COLOR[diff] ?? T.textSub;
               const icon  = CAT_ICON[cat]   ?? 'zap';
               return (
-                <View key={ex.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#151915', borderRadius: 18, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#1C211C' }}>
-                  <View style={{ width: 60, height: 60, borderRadius: 12, backgroundColor: '#1C211C', borderWidth: 1, borderColor: '#242B24', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                <View key={ex.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: T.bgInput, borderRadius: R.lg, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: T.bgInputActive }}>
+                  <View style={{ width: 60, height: 60, borderRadius: 12, backgroundColor: T.bgInputActive, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
                     <Feather name={icon} size={26} color={color} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '700' }} numberOfLines={1}>{ex.name}</Text>
+                    <Text style={{ color: T.text, fontSize: 14, fontWeight: '700' }} numberOfLines={1}>{ex.name}</Text>
                     <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
-                      {ex.category && <View style={{ backgroundColor: '#1C211C', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: '#242B24' }}><Text style={{ color: '#AAAAAA', fontSize: 11 }}>{ex.category}</Text></View>}
-                      {ex.difficulty && <View style={{ backgroundColor: color + '15', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: color + '35' }}><Text style={{ color, fontSize: 11, fontWeight: '700' }}>{ex.difficulty}</Text></View>}
+                      {ex.category && <StatusPill label={ex.category} tone="neutral" />}
+                      {ex.difficulty && <StatusPill label={ex.difficulty} tone={difficultyTone(ex.difficulty)} />}
                     </View>
                   </View>
-                  <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: '#7ED321', alignItems: 'center', justifyContent: 'center' }}>
-                    <Feather name="plus" size={16} color="#000" />
+                  <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: T.brand, alignItems: 'center', justifyContent: 'center' }}>
+                    <Feather name="plus" size={16} color={T.onBrand} />
                   </View>
                 </View>
               );
@@ -197,49 +176,55 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
 
       {/* ── Workouts ── */}
       {tab === 'workouts' && (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
           {/* Create form */}
-          <Pressable onPress={() => setShowWForm(v => !v)}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#7ED321', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 12, marginBottom: 14, alignSelf: 'flex-start' }}>
-            <Feather name={showWForm ? 'chevron-up' : 'plus'} size={16} color="#000" />
-            <Text style={{ color: '#000', fontSize: 13, fontWeight: '700' }}>New Workout</Text>
-          </Pressable>
+          <PrimaryButton
+            label="New Workout"
+            icon={showWForm ? 'chevron-up' : 'plus'}
+            onPress={() => setShowWForm(v => !v)}
+            accessibilityHint={showWForm ? 'Hides the new workout form' : 'Shows the new workout form'}
+            style={{ alignSelf: 'flex-start', marginBottom: 16 }}
+          />
 
           {showWForm && (
-            <View style={{ backgroundColor: '#151915', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#1C211C', marginBottom: 14 }}>
-              <TextInput style={{ backgroundColor: '#1C211C', borderRadius: 12, borderWidth: 1, borderColor: '#242B24', color: '#FFF', padding: 12, fontSize: 14, marginBottom: 10 }}
-                value={wName} onChangeText={setWName} placeholder="Workout name…" placeholderTextColor="#555" />
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+            <View style={{ backgroundColor: T.bgInput, borderRadius: R.xl, padding: 16, borderWidth: 1, borderColor: T.bgInputActive, marginBottom: 16 }}>
+              <Field label="Workout name" value={wName} onChangeText={setWName} placeholder="Workout name…" />
+              <Text style={{ color: T.textSub, fontSize: 13, marginBottom: 7 }}>Goal</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
                 {GOALS.map(g => <Pressable key={g} onPress={() => setWGoal(g)}
-                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: wGoal === g ? '#7ED321' : '#1C211C', borderWidth: 1, borderColor: wGoal === g ? '#7ED321' : '#242B24' }}>
-                  <Text style={{ color: wGoal === g ? '#000' : '#AAA', fontSize: 11, fontWeight: '700' }}>{g}</Text>
+                  hitSlop={4}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Goal: ${g}`}
+                  accessibilityState={{ selected: wGoal === g }}
+                  style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: wGoal === g ? T.brand : T.bgInputActive, borderWidth: 1, borderColor: wGoal === g ? T.brand : T.line }}>
+                  <Text style={{ color: wGoal === g ? T.onBrand : T.textSub, fontSize: 11, fontWeight: '700' }}>{g}</Text>
                 </Pressable>)}
               </View>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+              <Text style={{ color: T.textSub, fontSize: 13, marginBottom: 7 }}>Difficulty</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
                 {DIFFS.map(d => <Pressable key={d} onPress={() => setWDiff(d)}
-                  style={{ flex: 1, paddingVertical: 8, borderRadius: 12, alignItems: 'center', backgroundColor: wDiff === d ? 'rgba(126,211,33,0.12)' : '#1C211C', borderWidth: 1, borderColor: wDiff === d ? 'rgba(126,211,33,0.35)' : '#242B24' }}>
-                  <Text style={{ color: wDiff === d ? '#7ED321' : '#AAA', fontSize: 11, fontWeight: '700' }}>{d}</Text>
+                  hitSlop={4}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Difficulty: ${d}`}
+                  accessibilityState={{ selected: wDiff === d }}
+                  style={{ flex: 1, minHeight: 36, justifyContent: 'center', paddingVertical: 8, borderRadius: 12, alignItems: 'center', backgroundColor: wDiff === d ? withAlpha(T.brand, 0.12) : T.bgInputActive, borderWidth: 1, borderColor: wDiff === d ? withAlpha(T.brand, 0.35) : T.line }}>
+                  <Text numberOfLines={1} style={{ color: wDiff === d ? T.brand : T.textSub, fontSize: 11, fontWeight: '700' }}>{d}</Text>
                 </Pressable>)}
               </View>
-              <TextInput style={{ backgroundColor: '#1C211C', borderRadius: 12, borderWidth: 1, borderColor: '#242B24', color: '#FFF', padding: 12, fontSize: 14, marginBottom: 12 }}
-                value={wDuration} onChangeText={setWDuration} placeholder="Duration (min)…" placeholderTextColor="#555" keyboardType="numeric" />
-              <Pressable onPress={handleCreateWorkout} disabled={creating || !wName.trim()}
-                style={{ backgroundColor: !wName.trim() ? '#242B24' : '#7ED321', borderRadius: 999, paddingVertical: 12, alignItems: 'center', opacity: creating ? 0.7 : 1 }}>
-                {creating ? <ActivityIndicator color="#000" /> : <Text style={{ color: '#000', fontWeight: '700' }}>Create Workout</Text>}
-              </Pressable>
+              <Field label="Duration (min)" value={wDuration} onChangeText={setWDuration} placeholder="Duration (min)…" keyboardType="numeric" />
+              <PrimaryButton label="Create Workout" onPress={handleCreateWorkout} loading={creating} disabled={!wName.trim()} />
             </View>
           )}
 
-          {wLoad && <Skeleton />}
+          {wLoad && <Skeleton rows={3} height={90} />}
           {!wLoad && workouts.map(w => {
-            const gc = GOAL_COLOR[w.goal?.toLowerCase() ?? 'general'] ?? '#AAAAAA';
             return (
-              <View key={w.id} style={{ backgroundColor: '#151915', borderRadius: 18, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#1C211C' }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700', marginBottom: 8 }}>{w.name}</Text>
-                <View style={{ flexDirection: 'row', gap: 6 }}>
-                  {w.goal && <View style={{ backgroundColor: gc + '15', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: gc + '35' }}><Text style={{ color: gc, fontSize: 11, fontWeight: '700' }}>{w.goal}</Text></View>}
-                  {w.difficulty && <View style={{ backgroundColor: '#1C211C', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: '#242B24' }}><Text style={{ color: '#AAAAAA', fontSize: 11 }}>{w.difficulty}</Text></View>}
-                  {w.durationMin && <View style={{ backgroundColor: '#1C211C', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: '#242B24', flexDirection: 'row', alignItems: 'center', gap: 4 }}><Feather name="clock" size={9} color="#777" /><Text style={{ color: '#AAA', fontSize: 11 }}>{w.durationMin}m</Text></View>}
+              <View key={w.id} style={{ backgroundColor: T.bgInput, borderRadius: R.lg, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: T.bgInputActive }}>
+                <Text numberOfLines={1} style={{ color: T.text, fontSize: 15, fontWeight: '700', marginBottom: 8 }}>{w.name}</Text>
+                <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                  {w.goal && <StatusPill label={w.goal} tone={goalTone(w.goal)} />}
+                  {w.difficulty && <StatusPill label={w.difficulty} tone="neutral" />}
+                  {!!w.durationMin && <View style={{ backgroundColor: T.bgInputActive, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: T.line, flexDirection: 'row', alignItems: 'center', gap: 4 }}><Feather name="clock" size={9} color={T.textFaint} /><Text style={{ color: T.textSub, fontSize: 11 }}>{w.durationMin}m</Text></View>}
                 </View>
               </View>
             );
@@ -249,43 +234,45 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
 
       {/* ── Plans ── */}
       {tab === 'plans' && (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
-          <Pressable onPress={() => setShowPForm(v => !v)}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#7ED321', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 12, marginBottom: 14, alignSelf: 'flex-start' }}>
-            <Feather name={showPForm ? 'chevron-up' : 'plus'} size={16} color="#000" />
-            <Text style={{ color: '#000', fontSize: 13, fontWeight: '700' }}>New Plan</Text>
-          </Pressable>
+        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+          <PrimaryButton
+            label="New Plan"
+            icon={showPForm ? 'chevron-up' : 'plus'}
+            onPress={() => setShowPForm(v => !v)}
+            accessibilityHint={showPForm ? 'Hides the new plan form' : 'Shows the new plan form'}
+            style={{ alignSelf: 'flex-start', marginBottom: 16 }}
+          />
 
           {showPForm && (
-            <View style={{ backgroundColor: '#151915', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#1C211C', marginBottom: 14 }}>
-              <TextInput style={{ backgroundColor: '#1C211C', borderRadius: 12, borderWidth: 1, borderColor: '#242B24', color: '#FFF', padding: 12, fontSize: 14, marginBottom: 10 }}
-                value={pName} onChangeText={setPName} placeholder="Plan name…" placeholderTextColor="#555" />
-              <TextInput style={{ backgroundColor: '#1C211C', borderRadius: 12, borderWidth: 1, borderColor: '#242B24', color: '#FFF', padding: 12, fontSize: 14, marginBottom: 10 }}
-                value={pWeeks} onChangeText={setPWeeks} placeholder="Duration (weeks)…" placeholderTextColor="#555" keyboardType="numeric" />
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            <View style={{ backgroundColor: T.bgInput, borderRadius: R.xl, padding: 16, borderWidth: 1, borderColor: T.bgInputActive, marginBottom: 16 }}>
+              <Field label="Plan name" value={pName} onChangeText={setPName} placeholder="Plan name…" />
+              <Field label="Duration (weeks)" value={pWeeks} onChangeText={setPWeeks} placeholder="Duration (weeks)…" keyboardType="numeric" />
+              <Text style={{ color: T.textSub, fontSize: 13, marginBottom: 7 }}>Goal</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
                 {GOALS.map(g => <Pressable key={g} onPress={() => setPGoal(g)}
-                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: pGoal === g ? '#7ED321' : '#1C211C', borderWidth: 1, borderColor: pGoal === g ? '#7ED321' : '#242B24' }}>
-                  <Text style={{ color: pGoal === g ? '#000' : '#AAA', fontSize: 11, fontWeight: '700' }}>{g}</Text>
+                  hitSlop={4}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Goal: ${g}`}
+                  accessibilityState={{ selected: pGoal === g }}
+                  style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: pGoal === g ? T.brand : T.bgInputActive, borderWidth: 1, borderColor: pGoal === g ? T.brand : T.line }}>
+                  <Text style={{ color: pGoal === g ? T.onBrand : T.textSub, fontSize: 11, fontWeight: '700' }}>{g}</Text>
                 </Pressable>)}
               </View>
-              <Pressable onPress={handleCreatePlan} disabled={creatingPlan || !pName.trim() || !pWeeks}
-                style={{ backgroundColor: (!pName.trim() || !pWeeks) ? '#242B24' : '#7ED321', borderRadius: 999, paddingVertical: 12, alignItems: 'center', opacity: creatingPlan ? 0.7 : 1 }}>
-                {creatingPlan ? <ActivityIndicator color="#000" /> : <Text style={{ color: '#000', fontWeight: '700' }}>Create Plan</Text>}
-              </Pressable>
+              <PrimaryButton label="Create Plan" onPress={handleCreatePlan} loading={creatingPlan} disabled={!pName.trim() || !pWeeks} />
             </View>
           )}
 
-          {pLoad && <Skeleton />}
+          {pLoad && <Skeleton rows={3} height={90} />}
           {!pLoad && plans.map(plan => {
-            const gc = GOAL_COLOR[plan.goal?.toLowerCase() ?? 'general'] ?? '#AAAAAA';
+            const gc = GOAL_COLOR[plan.goal?.toLowerCase() ?? 'general'] ?? T.textSub;
             return (
-              <View key={plan.id} style={{ backgroundColor: '#151915', borderRadius: 18, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#1C211C' }}>
+              <View key={plan.id} style={{ backgroundColor: T.bgInput, borderRadius: R.lg, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: T.bgInputActive }}>
                 <View style={{ height: 3, backgroundColor: gc, borderRadius: 2, marginBottom: 12, width: 36 }} />
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                  <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700', flex: 1, paddingRight: 10 }}>{plan.name}</Text>
-                  <View style={{ backgroundColor: 'rgba(126,211,33,0.10)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(126,211,33,0.25)' }}>
-                    <Text style={{ color: '#7ED321', fontSize: 16, fontWeight: '800' }}>{plan.durationWeeks}</Text>
-                    <Text style={{ color: '#AAA', fontSize: 11 }}>WKS</Text>
+                  <Text numberOfLines={2} style={{ color: T.text, fontSize: 15, fontWeight: '700', flex: 1, paddingRight: 10 }}>{plan.name}</Text>
+                  <View style={{ backgroundColor: withAlpha(T.brand, 0.10), borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', borderWidth: 1, borderColor: withAlpha(T.brand, 0.25) }}>
+                    <Text style={{ color: T.brand, fontSize: 16, fontWeight: '800' }}>{plan.durationWeeks}</Text>
+                    <Text style={{ color: T.textSub, fontSize: 11 }}>WKS</Text>
                   </View>
                 </View>
               </View>
@@ -303,6 +290,7 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
           <ComingSoonBanner feature="Form Scoring & Analysis" />
         </ScrollView>
       )}
-    </View>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }

@@ -9,6 +9,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("members")]
 [Route("api/members")]
 [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
 public class MemberController(IMemberService service, IValidator<CreateMemberRequest> validator) : ControllerBase
@@ -18,8 +19,9 @@ public class MemberController(IMemberService service, IValidator<CreateMemberReq
     public async Task<ActionResult<ApiResponse<object>>> GetAll([FromQuery] MemberSearchRequest request)
         => Ok(ApiResponse<object>.Ok(await service.GetAllAsync(request)));
 
+    // Members self-register via /api/auth/register; only staff create accounts here.
     [HttpPost]
-    [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
+    [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> Create([FromBody] CreateMemberRequest request)
     {
         var v = await validator.ValidateAsync(request);
@@ -36,8 +38,9 @@ public class MemberController(IMemberService service, IValidator<CreateMemberReq
         return result is null ? NotFound(ApiResponse<object>.Fail($"Member {id} not found.")) : Ok(ApiResponse<object>.Ok(result));
     }
 
+    // Clients may update their own profile (enforced in MemberService).
     [HttpPut("{id}")]
-    [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
+    [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
     public async Task<ActionResult<ApiResponse<object>>> Update(ulong id, [FromBody] UpdateMemberRequest request)
     {
         var result = await service.UpdateAsync(id, request);

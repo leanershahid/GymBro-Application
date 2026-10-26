@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 
 interface MetricBarProps {
   label: string;

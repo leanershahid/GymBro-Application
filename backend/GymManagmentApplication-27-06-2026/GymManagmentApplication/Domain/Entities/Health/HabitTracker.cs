@@ -5,6 +5,8 @@ namespace GymManagmentApplication.Domain.Entities.Health;
 public class HabitTracker
 {
     public ulong Id { get; set; }
+    /// <summary>Owning gym (nullable: rows written before this was mapped have none).</summary>
+    public ulong? TenantId { get; set; }
     public ulong ClientId { get; set; }
     public string Name { get; set; } = default!;
     public HabitFrequency Frequency { get; set; } = HabitFrequency.Daily;

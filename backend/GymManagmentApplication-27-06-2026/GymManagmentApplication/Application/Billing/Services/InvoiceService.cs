@@ -9,10 +9,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Billing.Services;
 
-public class InvoiceService(AppDbContext db) : IInvoiceService
+public class InvoiceService(AppDbContext db, ICurrentUser currentUser) : IInvoiceService
 {
     public async Task<PagedResponse<InvoiceResponse>> GetAllAsync(InvoiceListRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
         var q = db.Invoices.AsQueryable();
         if (request.TenantId.HasValue) q = q.Where(i => i.TenantId == request.TenantId);
         if (request.MemberId.HasValue) q = q.Where(i => i.UserId == request.MemberId);
@@ -32,6 +33,8 @@ public class InvoiceService(AppDbContext db) : IInvoiceService
 
     public async Task<InvoiceResponse> GenerateAsync(GenerateInvoiceRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
+        await db.EnsureUserAsync(request.MemberId, request.TenantId);
         decimal subtotal = request.Items.Sum(i => i.UnitPrice * i.Quantity);
         var invoice = new Invoice
         {
@@ -56,11 +59,32 @@ public class InvoiceService(AppDbContext db) : IInvoiceService
 
     public async Task<byte[]?> GetPdfAsync(ulong id)
     {
-        var inv = await db.Invoices.FindAsync(id);
+        var inv = await db.Invoices
+            .Include(i => i.Tenant)
+            .Include(i => i.User)
+            .FirstOrDefaultAsync(i => i.Id == id);
         if (inv is null) return null;
-        // Return placeholder PDF bytes — real impl would use a PDF library
-        var content = $"INVOICE {inv.InvoiceNo}\nTotal: {inv.Total} {inv.Currency}";
-        return System.Text.Encoding.UTF8.GetBytes(content);
+
+        string Money(decimal v) => $"{v.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)} {inv.Currency}";
+        var lines = new List<InvoicePdfWriter.Line>
+        {
+            new(inv.Tenant.Name, 18, Bold: true),
+            new($"INVOICE {inv.InvoiceNo}", 14, Bold: true),
+            new(""),
+            new($"Issued:   {inv.CreatedAt:yyyy-MM-dd}"),
+            new($"Due:      {(inv.DueDate?.ToString("yyyy-MM-dd") ?? "-")}"),
+            new($"Status:   {inv.Status}"),
+            new($"Billed to: {$"{inv.User.FirstName} {inv.User.LastName}".Trim()} <{inv.User.Email}>"),
+            new(""),
+            new($"Subtotal: {Money(inv.Subtotal)}"),
+            new($"Tax:      {Money(inv.Tax)}"),
+            new($"Discount: {Money(inv.Discount)}"),
+            new($"Total:    {Money(inv.Total)}", 13, Bold: true),
+        };
+        if (inv.PaidAt is { } paid) lines.Add(new($"Paid on {paid:yyyy-MM-dd}"));
+        if (!string.IsNullOrWhiteSpace(inv.Notes)) { lines.Add(new("")); lines.Add(new($"Notes: {inv.Notes}")); }
+
+        return InvoicePdfWriter.Write(lines);
     }
 
     public async Task<bool> SendAsync(ulong id, SendInvoiceRequest request)
@@ -92,5 +116,5 @@ public class InvoiceService(AppDbContext db) : IInvoiceService
     };
 
     private async Task<ulong> NextIdAsync() =>
-        (await db.Invoices.MaxAsync(i => (ulong?)i.Id) ?? 0) + 1;
+        (await db.Invoices.IgnoreQueryFilters().MaxAsync(i => (ulong?)i.Id) ?? 0) + 1;
 }

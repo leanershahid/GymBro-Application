@@ -50,6 +50,12 @@ export const fetchEarnings = async (
 };
 
 // ─── Clients ──────────────────────────────────────────────────────
+// The login returns a User id; trainer endpoints are keyed by TrainerProfile id.
+export const fetchMyTrainerProfile = async () => {
+  const { data } = await axiosInstance.get<ApiResponse<{ id: number }>>(`${ENDPOINTS.TRAINERS}/me`);
+  return data;
+};
+
 export const fetchMyClients = async (trainerId: number): Promise<ApiResponse<ClientAssignment[]>> => {
   const { data } = await axiosInstance.get<ApiResponse<ClientAssignment[]>>(`${ENDPOINTS.TRAINERS}/${trainerId}/clients`);
   return data;

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
+import { T } from '../../../theme';
 
 interface Props {
   rows?: number;
@@ -27,7 +28,7 @@ export default function Skeleton({ rows = 5, height = 88, borderRadius = 18, gap
           key={k}
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
-          style={{ height, borderRadius, backgroundColor: '#1C211C', marginBottom: gap, opacity: op }}
+          style={{ height, borderRadius, backgroundColor: T.bgInputActive, marginBottom: gap, opacity: op }}
         />
       ))}
     </>

@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, View, Text } from 'react-native';
 import { TrainerPayload } from '../types/trainer.types';
 import { Field, SwitchRow, RowGrid, GridCell } from './FormFields';
-import { T } from './theme';
+import { T } from '../../../theme';
 
 interface Props {
   data: Partial<TrainerPayload>;
@@ -13,7 +13,7 @@ function Block({ num, title, children }: { num: string; title: string; children:
   return (
     <View className="px-5 pt-[22px] pb-[10px]">
       <View className="flex-row items-center gap-[10px] mb-4">
-        <View className="w-7 h-7 rounded-lg bg-[rgba(126,211,33,0.10)] border border-[rgba(126,211,33,0.25)] items-center justify-center">
+        <View className="w-7 h-7 rounded-lg bg-brand/10 border border-brand/25 items-center justify-center">
           <Text className="text-[11px] font-extrabold text-brand" style={{ letterSpacing: 0.5 }}>{num}</Text>
         </View>
         <Text className="text-[16px] font-bold text-white">{title}</Text>
@@ -32,7 +32,7 @@ export default function StepMiscellaneous({ data, onChange }: Props) {
   const updateAtt = (f: object) => onChange({ attendanceSettings: { ...att, ...f } });
 
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+    <ScrollView className="flex-1 bg-bg" keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
 
       <Block num="01" title="Emergency Contact">
         <RowGrid>
@@ -43,7 +43,7 @@ export default function StepMiscellaneous({ data, onChange }: Props) {
         <Field label="Address" value={ec.address ?? ''} onChangeText={(v) => updateEc({ address: v })} />
       </Block>
 
-      <View className="h-px bg-[#151915] mx-5" />
+      <View className="h-px bg-input mx-5" />
 
       <Block num="02" title="Social Links">
         <RowGrid>
@@ -56,7 +56,7 @@ export default function StepMiscellaneous({ data, onChange }: Props) {
         </RowGrid>
       </Block>
 
-      <View className="h-px bg-[#151915] mx-5" />
+      <View className="h-px bg-input mx-5" />
 
       <Block num="03" title="Attendance">
         <SwitchRow label="Attendance Required" value={att.attendanceRequired ?? false} onValueChange={(v) => updateAtt({ attendanceRequired: v })} />
@@ -68,7 +68,7 @@ export default function StepMiscellaneous({ data, onChange }: Props) {
         <Field label="Weekly Off Days"   value={(att.weeklyOffDays ?? []).join(', ')}  onChangeText={(v) => updateAtt({ weeklyOffDays: v.split(',').map((x: string) => x.trim()).filter(Boolean) })} placeholder="e.g. Saturday, Sunday" />
       </Block>
 
-      <View className="h-px bg-[#151915] mx-5" />
+      <View className="h-px bg-input mx-5" />
 
       <Block num="04" title="Notes">
         <Field

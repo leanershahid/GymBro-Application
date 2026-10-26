@@ -8,7 +8,6 @@ public class CreateWorkoutValidator : AbstractValidator<CreateWorkoutRequest>
     public CreateWorkoutValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.TenantId).GreaterThan(0ul);
         RuleFor(x => x.Goal).IsInEnum();
         RuleFor(x => x.Difficulty).IsInEnum();
     }

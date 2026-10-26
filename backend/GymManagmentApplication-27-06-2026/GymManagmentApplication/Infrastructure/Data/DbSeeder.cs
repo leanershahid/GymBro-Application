@@ -1,3 +1,4 @@
+using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Domain.Entities.Core;
 using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Domain.Enums;
@@ -35,34 +36,46 @@ public static class DbSeeder
         }
 
         // ── Roles ─────────────────────────────────────────────────────────────
-        var tenantRow = await db.Tenants.OrderBy(t => t.Id).FirstAsync();
+        // Every tenant gets its own copy of the system roles (role checks are by slug, but
+        // users must hold a role row from their own tenant). The platform tenant — the first
+        // one — additionally owns the 'superadmin' role.
+        var platformTenant = await db.Tenants.OrderBy(t => t.Id).FirstAsync();
+        var superRoleIsNew = !await db.Roles.AnyAsync(r => r.TenantId == platformTenant.Id && r.Slug == RoleNames.SuperAdmin);
+        await EnsureSystemRolesAsync(db, platformTenant.Id, includeSuperAdmin: true);
+        foreach (var tenantId in await db.Tenants.Where(t => t.Id != platformTenant.Id).Select(t => t.Id).ToListAsync())
+            await EnsureSystemRolesAsync(db, tenantId, includeSuperAdmin: false);
 
-        var seedRoles = new[]
+        // One-time bootstrap: before 'superadmin' existed, the platform tenant's admin managed
+        // all gyms. Promote the earliest such admin so tenant management stays reachable.
+        // Runs only in the deploy that creates the role — never again — so archiving the super
+        // admin can't be used to get some other admin promoted on the next restart.
+        var superRole = await db.Roles.FirstAsync(r => r.TenantId == platformTenant.Id && r.Slug == RoleNames.SuperAdmin);
+        if (superRoleIsNew && !await db.Users.AnyAsync(u => u.RoleId == superRole.Id && u.DeletedAt == null))
         {
-            ("admin",   "Admin",   "Full system access"),
-            ("trainer", "Trainer", "Trainer access"),
-            ("client",  "Client",  "Member/client access"),
-            ("staff",   "Staff",   "Staff access"),
-        };
-
-        foreach (var (slug, name, desc) in seedRoles)
-        {
-            if (await db.Roles.AnyAsync(r => r.Slug == slug))
-                continue;
-
-            var roleId = await GetNextIdAsync(db, "Roles");
-            db.Roles.Add(new Role
+            var adminRoleIds = await db.Roles.Where(r => r.Slug == RoleNames.Admin).Select(r => r.Id).ToListAsync();
+            var firstAdmin = await db.Users
+                .Where(u => adminRoleIds.Contains(u.RoleId) && u.TenantId == platformTenant.Id && u.DeletedAt == null)
+                .OrderBy(u => u.Id)
+                .FirstOrDefaultAsync();
+            if (firstAdmin is not null)
             {
-                Id          = roleId,
-                TenantId    = tenantRow.Id,
-                Name        = name,
-                Slug        = slug,
-                Description = desc,
-                IsSystem    = true,
-                CreatedAt   = DateTime.UtcNow
-            });
-            await db.SaveChangesAsync();
+                firstAdmin.RoleId = superRole.Id;
+                await db.SaveChangesAsync();
+            }
         }
+
+        // Repair users whose RoleId points at a role from another tenant (older seeds only
+        // created roles for the first tenant): move them to the same-slug role in their own tenant.
+        var mismatched = await db.Users
+            .Join(db.Roles, u => u.RoleId, r => r.Id, (u, r) => new { User = u, r.Slug, RoleTenant = r.TenantId })
+            .Where(x => x.RoleTenant != x.User.TenantId && x.Slug != RoleNames.SuperAdmin)
+            .ToListAsync();
+        foreach (var x in mismatched)
+        {
+            var ownRole = await db.Roles.FirstOrDefaultAsync(r => r.TenantId == x.User.TenantId && r.Slug == x.Slug);
+            if (ownRole is not null) x.User.RoleId = ownRole.Id;
+        }
+        if (mismatched.Count > 0) await db.SaveChangesAsync();
 
         // ── Feature modules (per-user gate-able areas) ──────────────────────────
         // Split into finer-grained toggles than the original 4 — each maps to a
@@ -105,6 +118,32 @@ public static class DbSeeder
             var staleAccess = await db.UserModuleAccesses.Where(a => staleIds.Contains(a.ModuleId)).ToListAsync();
             db.UserModuleAccesses.RemoveRange(staleAccess);
             db.Modules.RemoveRange(staleModules);
+            await db.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>Creates any missing system roles for a tenant. Idempotent.</summary>
+    public static async Task EnsureSystemRolesAsync(AppDbContext db, ulong tenantId, bool includeSuperAdmin)
+    {
+        var roles = RoleNames.TenantSystemRoles.AsEnumerable();
+        if (includeSuperAdmin)
+            roles = roles.Prepend((RoleNames.SuperAdmin, "Super Admin", "Platform-wide access across all gyms"));
+
+        foreach (var (slug, name, desc) in roles)
+        {
+            if (await db.Roles.IgnoreQueryFilters().AnyAsync(r => r.TenantId == tenantId && r.Slug == slug))
+                continue;
+
+            db.Roles.Add(new Role
+            {
+                Id          = await GetNextIdAsync(db, "Roles"),
+                TenantId    = tenantId,
+                Name        = name,
+                Slug        = slug,
+                Description = desc,
+                IsSystem    = true,
+                CreatedAt   = DateTime.UtcNow
+            });
             await db.SaveChangesAsync();
         }
     }

@@ -5,6 +5,8 @@ namespace GymManagmentApplication.Domain.Entities.Nutrition;
 public class NutritionLog
 {
     public ulong Id { get; set; }
+    /// <summary>Owning gym (nullable: rows written before this was mapped have none).</summary>
+    public ulong? TenantId { get; set; }
     public ulong ClientId { get; set; }
     public ulong? DietPlanId { get; set; }
     public DateOnly LogDate { get; set; }

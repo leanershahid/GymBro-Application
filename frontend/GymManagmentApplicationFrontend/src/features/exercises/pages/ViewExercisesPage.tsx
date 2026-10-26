@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import {
-  View, Text, ScrollView, Pressable, TextInput,
-  StatusBar, Platform, Alert,
-} from 'react-native';
+import { View, Text, ScrollView, FlatList, Pressable, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useExercises, useDeleteExercise } from '../api/exerciseQueries';
 import { Exercise } from '../types/exercise.types';
-import BackButton from '../../common/components/BackButton';
+import Screen from '../../common/components/Screen';
+import ScreenHeader from '../../common/components/ScreenHeader';
+import SearchBar from '../../common/components/SearchBar';
+import StatusPill from '../../common/components/StatusPill';
+import { difficultyTone, getDifficultyColor } from '../../common/constants/statusColors';
 import PaginationFooter from '../../common/components/PaginationFooter';
 import Skeleton from '../../common/components/Skeleton';
-import { getDifficultyColor } from '../../common/constants/statusColors';
+import EmptyState from '../../dashboard/components/EmptyState';
+import StatsStrip from '../../common/StatsStrip';
+import { T, withAlpha, SP } from '../../../theme';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -29,39 +32,35 @@ function ExerciseCard({ ex, onDelete }: { ex: Exercise; onDelete: (id: number) =
   return (
     <View style={{
       flexDirection: 'row', alignItems: 'center',
-      backgroundColor: '#151915', borderRadius: 18, padding: 14,
-      marginBottom: 10, borderWidth: 1, borderColor: '#1C211C',
+      backgroundColor: T.bgInput, borderRadius: 18, padding: 14,
+      marginBottom: 10, borderWidth: 1, borderColor: T.bgInputActive,
     }}>
       {/* Thumbnail */}
       <View style={{
         width: 60, height: 60, borderRadius: 12,
-        backgroundColor: '#1C211C', borderWidth: 1, borderColor: '#242B24',
+        backgroundColor: T.bgInputActive, borderWidth: 1, borderColor: T.line,
         alignItems: 'center', justifyContent: 'center', marginRight: 14,
       }}>
         <Feather name={icon} size={26} color={color} />
       </View>
 
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
         <Text className="text-white text-[15px] font-bold" numberOfLines={1}>{ex.name}</Text>
         {!!ex.description && <Text className="text-sub text-[12px] mt-0.5" numberOfLines={2}>{ex.description}</Text>}
-        <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
-          {ex.category && (
-            <View style={{ backgroundColor: '#1C211C', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: '#242B24' }}>
-              <Text style={{ color: '#AAAAAA', fontSize: 10, fontWeight: '600' }}>{ex.category}</Text>
-            </View>
-          )}
-          {ex.difficulty && (
-            <View style={{ backgroundColor: color + '15', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: color + '35' }}>
-              <Text style={{ color, fontSize: 10, fontWeight: '700' }}>{ex.difficulty}</Text>
-            </View>
-          )}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+          {!!ex.category && <StatusPill label={ex.category} tone="neutral" />}
+          {!!ex.difficulty && <StatusPill label={ex.difficulty} tone={difficultyTone(ex.difficulty)} />}
         </View>
       </View>
 
       {/* Delete */}
-      <Pressable onPress={() => onDelete(ex.id)} hitSlop={8}
-        style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(239,68,68,0.10)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)', alignItems: 'center', justifyContent: 'center' }}>
-        <Feather name="trash-2" size={15} color="#EF4444" />
+      <Pressable
+        onPress={() => onDelete(ex.id)}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel={`Delete ${ex.name}`}
+        style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: withAlpha(T.err, 0.10), borderWidth: 1, borderColor: withAlpha(T.err, 0.25), alignItems: 'center', justifyContent: 'center' }}>
+        <Feather name="trash-2" size={15} color={T.err} />
       </Pressable>
     </View>
   );
@@ -98,32 +97,22 @@ export default function ViewExercisesPage({ onBack, onAddExercise }: Props) {
   };
 
   return (
-    <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0F0A" />
+    <Screen>
+      <ScreenHeader
+        eyebrow="Library"
+        title="Exercises"
+        onBack={onBack}
+        action={onAddExercise ? { label: 'Add', icon: 'plus', onPress: onAddExercise } : undefined}
+      />
 
-      <View className="px-5 pt-5 pb-4">
-        <View className="flex-row items-center justify-between mb-5">
-          {onBack && <BackButton onPress={onBack} />}
-          <View style={{ flex: 1 }}>
-            <Text className="text-sub text-[11px] font-semibold uppercase tracking-widest mb-0.5">Library</Text>
-            <Text className="text-white text-[26px] font-extrabold tracking-tight">Exercises</Text>
-          </View>
-          {onAddExercise && (
-            <Pressable onPress={onAddExercise} className="flex-row items-center gap-2 bg-brand rounded-full px-4 py-2.5">
-              <Feather name="plus" size={15} color="#000" />
-              <Text className="text-black text-[13px] font-bold">Add</Text>
-            </Pressable>
-          )}
-        </View>
-
+      <View style={{ paddingHorizontal: SP.xl, paddingBottom: SP.lg }}>
         {!isLoading && !isError && (
-          <View className="flex-row gap-3 mb-4">
-            {[{ l: 'Total', v: totalRecs }, { l: 'Shown', v: filtered.length }, { l: 'Page', v: `${page}/${totalPages}` }].map(s => (
-              <View key={s.l} className="flex-1 bg-surface border border-line rounded-2xl p-3 items-center gap-1">
-                <Text className="text-brand text-[18px] font-extrabold">{s.v}</Text>
-                <Text className="text-sub text-[10px] font-semibold">{s.l}</Text>
-              </View>
-            ))}
+          <View style={{ marginBottom: SP.lg }}>
+            <StatsStrip items={[
+              { icon: 'database', label: 'Total', value: String(totalRecs),           accent: T.brand },
+              { icon: 'eye',      label: 'Shown', value: String(filtered.length),     accent: T.sky },
+              { icon: 'layers',   label: 'Page',  value: `${page}/${totalPages}`,     accent: T.violet },
+            ]} />
           </View>
         )}
 
@@ -133,44 +122,51 @@ export default function ViewExercisesPage({ onBack, onAddExercise }: Props) {
             const active = f === catFilter;
             return (
               <Pressable key={f} onPress={() => { setCat(f); setPage(1); }}
-                style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: active ? '#7ED321' : '#151915', borderWidth: 1, borderColor: active ? '#7ED321' : '#242B24' }}>
-                <Text style={{ color: active ? '#000' : '#AAAAAA', fontSize: 12, fontWeight: '700' }}>{f}</Text>
+                hitSlop={{ top: 6, bottom: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Category: ${f}`}
+                accessibilityState={{ selected: active }}
+                style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: active ? T.brand : T.bgInput, borderWidth: 1, borderColor: active ? T.brand : T.line }}>
+                <Text style={{ color: active ? T.onBrand : T.textSub, fontSize: 12, fontWeight: '700' }}>{f}</Text>
               </Pressable>
             );
           })}
         </ScrollView>
 
         {/* Search */}
-        <View className="flex-row items-center bg-surface border border-line rounded-2xl px-4 h-[46px]">
-          <Feather name="search" size={15} color="#555" style={{ marginRight: 8 }} />
-          <TextInput className="flex-1 text-white text-[14px] h-full" placeholder="Search exercises…" placeholderTextColor="#555"
-            value={search} onChangeText={setSearch} autoCorrect={false} autoCapitalize="none" />
-          {search.length > 0 && <Pressable onPress={() => setSearch('')} hitSlop={8}><Feather name="x" size={14} color="#555" /></Pressable>}
-        </View>
+        <SearchBar value={search} onChangeText={setSearch} placeholder="Search exercises…" label="Search exercises" />
       </View>
 
-      <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
-        {isLoading && <Skeleton />}
-        {isError && (
-          <View className="items-center pt-16">
-            <Feather name="wifi-off" size={28} color="#EF4444" />
-            <Text className="text-white text-[16px] font-bold mt-4 mb-4">Failed to load</Text>
-            <Pressable onPress={() => refetch()} className="bg-brand rounded-full px-7 py-3">
-              <Text className="text-black font-bold">Retry</Text>
-            </Pressable>
-          </View>
-        )}
-        {!isLoading && !isError && filtered.length === 0 && (
-          <View className="items-center pt-16">
-            <View className="w-[68px] h-[68px] rounded-full bg-surface border border-line items-center justify-center mb-4">
-              <Feather name="zap" size={28} color="#AAA" />
-            </View>
-            <Text className="text-white text-[16px] font-bold">{search ? 'No results' : 'No exercises yet'}</Text>
-          </View>
-        )}
-        {!isLoading && !isError && filtered.map(ex => <ExerciseCard key={ex.id} ex={ex} onDelete={handleDelete} />)}
-        {!isLoading && !isError && <PaginationFooter page={page} totalPages={totalPages} onChange={setPage} />}
-      </ScrollView>
-    </View>
+      <FlatList
+        data={isLoading || isError ? [] : filtered}
+        keyExtractor={(e) => String(e.id)}
+        renderItem={({ item }) => <ExerciseCard ex={item} onDelete={handleDelete} />}
+        ListHeaderComponent={
+          isLoading ? <Skeleton /> :
+          isError ? (
+            <EmptyState
+              icon="wifi-off"
+              tone="error"
+              title="Failed to load"
+              subtitle="Check your connection and try again."
+              action={{ label: 'Retry', onPress: () => refetch() }}
+            />
+          ) : null
+        }
+        ListEmptyComponent={
+          !isLoading && !isError
+            ? <EmptyState icon="zap" title={search ? 'No results' : 'No exercises yet'} />
+            : null
+        }
+        ListFooterComponent={
+          !isLoading && !isError
+            ? <PaginationFooter page={page} totalPages={totalPages} onChange={setPage} />
+            : null
+        }
+        contentContainerStyle={{ paddingHorizontal: SP.xl, paddingBottom: 48 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      />
+    </Screen>
   );
 }

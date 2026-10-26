@@ -242,25 +242,26 @@ Reset password using the token from the reset email.
 
 ---
 
-### ✅ GET `/api/permissions/matrix`
+### ✅ GET `/api/trainers/me`
 
-View the full permissions matrix to understand what the trainer role can access.
+Resolve the signed-in trainer's own **TrainerProfile**. Login returns the *user* id; every
+`/api/trainers/{id}` endpoint expects the *trainer profile* id, so call this once after login.
 
-**Access:** Authenticated trainer (read-only view)
+**Access:** Trainer
 
-**Response Data:**
-```json
-{
-  "trainer": [
-    "workouts.create", "workouts.edit.own", "plans.create",
-    "members.view.assigned", "members.notes.add",
-    "exercises.propose", "pt-sessions.manage.own",
-    "classes.view.own", "earnings.view.own"
-  ]
-}
-```
+**Responses:**
+- `200 OK` — Trainer profile (same shape as `GET /api/trainers/{id}`)
+- `404 Not Found` — The account has no trainer profile yet
 
-> Trainers can view this matrix read-only. Role assignments are admin-managed only.
+---
+
+### ✅ GET `/api/module-access/me`
+
+The caller's own module grants. Trainers have fixed, built-in access, so this mainly matters
+for `staff` and custom roles. The role/module matrix itself (`/api/permissions/matrix`) is
+**admin-only**.
+
+**Access:** Any authenticated user
 
 ---
 

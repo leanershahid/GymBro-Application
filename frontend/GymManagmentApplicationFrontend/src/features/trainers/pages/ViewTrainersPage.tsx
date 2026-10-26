@@ -1,40 +1,26 @@
 import React, { useState } from 'react';
-import {
-  View, Text, ScrollView, Pressable, TextInput,
-  StatusBar, Platform, ActivityIndicator,
-} from 'react-native';
+import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTrainers } from '../api/trainerQueries';
 import { TrainerSummary } from '../types/trainer.types';
-import { T } from '../components/theme';
+import { T, withAlpha, R, SP } from '../../../theme';
+import Screen from '../../common/components/Screen';
+import ScreenHeader from '../../common/components/ScreenHeader';
+import SearchBar from '../../common/components/SearchBar';
+import StatusPill from '../../common/components/StatusPill';
+import PaginationFooter from '../../common/components/PaginationFooter';
+import EmptyState from '../../dashboard/components/EmptyState';
 import StatsStrip from '../../common/StatsStrip';
 import Skeleton from '../../common/components/Skeleton';
 import ManageUserAccessPage from '../../module-access/pages/ManageUserAccessPage';
 
-type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
-
 const TINTS = [
-  { bg: 'rgba(34,211,238,0.08)',  accent: '#22D3EE' },
-  { bg: 'rgba(126,211,33,0.08)',   accent: '#7ED321' },
-  { bg: 'rgba(167,139,250,0.08)', accent: '#A78BFA' },
-  { bg: 'rgba(250,204,21,0.08)',  accent: '#FACC15' },
+  { bg: withAlpha(T.sky, 0.08),  accent: T.sky },
+  { bg: withAlpha(T.brand, 0.08),   accent: T.brand },
+  { bg: withAlpha(T.violet, 0.08), accent: T.violet },
+  { bg: withAlpha(T.brandGold, 0.08),  accent: T.brandGold },
 ];
 const tint = (id: number) => TINTS[id % TINTS.length];
-
-// ─── Status badge ─────────────────────────────────────────────────
-function AvailabilityBadge({ isAvailable }: { isAvailable: boolean }) {
-  const color  = isAvailable ? T.brand : T.err;
-  const bg     = isAvailable ? 'rgba(126,211,33,0.15)' : 'rgba(255,77,77,0.15)';
-  const border = isAvailable ? 'rgba(126,211,33,0.30)' : 'rgba(255,77,77,0.30)';
-  return (
-    <View style={{ backgroundColor: bg, borderWidth: 1, borderColor: border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-        <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: color }} />
-        <Text style={{ color, fontSize: 11, fontWeight: '700' }}>{isAvailable ? 'Available' : 'Unavailable'}</Text>
-      </View>
-    </View>
-  );
-}
 
 // ─── Trainer card ─────────────────────────────────────────────────
 function TrainerCard({ trainer, onPress }: { trainer: TrainerSummary; onPress: () => void }) {
@@ -47,15 +33,18 @@ function TrainerCard({ trainer, onPress }: { trainer: TrainerSummary; onPress: (
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${trainer.displayName}, ${trainer.isAvailable ? 'available' : 'unavailable'}`}
+      accessibilityHint="Opens access management for this trainer"
       style={({ pressed }) => ({
         marginBottom: 14,
-        borderRadius: 24,
+        borderRadius: R.xl,
         overflow: 'hidden',
         opacity: pressed ? 0.92 : 1,
-        backgroundColor: 'rgba(34,197,94,0.06)',
+        backgroundColor: withAlpha(T.ok, 0.06),
         borderWidth: 1,
-        borderColor: 'rgba(34,197,94,0.18)',
-        shadowColor: '#22c55e',
+        borderColor: withAlpha(T.ok, 0.18),
+        shadowColor: T.ok,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.18,
         shadowRadius: 18,
@@ -63,7 +52,7 @@ function TrainerCard({ trainer, onPress }: { trainer: TrainerSummary; onPress: (
       })}
     >
       {/* Accent top strip */}
-      <View style={{ height: 3, backgroundColor: c.accent, borderTopLeftRadius: 24, borderTopRightRadius: 24 }} />
+      <View style={{ height: 3, backgroundColor: c.accent, borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl }} />
 
       <View style={{ padding: 16 }}>
         {/* Top row — avatar + name + badge */}
@@ -71,14 +60,14 @@ function TrainerCard({ trainer, onPress }: { trainer: TrainerSummary; onPress: (
           <View style={{
             width: 52, height: 52, borderRadius: 26,
             backgroundColor: c.bg,
-            borderWidth: 1.5, borderColor: c.accent + '60',
+            borderWidth: 1.5, borderColor: withAlpha(c.accent, 0.38),
             alignItems: 'center', justifyContent: 'center',
             marginRight: 14,
           }}>
             <Text style={{ color: c.accent, fontSize: 20, fontWeight: '800' }}>{initials}</Text>
           </View>
 
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
             <Text style={{ color: T.text, fontSize: 16, fontWeight: '800', letterSpacing: -0.3 }} numberOfLines={1}>
               {trainer.displayName}
             </Text>
@@ -91,16 +80,16 @@ function TrainerCard({ trainer, onPress }: { trainer: TrainerSummary; onPress: (
             )}
           </View>
 
-          <AvailabilityBadge isAvailable={trainer.isAvailable} />
+          <StatusPill label={trainer.isAvailable ? 'Available' : 'Unavailable'} tone={trainer.isAvailable ? 'brand' : 'err'} dot />
         </View>
 
         {/* Code pill + experience */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <View style={{
-            backgroundColor: c.bg, borderWidth: 1, borderColor: c.accent + '40',
+            backgroundColor: c.bg, borderWidth: 1, borderColor: withAlpha(c.accent, 0.25),
             borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4,
           }}>
-            <Text style={{ color: c.accent, fontSize: 11, fontWeight: '700', letterSpacing: 0.4 }}>
+            <Text numberOfLines={1} style={{ color: c.accent, fontSize: 11, fontWeight: '700', letterSpacing: 0.4 }}>
               {trainer.trainerCode || 'N/A'}
             </Text>
           </View>
@@ -116,31 +105,31 @@ function TrainerCard({ trainer, onPress }: { trainer: TrainerSummary; onPress: (
 
           {trainer.rating !== null && trainer.rating !== undefined && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Feather name="star" size={12} color="#FACC15" />
+              <Feather name="star" size={12} color={T.brandGold} />
               <Text style={{ color: T.textSub, fontSize: 12 }}>{trainer.rating.toFixed(1)}</Text>
             </View>
           )}
         </View>
 
         {/* Divider */}
-        <View style={{ height: 1, backgroundColor: 'rgba(34,197,94,0.12)', marginBottom: 12 }} />
+        <View style={{ height: 1, backgroundColor: withAlpha(T.ok, 0.12), marginBottom: 12 }} />
 
         {/* Specializations */}
         {!!trainer.specializations?.length && (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
             {trainer.specializations.slice(0, 3).map((s) => (
               <View key={s} style={{
-                backgroundColor: 'rgba(255,255,255,0.05)',
-                borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+                backgroundColor: withAlpha(T.text, 0.05),
+                borderWidth: 1, borderColor: withAlpha(T.text, 0.10),
                 borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3,
               }}>
-                <Text style={{ color: T.textSub, fontSize: 11 }}>{s}</Text>
+                <Text style={{ color: T.textSub, fontSize: 11 }} numberOfLines={1}>{s}</Text>
               </View>
             ))}
             {trainer.specializations.length > 3 && (
               <View style={{
-                backgroundColor: 'rgba(255,255,255,0.05)',
-                borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+                backgroundColor: withAlpha(T.text, 0.05),
+                borderWidth: 1, borderColor: withAlpha(T.text, 0.10),
                 borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3,
               }}>
                 <Text style={{ color: T.textFaint, fontSize: 11 }}>+{trainer.specializations.length - 3}</Text>
@@ -151,72 +140,19 @@ function TrainerCard({ trainer, onPress }: { trainer: TrainerSummary; onPress: (
 
         {/* Contact row */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, marginRight: 8 }}>
             <Feather name="mail" size={12} color={T.textFaint} />
-            <Text style={{ color: T.textSub, fontSize: 12 }} numberOfLines={1}>{trainer.email}</Text>
+            <Text style={{ color: T.textSub, fontSize: 12, flexShrink: 1 }} numberOfLines={1}>{trainer.email}</Text>
           </View>
           {!!trainer.phone && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               <Feather name="phone" size={12} color={T.textFaint} />
-              <Text style={{ color: T.textSub, fontSize: 12 }}>{trainer.phone}</Text>
+              <Text style={{ color: T.textSub, fontSize: 12 }} numberOfLines={1}>{trainer.phone}</Text>
             </View>
           )}
         </View>
       </View>
     </Pressable>
-  );
-}
-
-// ─── Pagination controls ──────────────────────────────────────────
-function PaginationBar({
-  page, totalPages, onPrev, onNext,
-}: { page: number; totalPages: number; onPrev: () => void; onNext: () => void }) {
-  if (totalPages <= 1) return null;
-  return (
-    <View style={{
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: 16, marginTop: 8, marginBottom: 32,
-    }}>
-      <Pressable
-        onPress={onPrev}
-        disabled={page <= 1}
-        style={{
-          flexDirection: 'row', alignItems: 'center', gap: 6,
-          paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999,
-          backgroundColor: page <= 1 ? 'rgba(255,255,255,0.04)' : 'rgba(34,197,94,0.10)',
-          borderWidth: 1,
-          borderColor: page <= 1 ? 'rgba(255,255,255,0.08)' : 'rgba(34,197,94,0.25)',
-          opacity: page <= 1 ? 0.4 : 1,
-        }}
-      >
-        <Feather name="chevron-left" size={16} color={page <= 1 ? T.textFaint : T.brand} />
-        <Text style={{ color: page <= 1 ? T.textFaint : T.brand, fontSize: 13, fontWeight: '600' }}>Prev</Text>
-      </Pressable>
-
-      <View style={{
-        paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999,
-        backgroundColor: 'rgba(34,197,94,0.08)',
-        borderWidth: 1, borderColor: 'rgba(34,197,94,0.18)',
-      }}>
-        <Text style={{ color: T.brand, fontSize: 13, fontWeight: '700' }}>{page} / {totalPages}</Text>
-      </View>
-
-      <Pressable
-        onPress={onNext}
-        disabled={page >= totalPages}
-        style={{
-          flexDirection: 'row', alignItems: 'center', gap: 6,
-          paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999,
-          backgroundColor: page >= totalPages ? 'rgba(255,255,255,0.04)' : 'rgba(34,197,94,0.10)',
-          borderWidth: 1,
-          borderColor: page >= totalPages ? 'rgba(255,255,255,0.08)' : 'rgba(34,197,94,0.25)',
-          opacity: page >= totalPages ? 0.4 : 1,
-        }}
-      >
-        <Text style={{ color: page >= totalPages ? T.textFaint : T.brand, fontSize: 13, fontWeight: '600' }}>Next</Text>
-        <Feather name="chevron-right" size={16} color={page >= totalPages ? T.textFaint : T.brand} />
-      </Pressable>
-    </View>
   );
 }
 
@@ -256,170 +192,82 @@ export default function ViewTrainersPage({ onBack, onAddTrainer }: ViewTrainersP
     t.email?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handlePrev = () => { if (page > 1) { setPage((p) => p - 1); } };
-  const handleNext = () => { if (page < totalPages) { setPage((p) => p + 1); } };
+
+  const listHeader = (
+    <>
+      {/* Summary strip */}
+      {!isLoading && !isError && (
+        <View style={{ marginBottom: 24 }}>
+          <StatsStrip items={[
+            { icon: 'award',        label: 'Total',     value: String(totalRecords),                                                                  accent: T.sky },
+            { icon: 'check-circle', label: 'Available', value: String(items.filter((t) => t.isAvailable).length),                                     accent: T.brand   },
+            { icon: 'eye',          label: 'This page', value: String(filtered.length),                                                               accent: T.violet },
+          ]} />
+        </View>
+      )}
+
+      {/* Loading */}
+      {isLoading && <Skeleton rows={3} height={165} borderRadius={R.xl} />}
+
+      {/* Error */}
+      {isError && (
+        <EmptyState
+          icon="wifi-off"
+          tone="error"
+          title="Failed to load"
+          subtitle="Check your connection and try again."
+          action={{ label: 'Retry', onPress: () => refetch() }}
+        />
+      )}
+    </>
+  );
 
   return (
-    <View style={{
-      flex: 1,
-      backgroundColor: T.bg,
-      paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0,
-    }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
+      <ScreenHeader
+        eyebrow="Staff"
+        title="All Trainers"
+        onBack={onBack}
+        action={onAddTrainer ? { label: 'Add', icon: 'plus', onPress: onAddTrainer } : undefined}
+      />
 
-      {/* ── Header ── */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-          {onBack && (
-            <Pressable
-              onPress={onBack}
-              hitSlop={12}
-              style={{
-                width: 42, height: 42, borderRadius: 21,
-                backgroundColor: 'rgba(34,197,94,0.10)',
-                borderWidth: 1, borderColor: 'rgba(34,197,94,0.22)',
-                alignItems: 'center', justifyContent: 'center',
-                marginRight: 14,
-              }}
-            >
-              <Feather name="arrow-left" size={20} color={T.text} />
-            </Pressable>
-          )}
-
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 3 }}>
-              Staff
-            </Text>
-            <Text style={{ color: T.text, fontSize: 26, fontWeight: '800', letterSpacing: -0.5 }}>
-              All Trainers
-            </Text>
-          </View>
-
-          {/* Fetching spinner */}
-          {isFetching && !isLoading && (
-            <ActivityIndicator size="small" color={T.brand} style={{ marginRight: 12 }} />
-          )}
-
-          {onAddTrainer && (
-            <Pressable
-              onPress={onAddTrainer}
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: 8,
-                backgroundColor: T.brand, borderRadius: 999,
-                paddingHorizontal: 16, paddingVertical: 10,
-                shadowColor: T.brand,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.4, shadowRadius: 10, elevation: 8,
-              }}
-            >
-              <Feather name="plus" size={16} color={T.onBrand} />
-              <Text style={{ color: T.onBrand, fontSize: 13, fontWeight: '700' }}>Add</Text>
-            </Pressable>
-          )}
-        </View>
-
-        {/* Search */}
-        <View style={{
-          flexDirection: 'row', alignItems: 'center',
-          backgroundColor: 'rgba(34,197,94,0.06)',
-          borderWidth: 1, borderColor: 'rgba(34,197,94,0.18)',
-          borderRadius: 16, paddingHorizontal: 14, height: 48,
-        }}>
-          <Feather name="search" size={16} color={T.textFaint} style={{ marginRight: 10 }} />
-          <TextInput
-            style={{ flex: 1, color: T.text, fontSize: 14 }}
-            placeholder="Search by name, code or email…"
-            placeholderTextColor={T.textFaint}
-            value={search}
-            onChangeText={(v) => { setSearch(v); setPage(1); }}
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')} hitSlop={8}>
-              <Feather name="x" size={16} color={T.textFaint} />
-            </Pressable>
-          )}
-        </View>
+      {/* Search (+ background-refresh spinner) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, paddingHorizontal: SP.xl, paddingBottom: SP.lg }}>
+        <SearchBar
+          value={search}
+          onChangeText={(v) => { setSearch(v); setPage(1); }}
+          placeholder="Search by name, code or email…"
+          label="Search trainers"
+          style={{ flex: 1 }}
+        />
+        {isFetching && !isLoading && (
+          <ActivityIndicator size="small" color={T.brand} accessibilityLabel="Refreshing" />
+        )}
       </View>
 
-      <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }}
+      <FlatList
+        data={isLoading || isError ? [] : filtered}
+        keyExtractor={(t) => String(t.id)}
+        renderItem={({ item }) => <TrainerCard trainer={item} onPress={() => setManageAccessFor(item)} />}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          !isLoading && !isError ? (
+            <EmptyState
+              icon="award"
+              title={search ? 'No results' : 'No trainers yet'}
+              subtitle={search ? `Nothing matches "${search}"` : 'Onboard your first trainer to get started.'}
+            />
+          ) : null
+        }
+        ListFooterComponent={
+          !isLoading && !isError
+            ? <PaginationFooter page={page} totalPages={totalPages} onChange={setPage} />
+            : null
+        }
+        contentContainerStyle={{ paddingHorizontal: SP.xl, paddingBottom: 48 }}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-      >
-        {/* Summary strip */}
-        {!isLoading && !isError && (
-          <View style={{ marginBottom: 20 }}>
-            <StatsStrip items={[
-              { icon: 'award',        label: 'Total',     value: String(totalRecords),                                                                  accent: '#22D3EE' },
-              { icon: 'check-circle', label: 'Available', value: String(items.filter((t) => t.isAvailable).length),                                     accent: T.brand   },
-              { icon: 'eye',          label: 'This page', value: String(filtered.length),                                                               accent: '#A78BFA' },
-            ]} />
-          </View>
-        )}
-
-        {/* Loading */}
-        {isLoading && <Skeleton rows={3} height={165} borderRadius={24} />}
-
-        {/* Error */}
-        {isError && (
-          <View style={{ alignItems: 'center', paddingTop: 60 }}>
-            <View style={{
-              width: 68, height: 68, borderRadius: 34,
-              backgroundColor: 'rgba(239,68,68,0.10)',
-              borderWidth: 1, borderColor: 'rgba(239,68,68,0.20)',
-              alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-            }}>
-              <Feather name="wifi-off" size={30} color={T.err} />
-            </View>
-            <Text style={{ color: T.text, fontSize: 17, fontWeight: '700', marginBottom: 8 }}>Failed to load</Text>
-            <Text style={{ color: T.textSub, fontSize: 13, textAlign: 'center', marginBottom: 24 }}>
-              Check your connection and try again.
-            </Text>
-            <Pressable
-              onPress={() => refetch()}
-              style={{ backgroundColor: T.brand, borderRadius: 999, paddingHorizontal: 28, paddingVertical: 14 }}
-            >
-              <Text style={{ color: T.onBrand, fontSize: 15, fontWeight: '700' }}>Retry</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {/* Empty */}
-        {!isLoading && !isError && filtered.length === 0 && (
-          <View style={{ alignItems: 'center', paddingTop: 60 }}>
-            <View style={{
-              width: 68, height: 68, borderRadius: 34,
-              backgroundColor: 'rgba(255,255,255,0.06)',
-              borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
-              alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-            }}>
-              <Feather name="award" size={30} color={T.textSub} />
-            </View>
-            <Text style={{ color: T.text, fontSize: 17, fontWeight: '700', marginBottom: 8 }}>
-              {search ? 'No results' : 'No trainers yet'}
-            </Text>
-            <Text style={{ color: T.textSub, fontSize: 13, textAlign: 'center' }}>
-              {search ? `Nothing matches "${search}"` : 'Onboard your first trainer to get started.'}
-            </Text>
-          </View>
-        )}
-
-        {/* Cards */}
-        {!isLoading && !isError && filtered.map((trainer) => (
-          <TrainerCard key={trainer.id} trainer={trainer} onPress={() => setManageAccessFor(trainer)} />
-        ))}
-
-        {/* Pagination */}
-        {!isLoading && !isError && (
-          <PaginationBar
-            page={page}
-            totalPages={totalPages}
-            onPrev={handlePrev}
-            onNext={handleNext}
-          />
-        )}
-      </ScrollView>
-    </View>
+      />
+    </Screen>
   );
 }

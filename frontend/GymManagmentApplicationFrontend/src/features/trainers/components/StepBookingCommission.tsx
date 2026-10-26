@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { TrainerPayload } from '../types/trainer.types';
-import { T } from './theme';
+import { T } from '../../../theme';
 
 type MCIcon = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -19,10 +19,10 @@ function Block({ num, title, children }: { num: string; title: string; children:
   return (
     <View className="px-5 pt-[22px] pb-[10px]">
       <View className="flex-row items-center gap-[10px] mb-4">
-        <View className="w-7 h-7 rounded-lg bg-[rgba(126,211,33,0.10)] border border-[rgba(126,211,33,0.25)] items-center justify-center">
+        <View className="w-7 h-7 rounded-lg bg-brand/10 border border-brand/25 items-center justify-center">
           <Text className="text-[11px] font-extrabold text-brand" style={{ letterSpacing: 0.5 }}>{num}</Text>
         </View>
-        <Text className="text-[16px] font-bold text-white">{title}</Text>
+        <Text accessibilityRole="header" className="text-[16px] font-bold text-white">{title}</Text>
       </View>
       {children}
     </View>
@@ -37,12 +37,16 @@ function PermissionCard({ icon, label, sub, value, onValueChange }: {
   return (
     <TouchableOpacity
       className={`flex-row items-center gap-3 px-[14px] py-3 rounded-xl border mb-2 ${
-        value ? 'border-[rgba(126,211,33,0.25)] bg-[rgba(126,211,33,0.10)]' : 'border-line bg-input'
+        value ? 'border-brand/25 bg-brand/10' : 'border-line bg-input'
       }`}
       onPress={() => onValueChange(!value)}
       activeOpacity={0.75}
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityHint={sub}
+      accessibilityState={{ checked: value }}
     >
-      <View className={`w-10 h-10 rounded-[10px] items-center justify-center ${value ? 'bg-[rgba(126,211,33,0.10)]' : 'bg-surface'}`}>
+      <View className={`w-10 h-10 rounded-[10px] items-center justify-center ${value ? 'bg-brand/10' : 'bg-surface'}`}>
         <MaterialCommunityIcons name={icon} size={20} color={value ? T.brand : T.textFaint} />
       </View>
       <View className="flex-1">
@@ -64,8 +68,8 @@ function StatTile({ icon, label, value, onChange }: {
       className="flex-1 items-center py-[14px] px-[10px] rounded-xl border gap-1"
       style={{
         minWidth: '45%',
-        borderColor: focused ? '#444444' : T.line,
-        backgroundColor: focused ? '#1C211C' : T.bgInput,
+        borderColor: focused ? T.textDisabled : T.line,
+        backgroundColor: focused ? T.bgInputActive : T.bgInput,
       }}
     >
       <MaterialCommunityIcons name={icon} size={18} color={focused ? T.textSub : T.textFaint} />
@@ -75,6 +79,7 @@ function StatTile({ icon, label, value, onChange }: {
         value={value}
         onChangeText={onChange}
         keyboardType="numeric"
+        accessibilityLabel={label}
         placeholder="—"
         placeholderTextColor={T.textFaint}
         onFocus={() => setFocused(true)}
@@ -121,15 +126,24 @@ function Slider({ icon, label, value, onChange }: {
           <MaterialCommunityIcons name={icon} size={16} color={T.textSub} />
           <Text className="text-[14px] font-semibold text-white">{label}</Text>
         </View>
-        <View className="flex-row items-baseline gap-[1px] px-[10px] py-1 rounded-full bg-[rgba(126,211,33,0.10)]">
+        <View className="flex-row items-baseline gap-[1px] px-[10px] py-1 rounded-full bg-brand/10">
           <Text className="text-[16px] font-extrabold text-brand">{pct}</Text>
           <Text className="text-[11px] font-bold text-brand">%</Text>
         </View>
       </View>
 
       <View
-        className="h-9 justify-center relative"
+        className="h-11 justify-center relative"
         onLayout={(e: LayoutChangeEvent) => { trackW.current = e.nativeEvent.layout.width; }}
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityLabel={`${label} commission`}
+        accessibilityValue={{ min: 0, max: 100, now: pct, text: `${pct}%` }}
+        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+        onAccessibilityAction={(e) => {
+          if (e.nativeEvent.actionName === 'increment') onChange(Math.min(100, pct + 5));
+          if (e.nativeEvent.actionName === 'decrement') onChange(Math.max(0, pct - 5));
+        }}
         {...pan.panHandlers}
       >
         <View className="absolute left-0 right-0 h-[4px] rounded-full bg-line" />
@@ -153,7 +167,7 @@ function Slider({ icon, label, value, onChange }: {
 
       <View className="flex-row justify-between mt-1">
         {['0%', '50%', '100%'].map((l) => (
-          <Text key={l} className="text-[10px] text-faint">{l}</Text>
+          <Text key={l} className="text-[11px] text-faint" importantForAccessibility="no">{l}</Text>
         ))}
       </View>
     </View>
@@ -168,7 +182,7 @@ export default function StepBookingCommission({ data, onChange }: Props) {
   const updateCs = (f: object) => onChange({ commissionSettings: { ...cs, ...f } });
 
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+    <ScrollView className="flex-1 bg-bg" keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
 
       <Block num="01" title="Booking Permissions">
         <PermissionCard icon="weight-lifter"       label="Personal Training" sub="1-on-1 sessions"  value={bs.canTakePersonalTraining ?? false} onValueChange={(v) => updateBs({ canTakePersonalTraining: v })} />
@@ -177,9 +191,13 @@ export default function StepBookingCommission({ data, onChange }: Props) {
         <PermissionCard icon="star-circle-outline" label="Trial Sessions"    sub="Free intro"        value={bs.canTakeTrialSessions ?? false}     onValueChange={(v) => updateBs({ canTakeTrialSessions: v })} />
 
         <TouchableOpacity
-          className="flex-row items-center gap-3 pt-3 mt-1 border-t border-[#151915]"
+          className="flex-row items-center gap-3 pt-3 mt-1 border-t border-input"
           onPress={() => updateBs({ requiresApprovalForBooking: !bs.requiresApprovalForBooking })}
           activeOpacity={0.75}
+          accessibilityRole="switch"
+          accessibilityLabel="Requires Approval"
+          accessibilityHint="All bookings need manual confirmation"
+          accessibilityState={{ checked: !!bs.requiresApprovalForBooking }}
         >
           <MaterialCommunityIcons
             name="shield-check-outline" size={20}
@@ -194,14 +212,16 @@ export default function StepBookingCommission({ data, onChange }: Props) {
           <Switch
             value={bs.requiresApprovalForBooking ?? false}
             onValueChange={(v) => updateBs({ requiresApprovalForBooking: v })}
-            trackColor={{ false: '#2A2A2A', true: T.brand }}
-            thumbColor={bs.requiresApprovalForBooking ? T.onBrand : '#FFFFFF'}
-            ios_backgroundColor="#2A2A2A"
+            trackColor={{ false: T.line, true: T.brand }}
+            thumbColor={bs.requiresApprovalForBooking ? T.onBrand : T.text}
+            ios_backgroundColor={T.line}
+            importantForAccessibility="no-hide-descendants"
+            accessibilityElementsHidden
           />
         </TouchableOpacity>
       </Block>
 
-      <View className="h-px bg-[#151915] mx-5" />
+      <View className="h-px bg-input mx-5" />
 
       <Block num="02" title="Session Limits">
         <View className="flex-row flex-wrap gap-[10px]">
@@ -213,7 +233,7 @@ export default function StepBookingCommission({ data, onChange }: Props) {
         </View>
       </Block>
 
-      <View className="h-px bg-[#151915] mx-5" />
+      <View className="h-px bg-input mx-5" />
 
       <Block num="03" title="Commission Eligibility">
         <PermissionCard icon="card-account-details-outline" label="Membership"    sub="Membership sales" value={cs.eligibleForMembershipCommission ?? false}       onValueChange={(v) => updateCs({ eligibleForMembershipCommission: v })} />
@@ -221,7 +241,7 @@ export default function StepBookingCommission({ data, onChange }: Props) {
         <PermissionCard icon="pill"                         label="Supplements"   sub="Product sales"     value={cs.eligibleForSupplementCommission ?? false}       onValueChange={(v) => updateCs({ eligibleForSupplementCommission: v })} />
       </Block>
 
-      <View className="h-px bg-[#151915] mx-5" />
+      <View className="h-px bg-input mx-5" />
 
       <Block num="04" title="Commission Rates">
         <Slider icon="card-account-details" label="Membership"       value={cs.membershipCommissionPercentage ?? 0} onChange={(v) => updateCs({ membershipCommissionPercentage: v })} />

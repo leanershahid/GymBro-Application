@@ -32,7 +32,7 @@ public class BranchRepository(AppDbContext db) : IBranchRepository
 
     public async Task<bool> DeleteAsync(ulong id)
     {
-        var branch = await db.Branches.FindAsync(id);
+        var branch = await db.Branches.FirstOrDefaultAsync(b => b.Id == id);
         if (branch is null) return false;
         db.Branches.Remove(branch);
         await db.SaveChangesAsync();

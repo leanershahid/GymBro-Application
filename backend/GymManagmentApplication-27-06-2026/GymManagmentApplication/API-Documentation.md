@@ -1,5 +1,25 @@
 # Enterprise Gym Platform — Admin Console API Documentation
 
+> ## Tenancy, roles and permissions
+>
+> **Role hierarchy:** `superadmin` (platform-wide, manages gyms) → `admin` (one gym) → `trainer` → `client`.
+> `staff` and admin-defined custom roles get access per module through the role/module access
+> matrix (`/api/module-access`), which is enforced on every request. `tenants`, `roles` and
+> `settings` can never be delegated through the matrix.
+>
+> **Tenant scoping:** the JWT carries `tenant_id` (and `branch_id` when the user has a home branch).
+> Every query is filtered to the caller's gym, and every write is stamped with it. Any `tenantId`
+> in a request body or query string is **ignored except for super admins**, who may use it to act
+> on another gym. Branches, members, trainers and plans referenced by a request must belong to
+> the same gym, or the API returns `400`.
+>
+> **Ownership:** clients can only read or change their own member record, onboarding and
+> workout logs; trainers can only change their own trainer profile and schedule.
+>
+> **Accounts created by staff** (members, trainers, converted leads) get a random one-time
+> password, returned once in the create response (`defaultPassword` / `temporaryPassword`).
+
+
 > **Base URL:** `https://<host>/api`
 > **Version:** 1.0 | **Date:** July 5, 2026
 > **Auth:** JWT Bearer token in `Authorization: Bearer <token>` header (currently disabled for development)

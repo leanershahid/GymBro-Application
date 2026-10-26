@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, Pressable, ImageBackground } from 'react-native';
+import { View, Text, Pressable, ImageBackground, useWindowDimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T, Shadow } from '../../trainers/components/theme';
+import { T, Shadow, withAlpha } from '../../../theme';
 import { BranchSummary } from '../types/dashboard';
 
 interface BranchCardProps {
@@ -9,6 +9,8 @@ interface BranchCardProps {
   onPress?: () => void;
   /** Called when the overflow ("...") icon is tapped — currently a visual affordance with no menu wired up yet. */
   onPressMore?: () => void;
+  /** Card width; defaults to ~44% of the screen (max 220) so two cards and a peek fit. */
+  width?: number;
 }
 
 function formatRevenue(value: number): string {
@@ -33,7 +35,9 @@ const BRANCH_IMAGES = [
   require('../../../assets/dashboard/hero-athlete.jpg'),
 ];
 
-export default function BranchCard({ branch, onPress, onPressMore }: BranchCardProps) {
+export default function BranchCard({ branch, onPress, onPressMore, width }: BranchCardProps) {
+  const { width: screenW } = useWindowDimensions();
+  const cardWidth = width ?? Math.min(Math.round(screenW * 0.44), 220);
   const occupancyColor =
     branch.occupancyPct >= 80 ? T.brand :
     branch.occupancyPct >= 50 ? T.brandGold : T.err;
@@ -43,18 +47,18 @@ export default function BranchCard({ branch, onPress, onPressMore }: BranchCardP
   return (
     <Pressable
       onPress={onPress}
-      style={[glass, { borderRadius: 20, overflow: 'hidden', marginRight: 12, width: 172 }]}
+      style={[glass, { borderRadius: 20, overflow: 'hidden', marginRight: 12, width: cardWidth }]}
       accessibilityRole="button"
-      accessibilityLabel={branch.name}
+      accessibilityLabel={`${branch.name}, ${branch.city}, ${branch.isOpen ? 'open' : 'closed'}`}
     >
       <ImageBackground source={image} style={{ width: '100%', height: 72 }} imageStyle={{ opacity: 0.55 }} resizeMode="cover">
-        <View style={{ flex: 1, backgroundColor: 'rgba(10,15,10,0.35)', padding: 10, flexDirection: 'row', justifyContent: 'flex-end' }}>
+        <View style={{ flex: 1, backgroundColor: withAlpha(T.bg, 0.35), padding: 10, flexDirection: 'row', justifyContent: 'flex-end' }}>
           <Pressable
             onPress={onPressMore}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel={`More options for ${branch.name}`}
-            style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(10,15,10,0.55)', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: withAlpha(T.bg, 0.55), alignItems: 'center', justifyContent: 'center' }}
           >
             <Feather name="more-horizontal" size={15} color={T.text} />
           </Pressable>
@@ -77,9 +81,9 @@ export default function BranchCard({ branch, onPress, onPressMore }: BranchCardP
           </View>
           <View style={{
             borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
-            backgroundColor: branch.isOpen ? 'rgba(126,211,33,0.12)' : 'rgba(255,77,77,0.12)',
+            backgroundColor: branch.isOpen ? withAlpha(T.brand, 0.12) : withAlpha(T.err, 0.12),
             borderWidth: 1,
-            borderColor: branch.isOpen ? 'rgba(126,211,33,0.25)' : 'rgba(255,77,77,0.25)',
+            borderColor: branch.isOpen ? withAlpha(T.brand, 0.25) : withAlpha(T.err, 0.25),
           }}>
             <Text style={{ fontSize: 11, fontWeight: '700', color: branch.isOpen ? T.brand : T.err }}>
               {branch.isOpen ? 'Open' : 'Closed'}
@@ -93,7 +97,7 @@ export default function BranchCard({ branch, onPress, onPressMore }: BranchCardP
         {/* Members */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
           <Feather name="users" size={13} color={T.textFaint} />
-          <Text style={{ color: T.textSub, fontSize: 12, marginLeft: 5 }}>{branch.memberCount} members</Text>
+          <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 12, marginLeft: 5 }}>{branch.memberCount} members</Text>
         </View>
 
         {/* Revenue */}

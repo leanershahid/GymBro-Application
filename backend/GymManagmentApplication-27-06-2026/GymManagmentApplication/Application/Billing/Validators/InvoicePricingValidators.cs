@@ -17,7 +17,6 @@ public class GenerateInvoiceValidator : AbstractValidator<GenerateInvoiceRequest
 {
     public GenerateInvoiceValidator()
     {
-        RuleFor(x => x.TenantId).GreaterThan(0ul).WithMessage("TenantId is required.");
         RuleFor(x => x.MemberId).GreaterThan(0ul).WithMessage("MemberId is required.");
         RuleFor(x => x.Items).NotEmpty();
         RuleForEach(x => x.Items).SetValidator(new InvoiceLineItemValidator());
@@ -52,7 +51,6 @@ public class CreatePricingRuleValidator : AbstractValidator<CreatePricingRuleReq
 {
     public CreatePricingRuleValidator()
     {
-        RuleFor(x => x.TenantId).GreaterThan(0ul).WithMessage("TenantId is required.");
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.RuleType).NotEmpty().Must(v => v is "time-based" or "demand-based" or "promotional")
             .WithMessage("RuleType must be one of: time-based, demand-based, promotional.");
@@ -79,7 +77,6 @@ public class CalculatePriceValidator : AbstractValidator<CalculatePriceRequest>
 {
     public CalculatePriceValidator()
     {
-        RuleFor(x => x.TenantId).GreaterThan(0ul).WithMessage("TenantId is required.");
         RuleFor(x => x.PlanId).GreaterThan(0ul).WithMessage("PlanId is required.");
         RuleFor(x => x.MemberId).Must(id => id is null || id > 0)
             .WithMessage("MemberId must be null or a valid id.");
@@ -91,7 +88,6 @@ public class CreateDiscountValidator : AbstractValidator<CreateDiscountRequest>
 {
     public CreateDiscountValidator()
     {
-        RuleFor(x => x.TenantId).GreaterThan(0ul).WithMessage("TenantId is required.");
         RuleFor(x => x.Code).NotEmpty().MaximumLength(50);
         RuleFor(x => x.DiscountType).NotEmpty().Must(v => v is "percentage" or "fixed")
             .WithMessage("DiscountType must be one of: percentage, fixed.");
@@ -104,7 +100,6 @@ public class ValidateDiscountValidator : AbstractValidator<ValidateDiscountReque
 {
     public ValidateDiscountValidator()
     {
-        RuleFor(x => x.TenantId).GreaterThan(0ul).WithMessage("TenantId is required.");
         RuleFor(x => x.Code).NotEmpty().MaximumLength(50);
         RuleFor(x => x.PlanId).GreaterThan(0ul).WithMessage("PlanId is required.");
         RuleFor(x => x.MemberId).Must(id => id is null || id > 0)

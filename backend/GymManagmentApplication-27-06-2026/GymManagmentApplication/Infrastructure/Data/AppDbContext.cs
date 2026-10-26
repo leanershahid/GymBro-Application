@@ -17,12 +17,32 @@ using GymManagmentApplication.Domain.Entities.Platform;
 using GymManagmentApplication.Domain.Entities.POS;
 using GymManagmentApplication.Domain.Entities.Scheduling;
 using GymManagmentApplication.Domain.Entities.Training;
+using System.Linq.Expressions;
+using GymManagmentApplication.Application.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Infrastructure.Data;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+public class AppDbContext : DbContext
 {
+    private readonly ICurrentUser? currentUser;
+
+    public AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? currentUser = null) : base(options)
+    {
+        this.currentUser = currentUser;
+        ChangeTracker.Tracking += AssignIdOnTracking;
+    }
+
+    // ── Tenant isolation ────────────────────────────────────────────────────
+    // Every entity with a CLR TenantId gets a global query filter (see ApplyTenantFilters).
+    // Evaluated per DbContext instance, i.e. per request:
+    //   * anonymous / background (no HttpContext) → no filter (login, seeding)
+    //   * super admin                              → no filter (platform-wide)
+    //   * anyone else                              → own tenant only; a token without a
+    //                                                 tenant claim sees nothing (fails closed)
+    public bool TenantFilterDisabled => currentUser is null || !currentUser.IsAuthenticated || currentUser.IsSuperAdmin;
+    public ulong CurrentTenantId => currentUser?.TenantId ?? 0;
+
     // Core
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Branch> Branches => Set<Branch>();
@@ -201,6 +221,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 pk.ValueGenerated = Microsoft.EntityFrameworkCore.Metadata.ValueGenerated.Never;
         }
 
+        ApplyTenantFilters(modelBuilder);
+
         // Composite keys
         modelBuilder.Entity<ExerciseMuscle>().HasKey(e => new { e.ExerciseId, e.MuscleId });
         modelBuilder.Entity<ExerciseEquipment>().HasKey(e => new { e.ExerciseId, e.EquipmentId });
@@ -224,10 +246,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .OnDelete(DeleteBehavior.Cascade);
 
         // Indexes
+        // Email stays globally unique on purpose: it is the login key, and login happens
+        // before we know which gym the user belongs to.
         modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
         modelBuilder.Entity<User>().HasIndex(u => u.Uuid).IsUnique();
         modelBuilder.Entity<Tenant>().HasIndex(t => t.Slug).IsUnique();
-        modelBuilder.Entity<Exercise>().HasIndex(e => e.Slug).IsUnique();
+        // Per-gym uniqueness: two gyms may each have a "squat" exercise or a "MAIN" branch.
+        modelBuilder.Entity<Exercise>().HasIndex(e => new { e.TenantId, e.Slug }).IsUnique();
+        modelBuilder.Entity<Branch>().HasIndex(b => new { b.TenantId, b.Code }).IsUnique();
+        modelBuilder.Entity<Role>().HasIndex(r => new { r.TenantId, r.Slug }).IsUnique();
+
+        // Tenant FKs that were previously plain columns
+        modelBuilder.Entity<ScheduledTask>().HasOne<Tenant>().WithMany().HasForeignKey(t => t.TenantId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<AuditLog>().HasOne<Tenant>().WithMany().HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<FoodItem>().HasOne<Tenant>().WithMany().HasForeignKey(f => f.TenantId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Equipment>().HasOne<Tenant>().WithMany().HasForeignKey(e => e.TenantId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<SearchIndexCache>().HasOne<Tenant>().WithMany().HasForeignKey(c => c.TenantId).OnDelete(DeleteBehavior.Cascade);
+
+        // Branch FKs that were previously plain columns (history survives branch removal)
+        modelBuilder.Entity<PtSession>().HasOne<Branch>().WithMany().HasForeignKey(p => p.BranchId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<WorkoutLog>().HasOne<Branch>().WithMany().HasForeignKey(l => l.BranchId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<AnalyticsDaily>().HasOne<Branch>().WithMany().HasForeignKey(a => a.BranchId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<PosOrder>().HasOne<Branch>().WithMany().HasForeignKey(o => o.BranchId).OnDelete(DeleteBehavior.SetNull);
+        modelBuilder.Entity<PosProduct>().HasOne<Branch>().WithMany().HasForeignKey(p => p.BranchId).OnDelete(DeleteBehavior.SetNull);
 
         // Prevent cascade delete cycles
         modelBuilder.Entity<WorkoutProgression>()
@@ -303,8 +344,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Notification>().HasOne(n => n.Tenant).WithMany().HasForeignKey(n => n.TenantId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<PayrollConfig>().HasOne(p => p.Tenant).WithMany().HasForeignKey(p => p.TenantId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<DietPlan>().HasOne(d => d.Tenant).WithMany().HasForeignKey(d => d.TenantId).OnDelete(DeleteBehavior.Restrict);
-        //modelBuilder.Entity<TrainerProfile>().HasOne(t => t.Tenant).WithMany().HasForeignKey(t => t.TenantId).OnDelete(DeleteBehavior.Restrict);
-        //modelBuilder.Entity<TrainerClientAssignment>().HasOne(t => t.Tenant).WithMany().HasForeignKey(t => t.TenantId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<TrainerProfile>().HasOne(t => t.Tenant).WithMany().HasForeignKey(t => t.TenantId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<TrainerClientAssignment>().HasOne(t => t.Tenant).WithMany().HasForeignKey(t => t.TenantId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<WorkoutLog>().HasOne(l => l.Tenant).WithMany().HasForeignKey(l => l.TenantId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<WorkoutPlanAssignment>().HasOne(a => a.Tenant).WithMany().HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ClassBooking>().HasOne(b => b.Tenant).WithMany().HasForeignKey(b => b.TenantId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<OnboardingStep>().HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<OnboardingStep>().HasIndex(s => new { s.UserId, s.StepKey }).IsUnique();
         modelBuilder.Entity<WorkoutTemplate>().HasOne(w => w.Tenant).WithMany().HasForeignKey(w => w.TenantId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<WorkoutPlan>().HasOne(w => w.Tenant).WithMany().HasForeignKey(w => w.TenantId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<WorkoutAutomationRule>().HasOne(w => w.Tenant).WithMany().HasForeignKey(w => w.TenantId).OnDelete(DeleteBehavior.Restrict);
@@ -412,6 +458,97 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey("TenantId")
                 .OnDelete(DeleteBehavior.Restrict);
+        }
+    }
+
+    private void ApplyTenantFilters(ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            // Only real CLR TenantId properties — shadow FK columns are never populated.
+            var clrProperty = entityType.ClrType.GetProperty("TenantId");
+            if (clrProperty is null || entityType.BaseType is not null) continue;
+
+            var param = Expression.Parameter(entityType.ClrType, "e");
+            var ctx = Expression.Constant(this);
+            var disabled = Expression.Property(ctx, nameof(TenantFilterDisabled));
+            var current = Expression.Property(ctx, nameof(CurrentTenantId));
+            var tenantProp = Expression.Property(param, clrProperty);
+
+            Expression match;
+            if (clrProperty.PropertyType == typeof(ulong))
+            {
+                match = Expression.Equal(tenantProp, current);
+            }
+            else if (clrProperty.PropertyType == typeof(ulong?))
+            {
+                // Null tenant = shared/global row (e.g. built-in exercise library), visible to all.
+                match = Expression.OrElse(
+                    Expression.Equal(tenantProp, Expression.Constant(null, typeof(ulong?))),
+                    Expression.Equal(tenantProp, Expression.Convert(current, typeof(ulong?))));
+            }
+            else continue;
+
+            var body = Expression.OrElse(disabled, match);
+            modelBuilder.Entity(entityType.ClrType).HasQueryFilter(Expression.Lambda(body, param));
+        }
+    }
+
+    // ── Id generation ───────────────────────────────────────────────────────
+    // ulong PKs are ValueGenerated.Never (numeric(20,0), no identity). A new row still carrying
+    // Id 0 gets MAX(Id)+1 the moment it starts being tracked — before tracking, so several new
+    // rows can be added in one unit of work without clashing on key 0. MAX is read once per
+    // table per context (unfiltered, so other tenants' rows count) and then incremented
+    // locally. Code that already sets an Id is left alone.
+    private readonly Dictionary<string, ulong> _nextIds = [];
+
+    private void AssignIdOnTracking(object? sender, Microsoft.EntityFrameworkCore.ChangeTracking.EntityTrackingEventArgs e)
+    {
+        if (e.State != EntityState.Added) return;
+        var key = e.Entry.Metadata.FindPrimaryKey();
+        if (key is not { Properties.Count: 1 } || key.Properties[0].Name != "Id" || key.Properties[0].ClrType != typeof(ulong))
+            return;
+
+        var idProp = e.Entry.Property("Id");
+        if ((ulong)idProp.CurrentValue! != 0UL) return;
+
+        var table = e.Entry.Metadata.GetTableName();
+        if (table is null) return;
+        var schema = e.Entry.Metadata.GetSchema();
+        var qualified = schema is null ? $"\"{table}\"" : $"\"{schema}\".\"{table}\"";
+
+        if (!_nextIds.TryGetValue(qualified, out var next))
+            next = ReadMaxId(qualified) + 1;
+
+        // Never hand out an id an explicitly-numbered row in this context already holds.
+        var trackedMax = ChangeTracker.Entries()
+            .Where(x => x.Metadata == e.Entry.Metadata)
+            .Select(x => (ulong)x.Property("Id").CurrentValue!)
+            .DefaultIfEmpty(0UL)
+            .Max();
+        next = Math.Max(next, trackedMax + 1);
+
+        idProp.CurrentValue = next;
+        _nextIds[qualified] = next + 1;
+    }
+
+    private ulong ReadMaxId(string qualifiedTable)
+    {
+        var conn = Database.GetDbConnection();
+        var wasOpen = conn.State == System.Data.ConnectionState.Open;
+        if (!wasOpen) conn.Open();
+        try
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"SELECT COALESCE(MAX(\"Id\"), 0) FROM {qualifiedTable}";
+            if (Database.CurrentTransaction is { } tx)
+                cmd.Transaction = Microsoft.EntityFrameworkCore.Storage.DbContextTransactionExtensions.GetDbTransaction(tx);
+            var result = cmd.ExecuteScalar();
+            return result is DBNull or null ? 0UL : (ulong)Convert.ToDecimal(result);
+        }
+        finally
+        {
+            if (!wasOpen) conn.Close();
         }
     }
 }

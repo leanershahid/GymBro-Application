@@ -8,12 +8,13 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("billing")]
 [Route("api/pricing")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class PricingController(IPricingService service) : ControllerBase
 {
     [HttpGet("rules")]
-    public async Task<ActionResult<ApiResponse<object>>> GetRules([FromQuery] ulong tenantId)
+    public async Task<ActionResult<ApiResponse<object>>> GetRules([FromQuery] ulong tenantId = 0)
         => Ok(ApiResponse<object>.Ok(await service.GetRulesAsync(tenantId)));
 
     [HttpPost("rules")]
@@ -51,7 +52,7 @@ public class PricingController(IPricingService service) : ControllerBase
         })));
 
     [HttpGet("discounts")]
-    public async Task<ActionResult<ApiResponse<object>>> GetDiscounts([FromQuery] ulong tenantId)
+    public async Task<ActionResult<ApiResponse<object>>> GetDiscounts([FromQuery] ulong tenantId = 0)
         => Ok(ApiResponse<object>.Ok(await service.GetDiscountsAsync(tenantId)));
 
     [HttpPost("discounts")]

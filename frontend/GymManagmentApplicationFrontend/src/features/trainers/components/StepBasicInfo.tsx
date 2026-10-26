@@ -5,7 +5,7 @@ import { TrainerPayload } from '../types/trainer.types';
 import { Field, RowGrid, GridCell } from './FormFields';
 import { DateField } from './DatePicker';
 import { BasicInfoErrors } from '../pages/AddTrainerPage';
-import { T } from './theme';
+import { T, withAlpha } from '../../../theme';
 import BranchDropdown from '../../branches/components/BranchDropdown';
 import { Branch } from '../../branches/types/branch.types';
 
@@ -38,24 +38,30 @@ function ProfileImagePicker({ value, onChange }: { value: string; onChange: (uri
 
   return (
     <View className="items-center mb-6">
-      <TouchableOpacity onPress={pick} activeOpacity={0.8}>
+      <TouchableOpacity
+        onPress={pick}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Choose profile photo"
+        accessibilityHint={value ? 'Replaces the current photo' : undefined}
+      >
         {value ? (
           <Image
             source={{ uri: value }}
             className="w-24 h-24 rounded-full"
-            style={{ borderWidth: 2, borderColor: 'rgba(126,211,33,0.35)' }}
+            style={{ borderWidth: 2, borderColor: withAlpha(T.brand, 0.35) }}
           />
         ) : (
           <View
             className="w-24 h-24 rounded-full bg-input items-center justify-center"
-            style={{ borderWidth: 2, borderColor: 'rgba(255,255,255,0.08)' }}
+            style={{ borderWidth: 2, borderColor: withAlpha(T.text, 0.08) }}
           >
             <Text className="text-3xl">📷</Text>
           </View>
         )}
         <View
           className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-brand items-center justify-center"
-          style={{ borderWidth: 2, borderColor: '#09090B' }}
+          style={{ borderWidth: 2, borderColor: T.bg }}
         >
           <Text className="text-white text-xs font-bold">+</Text>
         </View>
@@ -81,13 +87,16 @@ function GenderPills({ value, onChange, error }: { value: string; onChange: (v: 
             key={o}
             className={`flex-1 py-[14px] items-center rounded-xl border ${
               value === o
-                ? 'border-[rgba(126,211,33,0.25)] bg-[rgba(126,211,33,0.10)]'
+                ? 'border-brand/25 bg-brand/10'
                 : error
-                ? 'border-[#EF4444] bg-input'
+                ? 'border-err bg-input'
                 : 'border-line bg-input'
             }`}
             onPress={() => onChange(o)}
             activeOpacity={0.75}
+            accessibilityRole="radio"
+            accessibilityLabel={`Gender: ${o}`}
+            accessibilityState={{ checked: value === o, selected: value === o }}
           >
             <Text className={`text-[14px] font-medium ${value === o ? 'text-brand font-semibold' : 'text-sub'}`}>
               {o}
@@ -95,7 +104,7 @@ function GenderPills({ value, onChange, error }: { value: string; onChange: (v: 
           </TouchableOpacity>
         ))}
       </View>
-      {error && <Text className="text-[12px] mt-1" style={{ color: '#EF4444' }}>{error}</Text>}
+      {error && <Text className="text-[12px] mt-1" style={{ color: T.err }}>{error}</Text>}
     </View>
   );
 }
@@ -116,8 +125,11 @@ function TagInput({ label, value, onChange, placeholder }: {
           {value.map((v) => (
             <TouchableOpacity
               key={v}
-              className="flex-row items-center gap-[5px] bg-[rgba(126,211,33,0.10)] border border-[rgba(126,211,33,0.25)] rounded-full px-[10px] py-[5px]"
+              className="flex-row items-center gap-[5px] bg-brand/10 border border-brand/25 rounded-full px-[10px] py-[5px]"
               onPress={() => onChange(value.filter((x) => x !== v))}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${v}`}
             >
               <Text className="text-[12px] font-semibold text-brand">{v}</Text>
               <Text className="text-[14px] text-brand" style={{ lineHeight: 17 }}>×</Text>
@@ -140,6 +152,8 @@ function TagInput({ label, value, onChange, placeholder }: {
           className="px-[18px] py-[14px] rounded-xl bg-brand mb-4"
           onPress={add}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`Add to ${label}`}
         >
           <Text className="text-[14px] font-bold text-black">Add</Text>
         </TouchableOpacity>
@@ -150,7 +164,7 @@ function TagInput({ label, value, onChange, placeholder }: {
 
 export default function StepBasicInfo({ data, onChange, errors = {}, selectedBranchId, onBranchSelect, branchError }: Props) {
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+    <ScrollView className="flex-1 bg-bg" keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
       <Text className="text-[30px] font-extrabold text-white mb-[6px]" style={{ letterSpacing: -0.5 }}>Basic Info</Text>
       <Text className="text-[14px] font-normal text-sub mb-7" style={{ lineHeight: 20 }}>Personal details and contact information</Text>
 

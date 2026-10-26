@@ -8,6 +8,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("invoices")]
 [Route("api/invoices")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class InvoiceController(IInvoiceService service) : ControllerBase

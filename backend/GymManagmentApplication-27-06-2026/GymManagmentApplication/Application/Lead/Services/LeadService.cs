@@ -2,13 +2,20 @@ using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Lead.Interfaces;
 using GymManagmentApplication.Application.Lead.Requests;
 using GymManagmentApplication.Application.Lead.Responses;
+using GymManagmentApplication.Application.Member.Interfaces;
+using GymManagmentApplication.Application.Member.Requests;
+using GymManagmentApplication.Infrastructure.Data;
 using GymManagmentApplication.Domain.Entities.CRM;
 using GymManagmentApplication.Domain.Enums;
 using GymManagmentApplication.Infrastructure.Repositories.Lead;
 
 namespace GymManagmentApplication.Application.Lead.Services;
 
-public class LeadService(ILeadRepository repository) : ILeadService
+public class LeadService(
+    ILeadRepository repository,
+    ICurrentUser currentUser,
+    IMemberService memberService,
+    AppDbContext db) : ILeadService
 {
     public async Task<PagedResponse<LeadResponse>> GetAllAsync(LeadListRequest request)
     {
@@ -24,9 +31,12 @@ public class LeadService(ILeadRepository repository) : ILeadService
 
     public async Task<LeadResponse> CreateAsync(CreateLeadRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
+        await db.EnsureBranchAsync(request.BranchId, request.TenantId);
         var lead = new Domain.Entities.CRM.Lead
         {
             TenantId = request.TenantId,
+            BranchId = request.BranchId is > 0 ? request.BranchId : currentUser.BranchId,
             FirstName = request.FirstName,
             LastName = request.LastName,
             Email = request.Email,
@@ -55,6 +65,11 @@ public class LeadService(ILeadRepository repository) : ILeadService
         if (request.Source is not null) lead.Source = request.Source;
         if (request.Notes is not null) lead.Notes = request.Notes;
         if (request.Status is not null && Enum.TryParse<LeadStatus>(request.Status, true, out var s)) lead.Status = s;
+        if (request.BranchId is { } branchId)
+        {
+            await db.EnsureBranchAsync(branchId, lead.TenantId);
+            lead.BranchId = branchId;
+        }
         await repository.UpdateAsync(lead);
         return Map(lead);
     }
@@ -63,9 +78,30 @@ public class LeadService(ILeadRepository repository) : ILeadService
     {
         var lead = await repository.GetByIdAsync(id);
         if (lead is null) return null;
+        if (lead.Status == LeadStatus.Converted)
+            throw new ArgumentException("This lead has already been converted.");
+        if (string.IsNullOrWhiteSpace(lead.Email))
+            throw new ArgumentException("A lead needs an email address before it can become a member.");
+
+        // Converting a lead creates the actual member account in the lead's gym and branch.
+        var member = await memberService.CreateAsync(new CreateMemberRequest
+        {
+            TenantId  = lead.TenantId,
+            BranchId  = lead.BranchId,
+            Email     = lead.Email,
+            FirstName = string.IsNullOrWhiteSpace(lead.FirstName) ? "Member" : lead.FirstName,
+            LastName  = lead.LastName ?? string.Empty,
+            Phone     = lead.Phone,
+            Notes     = lead.Notes
+        });
+
         lead.Status = LeadStatus.Converted;
         await repository.UpdateAsync(lead);
-        return Map(lead);
+
+        var response = Map(lead);
+        response.MemberId = member.Id;
+        response.TemporaryPassword = member.DefaultPassword;
+        return response;
     }
 
     public async Task<LeadScoreResponse?> GetScoreAsync(ulong id)
@@ -83,14 +119,16 @@ public class LeadService(ILeadRepository repository) : ILeadService
 
     public async Task<LeadActivityResponse> AddFollowupAsync(ulong id, LeadFollowupRequest request)
     {
+        var lead = await repository.GetByIdAsync(id) ?? throw new KeyNotFoundException($"Lead {id} not found.");
         var type = Enum.TryParse<LeadActivityType>(request.ActivityType, true, out var t) ? t : LeadActivityType.Note;
-        var activity = new LeadActivity { LeadId = id, Type = type, Description = request.Description, Outcome = request.Outcome };
+        var activity = new LeadActivity { TenantId = lead.TenantId, LeadId = id, Type = type, Description = request.Description, Outcome = request.Outcome };
         var created = await repository.AddActivityAsync(activity);
         return new LeadActivityResponse { Id = created.Id, ActivityType = created.Type.ToString(), Description = created.Description, Outcome = created.Outcome, CreatedAt = created.CreatedAt };
     }
 
     public async Task<List<LeadSourceBreakdownResponse>> GetSourceBreakdownAsync(ulong tenantId)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var leads = await repository.GetByTenantAsync(tenantId);
         var total = leads.Count;
         return leads.GroupBy(l => l.Source ?? "Unknown")
@@ -111,7 +149,7 @@ public class LeadService(ILeadRepository repository) : ILeadService
 
     private static LeadResponse Map(Domain.Entities.CRM.Lead l) => new()
     {
-        Id = l.Id, TenantId = l.TenantId, FirstName = l.FirstName, LastName = l.LastName,
+        Id = l.Id, TenantId = l.TenantId, BranchId = l.BranchId, FirstName = l.FirstName, LastName = l.LastName,
         Email = l.Email, Phone = l.Phone, Source = l.Source, Status = l.Status.ToString(),
         AiScore = l.AiScore, ConversionProb = l.ConversionProb, Notes = l.Notes, CreatedAt = l.CreatedAt
     };

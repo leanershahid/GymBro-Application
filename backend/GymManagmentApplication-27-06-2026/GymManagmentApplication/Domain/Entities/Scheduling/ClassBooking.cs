@@ -5,6 +5,7 @@ namespace GymManagmentApplication.Domain.Entities.Scheduling;
 public class ClassBooking
 {
     public ulong Id { get; set; }
+    public ulong TenantId { get; set; }
     public ulong ClassId { get; set; }
     public ulong ClientId { get; set; }
     public BookingStatus Status { get; set; } = BookingStatus.Booked;
@@ -13,4 +14,6 @@ public class ClassBooking
 
     public GymClass Class { get; set; } = default!;
     public Identity.User Client { get; set; } = default!;
+
+    public Core.Tenant Tenant { get; set; } = default!;
 }

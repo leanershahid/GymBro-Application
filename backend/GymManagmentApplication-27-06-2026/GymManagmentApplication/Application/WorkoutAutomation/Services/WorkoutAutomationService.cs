@@ -1,3 +1,4 @@
+using GymManagmentApplication.Infrastructure.Data;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.WorkoutAutomation.Interfaces;
 using GymManagmentApplication.Application.WorkoutAutomation.Requests;
@@ -8,16 +9,18 @@ using GymManagmentApplication.Infrastructure.Repositories.WorkoutAutomation;
 
 namespace GymManagmentApplication.Application.WorkoutAutomation.Services;
 
-public class WorkoutAutomationService(IWorkoutAutomationRepository repository) : IWorkoutAutomationService
+public class WorkoutAutomationService(IWorkoutAutomationRepository repository, ICurrentUser currentUser, AppDbContext db) : IWorkoutAutomationService
 {
     public async Task<List<AutomationRuleResponse>> GetRulesAsync(ulong tenantId)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var rules = await repository.GetRulesAsync(tenantId);
         return rules.Select(MapRule).ToList();
     }
 
     public async Task<AutomationRuleResponse> CreateRuleAsync(CreateAutomationRuleRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
         var rule = new WorkoutAutomationRule
         {
             TenantId = request.TenantId,
@@ -49,6 +52,8 @@ public class WorkoutAutomationService(IWorkoutAutomationRepository repository) :
         var rule = await repository.GetRuleByIdAsync(request.RuleId);
         if (rule is null)
             return new TriggerResultResponse { RuleId = request.RuleId, Status = "Failed", Message = "Rule not found.", TriggeredAt = DateTime.UtcNow };
+        if (request.TargetUserId is { } target)
+            await db.EnsureCanActOnAllAsync(currentUser, [target]);
 
         rule.RunCount++;
         rule.LastRunAt = DateTime.UtcNow;

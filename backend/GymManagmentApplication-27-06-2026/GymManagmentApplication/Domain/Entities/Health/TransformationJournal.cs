@@ -5,6 +5,8 @@ namespace GymManagmentApplication.Domain.Entities.Health;
 public class TransformationJournal
 {
     public ulong Id { get; set; }
+    /// <summary>Owning gym (nullable: rows written before this was mapped have none).</summary>
+    public ulong? TenantId { get; set; }
     public ulong ClientId { get; set; }
     public DateOnly JournalDate { get; set; }
     public string? Title { get; set; }

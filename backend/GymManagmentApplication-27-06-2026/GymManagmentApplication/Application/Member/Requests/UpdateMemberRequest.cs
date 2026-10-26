@@ -9,4 +9,7 @@ public class UpdateMemberRequest
     public DateOnly? Dob { get; set; }
     public string? AvatarUrl { get; set; }
     public string? Notes { get; set; }
+
+    /// <summary>Move the member to another branch of the same gym (admin only).</summary>
+    public ulong? BranchId { get; set; }
 }

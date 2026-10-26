@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, StatusBar, Platform, ActivityIndicator } from 'react-native';
-import { T } from '../../trainers/components/theme';
-import BackButton from '../../common/components/BackButton';
+import { View, Text, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { T } from '../../../theme';
+import Screen from '../../common/components/Screen';
+import ScreenHeader from '../../common/components/ScreenHeader';
+import PrimaryButton from '../../common/components/PrimaryButton';
+import LoadingState from '../../common/components/LoadingState';
+import { Field } from '../../trainers/components/FormFields';
 import { useAiCoachSettings, useSaveAiCoachSettings } from '../api/aiCoachQueries';
 
 interface Props { onBack?: () => void; }
@@ -9,25 +13,7 @@ interface Props { onBack?: () => void; }
 function TipField({
   label, value, onChangeText,
 }: { label: string; value: string; onChangeText: (v: string) => void }) {
-  return (
-    <View style={{ marginBottom: 18 }}>
-      <Text style={{ color: T.textSub, fontSize: 12, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-        {label}
-      </Text>
-      <TextInput
-        style={{
-          color: T.text, fontSize: 14, backgroundColor: T.bgInput, borderRadius: 16,
-          borderWidth: 1, borderColor: T.line, paddingHorizontal: 14, paddingVertical: 12,
-          minHeight: 90, textAlignVertical: 'top',
-        }}
-        placeholder="Enter tip copy…"
-        placeholderTextColor={T.textFaint}
-        value={value}
-        onChangeText={onChangeText}
-        multiline
-      />
-    </View>
-  );
+  return <Field label={label} value={value} onChangeText={onChangeText} placeholder="Enter tip copy…" multiline />;
 }
 
 export default function AiCoachSettingsPage({ onBack }: Props) {
@@ -55,51 +41,37 @@ export default function AiCoachSettingsPage({ onBack }: Props) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: T.bg, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
+      <ScreenHeader eyebrow="Coaching" title="AI Coach Settings" onBack={onBack} />
 
-      <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-          {onBack && <BackButton onPress={onBack} />}
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 2 }}>
-              Coaching
-            </Text>
-            <Text style={{ color: T.text, fontSize: 24, fontWeight: '800', letterSpacing: -0.5 }}>AI Coach Settings</Text>
-          </View>
-        </View>
+      <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
         <Text style={{ color: T.textSub, fontSize: 13, lineHeight: 19 }}>
           These are the templated tips shown to members based on their daily recovery score — there's no live AI
           behind this, just editable copy.
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48, paddingTop: 12 }} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48, paddingTop: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {isLoading ? (
-          <ActivityIndicator size="large" color={T.brand} style={{ marginTop: 40 }} />
+          <LoadingState label="Loading settings" />
         ) : (
           <>
             <TipField label="High recovery (80%+)" value={highTip} onChangeText={(v) => { setHighTip(v); setSaved(false); }} />
             <TipField label="Moderate recovery (50-79%)" value={mediumTip} onChangeText={(v) => { setMediumTip(v); setSaved(false); }} />
             <TipField label="Low recovery (under 50%)" value={lowTip} onChangeText={(v) => { setLowTip(v); setSaved(false); }} />
 
-            <Pressable
+            <PrimaryButton
+              label={isPending ? 'Saving…' : saved ? 'Saved ✓' : 'Save changes'}
               onPress={handleSave}
-              disabled={isPending}
-              accessibilityRole="button"
-              accessibilityLabel="Save AI Coach settings"
-              style={{
-                backgroundColor: T.brand, borderRadius: 999, paddingVertical: 15, alignItems: 'center',
-                marginTop: 8, opacity: isPending ? 0.6 : 1,
-              }}
-            >
-              <Text style={{ color: T.onBrand, fontSize: 15, fontWeight: '800' }}>
-                {isPending ? 'Saving…' : saved ? 'Saved ✓' : 'Save changes'}
-              </Text>
-            </Pressable>
+              loading={isPending}
+              accessibilityHint="Saves the AI Coach tip copy"
+              style={{ marginTop: 8 }}
+            />
           </>
         )}
       </ScrollView>
-    </View>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }

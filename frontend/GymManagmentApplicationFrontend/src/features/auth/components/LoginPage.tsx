@@ -6,25 +6,60 @@ import {
   StatusBar,
   Platform,
   ActivityIndicator,
-  KeyboardAvoidingView,
+  Keyboard,
+  KeyboardEvent,
   Animated,
   Easing,
   ImageBackground,
   Image,
   StyleSheet,
-  Dimensions,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { useState, useRef, useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLogin } from '../api/authQueries';
 import { scaleW, scaleH, rs } from '../../../utils/scale';
+import { T, withAlpha } from '../../../theme';
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+/** Scaled font size that never drops below the 11px legibility floor. */
+const fs = (px: number) => Math.max(11, rs(px));
 
-// Layout split — adjusts slightly on very small screens (< 700 px tall)
-const HERO_RATIO  = SCREEN_HEIGHT < 700 ? 0.42 : 0.50;
-const SHEET_RATIO = 1 - HERO_RATIO;
-const HERO_HEIGHT  = SCREEN_HEIGHT * HERO_RATIO;
-const SHEET_HEIGHT = SCREEN_HEIGHT * SHEET_RATIO;
+/**
+ * How many pixels of the screen the software keyboard covers. Measured from the keyboard's
+ * top edge against our own root view, so it is right on both iOS and Android, whether or not
+ * Android resized the window (edge-to-edge apps don't get resized — that's why the old
+ * KeyboardAvoidingView left the fields hidden behind the keyboard on Android).
+ */
+function useKeyboardOverlap(rootHeight: number) {
+  const [keyboardTop, setKeyboardTop] = useState<number | null>(null);
+
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = (e: KeyboardEvent) => setKeyboardTop(e.endCoordinates.screenY);
+    const onHide = () => setKeyboardTop(null);
+    const a = Keyboard.addListener(showEvt, onShow);
+    const b = Keyboard.addListener(hideEvt, onHide);
+    return () => { a.remove(); b.remove(); };
+  }, []);
+
+  const visible = keyboardTop !== null;
+  const overlap = visible && rootHeight > 0 ? Math.max(0, rootHeight - keyboardTop) : 0;
+  return { visible, overlap };
+}
+
+/** Layout split from the live window size — adjusts on very small screens (< 700 px tall). */
+function useLoginLayout() {
+  const { width, height } = useWindowDimensions();
+  const heroRatio  = height < 700 ? 0.42 : 0.50;
+  const heroHeight  = height * heroRatio;
+  const sheetHeight = height - heroHeight;
+  // The logo sits just above the sheet; cap it by the hero height so it never runs off the top.
+  const logoHeight = Math.min(scaleH(190), heroHeight * 0.7);
+  const logoWidth  = Math.min(width * 0.90, logoHeight * 2.4);
+  return { width, height, heroHeight, sheetHeight, logoHeight, logoWidth };
+}
 
 // ─── CTA Button ───────────────────────────────────────────────────────────────
 function CTAButton({
@@ -46,15 +81,18 @@ function CTAButton({
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
       <TouchableOpacity
-        style={[styles.ctaButton, loading && { backgroundColor: '#5FA317' }]}
+        style={[styles.ctaButton, loading && { backgroundColor: T.brandDark }]}
         onPress={onPress}
         onPressIn={pressIn}
         onPressOut={pressOut}
         disabled={loading}
         activeOpacity={1}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ disabled: loading, busy: loading }}
       >
         {loading
-          ? <ActivityIndicator color="#000000" />
+          ? <ActivityIndicator color={T.onBrand} />
           : <Text style={styles.ctaText}>{label}</Text>
         }
       </TouchableOpacity>
@@ -70,7 +108,19 @@ function InputField({
   secureTextEntry,
   keyboardType,
   rightElement,
+  accessibilityLabel,
+  textContentType,
+  autoComplete,
+  inputRef,
+  returnKeyType,
+  onSubmitEditing,
 }: {
+  accessibilityLabel: string;
+  inputRef?: React.Ref<TextInput>;
+  returnKeyType?: 'next' | 'go';
+  onSubmitEditing?: () => void;
+  textContentType?: 'username' | 'password';
+  autoComplete?: 'email' | 'password';
   value: string;
   onChangeText: (v: string) => void;
   placeholder?: string;
@@ -92,17 +142,21 @@ function InputField({
 
   const borderColor = borderAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#242B24', '#7ED321'],
+    outputRange: [T.line, T.brand],
   });
 
   return (
     <Animated.View style={[styles.inputWrapper, { borderColor }]}>
       <TextInput
+        ref={inputRef}
+        returnKeyType={returnKeyType}
+        onSubmitEditing={onSubmitEditing}
+        blurOnSubmit={returnKeyType !== 'next'}
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder ?? ''}
-        placeholderTextColor="#555555"
+        placeholderTextColor={T.textFaint}
         keyboardType={keyboardType ?? 'default'}
         secureTextEntry={secureTextEntry}
         autoCapitalize="none"
@@ -110,6 +164,9 @@ function InputField({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         underlineColorAndroid="transparent"
+        accessibilityLabel={accessibilityLabel}
+        textContentType={textContentType}
+        autoComplete={autoComplete}
       />
       {rightElement}
     </Animated.View>
@@ -131,8 +188,27 @@ export default function LoginPage({
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
 
   const { mutate, isPending } = useLogin();
+  const insets = useSafeAreaInsets();
+  const { heroHeight, sheetHeight, logoHeight, logoWidth } = useLoginLayout();
 
-  const sheetTranslateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
+  // Keyboard handling: lift the sheet above the keyboard, let it grow into the hero area if it
+  // needs the room, and scroll the inputs + Sign In button into view.
+  const [rootHeight, setRootHeight] = useState(0);
+  // `visible` drives the "typing" layout; `overlap` is how far to lift the sheet (0 when
+  // Android already resized the window for us).
+  const { visible: keyboardOpen, overlap: keyboardOverlap } = useKeyboardOverlap(rootHeight);
+  const scrollRef = useRef<ScrollView>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const availableForSheet = rootHeight - keyboardOverlap - insets.top - 8;
+  const currentSheetHeight = keyboardOpen
+    ? Math.max(Math.min(sheetHeight, availableForSheet), Math.min(availableForSheet, 280))
+    : sheetHeight;
+
+  useEffect(() => {
+    if (keyboardOpen) requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+  }, [keyboardOpen, keyboardOverlap]);
+
+  const sheetTranslateY = useRef(new Animated.Value(sheetHeight)).current;
   const sheetOpacity    = useRef(new Animated.Value(0)).current;
   const heroOpacity     = useRef(new Animated.Value(1)).current;
 
@@ -203,7 +279,7 @@ export default function LoginPage({
   };
 
   return (
-    <View style={styles.root}>
+    <View style={styles.root} onLayout={(e) => setRootHeight(e.nativeEvent.layout.height)}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       {/* ── Full-screen background image — visible behind hero AND form ── */}
@@ -218,31 +294,49 @@ export default function LoginPage({
         </ImageBackground>
       </Animated.View>
 
-      {/* Logo — pinned to left side of hero */}
-      <Animated.View style={[styles.heroLabel, { opacity: heroOpacity }]} pointerEvents="none">
+      {/* Logo — pinned to left side of hero, just above the sheet (never above the status bar) */}
+      <Animated.View
+        style={[
+          styles.heroLabel,
+          { opacity: keyboardOpen ? 0 : heroOpacity, top: Math.max(insets.top + 8, heroHeight - logoHeight * (150 / 190)) },
+        ]}
+        pointerEvents="none"
+      >
         <Image
           source={require('../../../assets/common/logo01.png')}
-          style={styles.heroLogo}
+          style={{ width: logoWidth, height: logoHeight }}
           resizeMode="contain"
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel="GymBro"
         />
       </Animated.View>
 
-      {/* ── Bottom sheet — no scroll, fits all content in fixed height ── */}
-      <KeyboardAvoidingView
-        style={styles.sheetContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+      {/* ── Bottom sheet — sits above the keyboard and scrolls when content doesn't fit ── */}
+      <View style={[styles.sheetContainer, { paddingBottom: keyboardOverlap }]}>
         <Animated.View
           style={[
             styles.sheet,
             {
+              height: currentSheetHeight,
               opacity: sheetOpacity,
               transform: [{ translateY: sheetTranslateY }],
             },
           ]}
         >
+          <ScrollView
+            ref={scrollRef}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.sheetContent,
+              // The home-indicator inset only matters when the keyboard isn't covering it.
+              { paddingBottom: scaleH(28) + (keyboardOpen ? 0 : insets.bottom) },
+            ]}
+          >
           {/* Headline */}
-          <Text style={styles.headline}>Welcome Our GYM</Text>
+          <Text style={styles.headline} accessibilityRole="header">Welcome to the gym</Text>
 
           {/* Sign In tab */}
           <View style={styles.tabRow}>
@@ -257,7 +351,7 @@ export default function LoginPage({
 
           {/* Error banner */}
           {!!error && (
-            <View style={styles.errorBanner}>
+            <View style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
               <View style={styles.errorDot} />
               <Text style={styles.errorText}>{error}</Text>
             </View>
@@ -271,9 +365,14 @@ export default function LoginPage({
                 onChangeText={(v) => { setEmail(v); setError(''); setFieldErrors((p) => ({ ...p, email: undefined })); }}
                 placeholder="Username or email..."
                 keyboardType="email-address"
+                accessibilityLabel="Email"
+                textContentType="username"
+                autoComplete="email"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
               />
               {!!fieldErrors.email && (
-                <Text style={styles.fieldError}>{fieldErrors.email}</Text>
+                <Text style={styles.fieldError} accessibilityLiveRegion="polite">{fieldErrors.email}</Text>
               )}
             </View>
             <View>
@@ -282,18 +381,27 @@ export default function LoginPage({
                 onChangeText={(v) => { setPassword(v); setError(''); setFieldErrors((p) => ({ ...p, password: undefined })); }}
                 placeholder="Password..."
                 secureTextEntry={!showPass}
+                accessibilityLabel="Password"
+                textContentType="password"
+                autoComplete="password"
+                inputRef={passwordRef}
+                returnKeyType="go"
+                onSubmitEditing={handleSignIn}
                 rightElement={
                   <TouchableOpacity
                     style={styles.showHideBtn}
                     onPress={() => setShowPass((p) => !p)}
                     activeOpacity={0.7}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={showPass ? 'Hide password' : 'Show password'}
                   >
                     <Text style={styles.showHideText}>{showPass ? 'Hide' : 'Show'}</Text>
                   </TouchableOpacity>
                 }
               />
               {!!fieldErrors.password && (
-                <Text style={styles.fieldError}>{fieldErrors.password}</Text>
+                <Text style={styles.fieldError} accessibilityLiveRegion="polite">{fieldErrors.password}</Text>
               )}
             </View>
           </View>
@@ -302,8 +410,9 @@ export default function LoginPage({
           <View style={styles.ctaWrapper}>
             <CTAButton label="Sign In" onPress={handleSignIn} loading={isPending} />
           </View>
+          </ScrollView>
         </Animated.View>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }
@@ -312,51 +421,43 @@ export default function LoginPage({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0A0F0A',
+    backgroundColor: T.bg,
   },
 
   heroOverlay: {
-    backgroundColor: 'rgba(0,0,0,0.48)',
+    backgroundColor: withAlpha(T.black, 0.48),
   },
 
   // GymManager label — always sits just above the sheet's top edge
   heroLabel: {
     position: 'absolute',
-    top: HERO_HEIGHT - scaleH(150),
     left: scaleW(16),
     alignItems: 'flex-start',
   },
-  heroLogo: {
-    width: SCREEN_WIDTH * 0.90,
-    height: scaleH(190),
-   
-  
-  },
 
-
-  // Sheet anchored to bottom, height = remaining screen after hero
+  // Fills the screen; the sheet is pushed to the bottom and shrinks when the keyboard opens.
   sheetContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: SHEET_HEIGHT,
+    flex: 1,
+    justifyContent: 'flex-end',
   },
   sheet: {
-    flex: 1,
-    backgroundColor: 'rgba(26,26,26,0.72)',
+    flexShrink: 1,
+    backgroundColor: withAlpha(T.bgInput, 0.72),
     borderTopLeftRadius: rs(28),
     borderTopRightRadius: rs(28),
+    overflow: 'hidden',
+  },
+  sheetContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: scaleW(20),
     paddingTop: scaleH(24),
-    paddingBottom: scaleH(28),
-    justifyContent: 'center',
   },
 
   headline: {
-    fontSize: rs(22),
+    fontSize: fs(22),
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: T.text,
     letterSpacing: -0.4,
     textAlign: 'center',
     marginBottom: scaleH(12),
@@ -372,30 +473,30 @@ const styles = StyleSheet.create({
     paddingBottom: scaleH(4),
   },
   tabTextActive: {
-    fontSize: rs(15),
+    fontSize: fs(15),
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: T.text,
   },
   tabUnderline: {
     marginTop: scaleH(4),
     width: '100%',
     height: 2,
     borderRadius: 1,
-    backgroundColor: '#7ED321',
+    backgroundColor: T.brand,
   },
 
   hairline: {
     height: 1,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: T.line,
     marginBottom: scaleH(14),
   },
 
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: 'rgba(239,68,68,0.08)',
+    backgroundColor: withAlpha(T.err, 0.08),
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.28)',
+    borderColor: withAlpha(T.err, 0.28),
     borderRadius: rs(12),
     paddingHorizontal: scaleW(12),
     paddingVertical: scaleH(8),
@@ -406,13 +507,13 @@ const styles = StyleSheet.create({
     width: rs(6),
     height: rs(6),
     borderRadius: rs(3),
-    backgroundColor: '#EF4444',
+    backgroundColor: T.err,
     marginTop: scaleH(4),
   },
   errorText: {
     flex: 1,
-    fontSize: rs(13),
-    color: '#F87171',
+    fontSize: fs(13),
+    color: T.err,
     lineHeight: rs(18),
   },
 
@@ -421,50 +522,51 @@ const styles = StyleSheet.create({
   },  inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: scaleH(50),
-    borderRadius: scaleH(50),
+    height: Math.max(48, scaleH(50)),
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#242B24',
-    backgroundColor: '#1C211C',
+    borderColor: T.line,
+    backgroundColor: T.bgInputActive,
     overflow: 'hidden',
   },
   input: {
     flex: 1,
     paddingHorizontal: scaleW(20),
-    fontSize: rs(14),
-    color: '#FFFFFF',
+    fontSize: fs(14),
+    color: T.text,
     height: '100%',
   },
   showHideBtn: {
     paddingHorizontal: scaleW(16),
-    paddingVertical: scaleH(10),
+    minHeight: 44,
+    justifyContent: 'center',
   },
   showHideText: {
-    fontSize: rs(11),
+    fontSize: fs(12),
     fontWeight: '600',
-    color: '#7ED321',
+    color: T.brand,
   },
 
   ctaWrapper: {
     marginTop: scaleH(18),
   },
   ctaButton: {
-    height: scaleH(52),
-    borderRadius: scaleH(52),
-    backgroundColor: '#7ED321',
+    height: Math.max(48, scaleH(52)),
+    borderRadius: 999,
+    backgroundColor: T.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   ctaText: {
-    fontSize: rs(16),
+    fontSize: fs(16),
     fontWeight: '700',
-    color: '#000000',
+    color: T.onBrand,
     letterSpacing: 0.3,
   },
 
   fieldError: {
-    fontSize: rs(12),
-    color: '#F87171',
+    fontSize: fs(12),
+    color: T.err,
     marginTop: scaleH(4),
     marginLeft: scaleW(16),
   },

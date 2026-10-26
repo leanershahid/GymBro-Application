@@ -1,3 +1,4 @@
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Member.Requests;
 using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Domain.Enums;
@@ -8,9 +9,15 @@ namespace GymManagmentApplication.Infrastructure.Repositories.Member;
 
 public class MemberRepository(AppDbContext db) : IMemberRepository
 {
-    public async Task<(List<User> Items, int Total)> GetAllAsync(MemberSearchRequest request)
+    public async Task<(List<User> Items, int Total)> GetAllAsync(MemberSearchRequest request, ulong? onlyAssignedToTrainerUserId = null)
     {
         var q = db.Users.Where(u => u.DeletedAt == null && u.Role != null && u.Role.Slug == "client");
+
+        if (onlyAssignedToTrainerUserId is { } trainerUserId)
+        {
+            var assigned = db.AssignedClientIds(trainerUserId);
+            q = q.Where(u => assigned.Contains(u.Id));
+        }
 
         if (!string.IsNullOrWhiteSpace(request.Status) &&
             Enum.TryParse<UserStatus>(request.Status, true, out var status))
@@ -24,6 +31,7 @@ public class MemberRepository(AppDbContext db) : IMemberRepository
 
         var total = await q.CountAsync();
         var items = await q
+            .Include(u => u.Branch)
             .OrderBy(u => u.FirstName)
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
@@ -34,7 +42,7 @@ public class MemberRepository(AppDbContext db) : IMemberRepository
 
     public async Task<User> CreateAsync(User user)
     {
-        var maxId = await db.Users.MaxAsync(u => (ulong?)u.Id) ?? 0;
+        var maxId = await db.Users.IgnoreQueryFilters().MaxAsync(u => (ulong?)u.Id) ?? 0;
         user.Id        = maxId + 1;
         user.CreatedAt = DateTime.UtcNow;
         user.UpdatedAt = DateTime.UtcNow;
@@ -44,7 +52,7 @@ public class MemberRepository(AppDbContext db) : IMemberRepository
     }
 
     public async Task<User?> GetByIdAsync(ulong id) =>
-        await db.Users.FirstOrDefaultAsync(u => u.Id == id && u.DeletedAt == null);
+        await db.Users.Include(u => u.Branch).FirstOrDefaultAsync(u => u.Id == id && u.DeletedAt == null);
 
     public async Task<User?> GetByEmailAsync(string email) =>
         await db.Users.FirstOrDefaultAsync(u =>
@@ -60,7 +68,7 @@ public class MemberRepository(AppDbContext db) : IMemberRepository
 
     public async Task<bool> SoftDeleteAsync(ulong id)
     {
-        var user = await db.Users.FindAsync(id);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id);
         if (user is null || user.DeletedAt != null) return false;
         user.DeletedAt = DateTime.UtcNow;
         user.UpdatedAt = DateTime.UtcNow;

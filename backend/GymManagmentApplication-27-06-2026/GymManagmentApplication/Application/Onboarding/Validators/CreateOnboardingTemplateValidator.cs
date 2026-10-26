@@ -7,7 +7,6 @@ public class CreateOnboardingTemplateValidator : AbstractValidator<CreateOnboard
 {
     public CreateOnboardingTemplateValidator()
     {
-        RuleFor(x => x.TenantId).GreaterThan(0ul).WithMessage("TenantId is required.");
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Description).MaximumLength(2000);
         RuleFor(x => x.Steps).NotEmpty();

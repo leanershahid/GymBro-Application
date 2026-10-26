@@ -9,6 +9,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("branches")]
 [Route("api/branches")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class BranchController(IBranchService service, IValidator<CreateBranchRequest> validator) : ControllerBase

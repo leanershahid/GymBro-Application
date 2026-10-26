@@ -8,6 +8,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("subscriptions")]
 [Route("api/subscriptions")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class SubscriptionController(ISubscriptionService service) : ControllerBase

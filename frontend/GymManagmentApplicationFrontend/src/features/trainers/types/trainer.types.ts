@@ -120,7 +120,8 @@ export interface SocialLinks {
 
 export interface TrainerPayload {
   userId: number;
-  tenantId: number;
+  /** Branch the trainer works at; the server derives the gym (tenant) from it and the session. */
+  branchId: number;
   trainerCode: string;
   displayName: string;
   profileImage: string;

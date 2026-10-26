@@ -1,3 +1,4 @@
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.AiCoach.Interfaces;
 using GymManagmentApplication.Application.Health.Interfaces;
 using GymManagmentApplication.Application.Health.Responses;
@@ -6,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Health.Services;
 
-public class HealthService(AppDbContext db, IAiCoachSettingsService aiCoachSettings) : IHealthService
+public class HealthService(AppDbContext db, IAiCoachSettingsService aiCoachSettings, ICurrentUser currentUser) : IHealthService
 {
     private const double MoveGoalSteps = 8000;
     private const double TrainGoalMinutes = 60;
@@ -70,8 +71,14 @@ public class HealthService(AppDbContext db, IAiCoachSettingsService aiCoachSetti
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        var todayMetrics = await db.HealthMetrics
-            .Where(m => m.MetricDate == today)
+        var metrics = db.HealthMetrics.Where(m => m.MetricDate == today);
+        if (currentUser.IsTrainer())
+        {
+            // Trainers see only their own assigned clients, not the whole gym.
+            var assigned = db.AssignedClientIds(currentUser.UserId ?? 0);
+            metrics = metrics.Where(m => assigned.Contains(m.ClientId));
+        }
+        var todayMetrics = await metrics
             .Join(db.Users, m => m.ClientId, u => u.Id, (m, u) => new { Metric = m, User = u })
             .ToListAsync();
 

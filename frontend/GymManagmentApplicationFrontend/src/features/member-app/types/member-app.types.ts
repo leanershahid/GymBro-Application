@@ -16,6 +16,7 @@ export interface MemberProfile {
   status: string;
   trainerId: number | null;
   branchId: number | null;
+  branchName?: string | null;
   createdAt: string;
 }
 

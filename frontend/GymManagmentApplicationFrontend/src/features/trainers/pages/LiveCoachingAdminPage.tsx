@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, ScrollView, Switch, StatusBar, Platform, ActivityIndicator, Pressable } from 'react-native';
-import { T } from '../components/theme';
-import BackButton from '../../common/components/BackButton';
+import { View, Text, FlatList, Switch, ActivityIndicator } from 'react-native';
+import { T, SP } from '../../../theme';
+import Screen from '../../common/components/Screen';
+import ScreenHeader from '../../common/components/ScreenHeader';
+import LoadingState from '../../common/components/LoadingState';
 import EmptyState from '../../dashboard/components/EmptyState';
 import { useTrainers, useUpdateTrainerAvailability } from '../api/trainerQueries';
 import { TrainerSummary } from '../types/trainer.types';
@@ -25,13 +27,13 @@ function TrainerRow({ trainer }: { trainer: TrainerSummary }) {
         <Text style={{ color: T.brand, fontSize: 15, fontWeight: '800' }}>{initials}</Text>
       </View>
 
-      <View style={{ flex: 1, paddingRight: 10 }}>
+      <View style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
         <Text style={{ color: T.text, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{trainer.displayName}</Text>
         <Text style={{ color: T.textSub, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{subtitle}</Text>
       </View>
 
       {isPending
-        ? <ActivityIndicator size="small" color={T.brand} />
+        ? <ActivityIndicator size="small" color={T.brand} accessibilityLabel={`Updating ${trainer.displayName}`} />
         : (
           <Switch
             value={trainer.isAvailable}
@@ -50,41 +52,33 @@ export default function LiveCoachingAdminPage({ onBack }: Props) {
   const trainers = paged?.items ?? [];
 
   return (
-    <View style={{ flex: 1, backgroundColor: T.bg, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
+      <ScreenHeader eyebrow="Coaching" title="Live Coaching" onBack={onBack} />
 
-      <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {onBack && <BackButton onPress={onBack} />}
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 2 }}>
-              Coaching
-            </Text>
-            <Text style={{ color: T.text, fontSize: 24, fontWeight: '800', letterSpacing: -0.5 }}>Live Coaching</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
-        {isLoading && <ActivityIndicator size="large" color={T.brand} style={{ marginTop: 40 }} />}
-
-        {isError && !isLoading && (
-          <View style={{ alignItems: 'center', paddingTop: 40 }}>
-            <Text style={{ color: T.text, fontSize: 15, fontWeight: '700', marginBottom: 12 }}>Failed to load trainers</Text>
-            <Pressable onPress={() => refetch()} style={{ backgroundColor: T.brand, borderRadius: 999, paddingHorizontal: 24, paddingVertical: 12 }}>
-              <Text style={{ color: T.onBrand, fontSize: 14, fontWeight: '700' }}>Retry</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {!isLoading && !isError && trainers.length === 0 && (
-          <EmptyState icon="video" title="No trainers yet" subtitle="Onboard a trainer to enable live coaching." />
-        )}
-
-        {!isLoading && !isError && trainers.map((trainer) => (
-          <TrainerRow key={trainer.id} trainer={trainer} />
-        ))}
-      </ScrollView>
-    </View>
+      <FlatList
+        data={isLoading || isError ? [] : trainers}
+        keyExtractor={(t) => String(t.id)}
+        renderItem={({ item }) => <TrainerRow trainer={item} />}
+        ListHeaderComponent={
+          isLoading ? <LoadingState label="Loading trainers" /> :
+          isError ? (
+            <EmptyState
+              icon="wifi-off"
+              tone="error"
+              title="Failed to load trainers"
+              subtitle="Check your connection and try again."
+              action={{ label: 'Retry', onPress: () => refetch() }}
+            />
+          ) : null
+        }
+        ListEmptyComponent={
+          !isLoading && !isError
+            ? <EmptyState icon="video" title="No trainers yet" subtitle="Onboard a trainer to enable live coaching." />
+            : null
+        }
+        contentContainerStyle={{ paddingHorizontal: SP.xl, paddingBottom: 48 }}
+        showsVerticalScrollIndicator={false}
+      />
+    </Screen>
   );
 }

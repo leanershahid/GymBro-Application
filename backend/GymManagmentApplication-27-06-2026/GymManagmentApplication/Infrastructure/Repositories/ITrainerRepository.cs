@@ -7,7 +7,7 @@ public interface ITrainerRepository
 {
     Task<(List<TrainerProfile> Items, int Total)> GetAllAsync(int pageNumber, int pageSize);
     Task<TrainerProfile?> GetByIdAsync(ulong id);
-    Task<User> CreateUserAsync(User user);
+    Task<TrainerProfile?> GetByUserIdAsync(ulong userId);
     Task<TrainerProfile> CreateAsync(TrainerProfile trainer);
     Task<TrainerProfile> UpdateAsync(TrainerProfile trainer);
     Task<List<TrainerClientAssignment>> GetClientAssignmentsAsync(ulong trainerId);

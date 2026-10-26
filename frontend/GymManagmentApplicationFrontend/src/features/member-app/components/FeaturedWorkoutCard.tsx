@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, ImageBackground, ImageSourcePropType } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { T } from '../../trainers/components/theme';
+import { T, R, withAlpha } from '../../../theme';
 
 interface FeaturedWorkoutCardProps {
   category: string;
@@ -20,9 +20,9 @@ export default function FeaturedWorkoutCard({
   category, title, dayLabel, exercisesCount, durationMin, calories, image, onPress, onExpand,
 }: FeaturedWorkoutCardProps) {
   return (
-    <View style={{ borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: T.line }}>
+    <View style={{ borderRadius: R.xl, overflow: 'hidden', borderWidth: 1, borderColor: T.line }}>
       <ImageBackground source={image} style={{ width: '100%' }} resizeMode="cover">
-        <View style={{ backgroundColor: 'rgba(10,15,10,0.35)', padding: 16 }}>
+        <View style={{ backgroundColor: withAlpha(T.bg, 0.35), padding: 16 }}>
           {/* Top row: pills + expand */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 220 }}>
             <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -32,7 +32,7 @@ export default function FeaturedWorkoutCard({
                 </Text>
               </View>
               {dayLabel && (
-                <View style={{ backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' }}>
+                <View style={{ backgroundColor: T.overlay, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: withAlpha(T.text, 0.18) }}>
                   <Text style={{ color: T.text, fontSize: 11, fontWeight: '700' }}>{dayLabel}</Text>
                 </View>
               )}
@@ -42,7 +42,7 @@ export default function FeaturedWorkoutCard({
               <Pressable
                 onPress={onExpand} hitSlop={10}
                 accessibilityRole="button" accessibilityLabel="Expand workout"
-                style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}
+                style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: withAlpha(T.black, 0.5), borderWidth: 1, borderColor: withAlpha(T.text, 0.2), alignItems: 'center', justifyContent: 'center' }}
               >
                 <Feather name="arrow-up-right" size={16} color={T.text} />
               </Pressable>
@@ -51,7 +51,7 @@ export default function FeaturedWorkoutCard({
 
           {/* Bottom content over gradient scrim */}
           <LinearGradient
-            colors={['rgba(10,15,10,0)', 'rgba(10,15,10,0.94)']}
+            colors={[withAlpha(T.bg, 0), withAlpha(T.bg, 0.94)]}
             style={{ marginHorizontal: -16, marginBottom: -16, paddingHorizontal: 16, paddingTop: 40, paddingBottom: 18 }}
           >
             <Text style={{ color: T.brand, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>

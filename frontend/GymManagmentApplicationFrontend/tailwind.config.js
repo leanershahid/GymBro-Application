@@ -36,6 +36,13 @@ module.exports = {
         rose:   '#FF4D6D', // heart rate
         sky:    '#4DA6FF', // water / sleep
         violet: '#9B7EF0', // sleep
+
+        // Status
+        ok:  '#22C55E',
+        err: '#EF4444',
+
+        // Bottom tab bars
+        nav: '#111111',
       },
     },
   },

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T, Shadow } from '../trainers/components/theme';
+import { T, R, Shadow, withAlpha } from '../../theme';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -34,7 +34,7 @@ export default function StatsStrip({ items, bare = false }: StatsStripProps) {
                 backgroundColor: T.bgInput,
                 borderWidth: 1,
                 borderColor: T.line,
-                borderRadius: 20,
+                borderRadius: R.xl,
                 paddingVertical: 16,
                 paddingHorizontal: 8,
               },
@@ -59,9 +59,9 @@ export default function StatsStrip({ items, bare = false }: StatsStripProps) {
               width: 36,
               height: 36,
               borderRadius: 11,
-              backgroundColor: s.accent + '18',
+              backgroundColor: withAlpha(s.accent, 0.094),
               borderWidth: 1,
-              borderColor: s.accent + '30',
+              borderColor: withAlpha(s.accent, 0.19),
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -70,12 +70,12 @@ export default function StatsStrip({ items, bare = false }: StatsStripProps) {
           </View>
 
           {/* Value */}
-          <Text style={{ color: s.accent, fontSize: 18, fontWeight: '800', letterSpacing: -0.3 }}>
+          <Text numberOfLines={1} adjustsFontSizeToFit style={{ color: s.accent, fontSize: 18, fontWeight: '800', letterSpacing: -0.3 }}>
             {s.value}
           </Text>
 
           {/* Label */}
-          <Text style={{ color: T.textSub, fontSize: 11, marginTop: -2 }}>
+          <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 11, marginTop: -2 }}>
             {s.label}
           </Text>
         </View>

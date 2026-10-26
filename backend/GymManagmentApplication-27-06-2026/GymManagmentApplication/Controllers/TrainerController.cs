@@ -9,6 +9,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("trainers")]
 [Route("api/trainers")]
 [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
 public class TrainerController(ITrainerService service, IValidator<CreateTrainerRequest> validator) : ControllerBase
@@ -26,6 +27,15 @@ public class TrainerController(ITrainerService service, IValidator<CreateTrainer
         if (!v.IsValid) return BadRequest(ApiResponse<object>.Fail("Validation failed.", v.Errors.Select(e => e.ErrorMessage).ToList()));
         var result = await service.CreateAsync(request);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, ApiResponse<object>.Ok(result, "Trainer created successfully."));
+    }
+
+    // The trainer app knows the login userId, not the TrainerProfile id — resolve it here.
+    [HttpGet("me")]
+    [AuthorizeRoles(RoleNames.Trainer)]
+    public async Task<ActionResult<ApiResponse<object>>> GetMe([FromServices] ICurrentUser currentUser)
+    {
+        var result = await service.GetByUserIdAsync(currentUser.UserId ?? 0);
+        return result is null ? NotFound(ApiResponse<object>.Fail("No trainer profile for this account.")) : Ok(ApiResponse<object>.Ok(result));
     }
 
     [HttpGet("{id}")]

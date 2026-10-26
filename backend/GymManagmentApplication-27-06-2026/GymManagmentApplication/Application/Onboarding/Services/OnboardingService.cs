@@ -1,21 +1,36 @@
 using System.Text.Json;
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Onboarding.Interfaces;
 using GymManagmentApplication.Application.Onboarding.Requests;
 using GymManagmentApplication.Application.Onboarding.Responses;
+using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Domain.Entities.Platform;
+using GymManagmentApplication.Infrastructure.Data;
 using GymManagmentApplication.Infrastructure.Repositories.Onboarding;
+using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Onboarding.Services;
 
-public class OnboardingService(IOnboardingRepository repository) : IOnboardingService
+public class OnboardingService(IOnboardingRepository repository, ICurrentUser currentUser, AppDbContext db) : IOnboardingService
 {
     private static readonly string[] DefaultSteps = ["profile", "goals", "health", "payment", "agreement"];
 
+    /// <summary>Member must exist in the caller's gym; a client may only act on themselves.</summary>
+    private async Task<Domain.Entities.Identity.User> GetMemberAsync(ulong memberId) =>
+        // Clients: themselves; trainers: assigned clients; admins/staff: anyone in their gym.
+        await db.GetActionableUserAsync(currentUser, memberId)
+        ?? throw new KeyNotFoundException($"Member {memberId} not found.");
+
     public async Task<OnboardingStatusResponse> StartAsync(StartOnboardingRequest request)
     {
+        var member = await GetMemberAsync(request.MemberId);
+        var existing = await repository.GetStepsByMemberAsync(member.Id);
+        if (existing.Count > 0) return BuildStatus(member.Id, existing);
+
         var steps = DefaultSteps.Select((key, i) => new OnboardingStep
         {
-            TenantId = request.MemberId, // reusing TenantId as memberId key for in-memory
+            TenantId = member.TenantId,
+            UserId = member.Id,
             StepKey = key,
             Label = key,
             SortOrder = (byte)i,
@@ -27,12 +42,14 @@ public class OnboardingService(IOnboardingRepository repository) : IOnboardingSe
 
     public async Task<OnboardingStatusResponse?> GetStatusAsync(ulong memberId)
     {
+        await GetMemberAsync(memberId);
         var steps = await repository.GetStepsByMemberAsync(memberId);
         return steps.Count == 0 ? null : BuildStatus(memberId, steps);
     }
 
     public async Task<OnboardingStatusResponse?> SubmitStepAsync(ulong memberId, SubmitOnboardingStepRequest request)
     {
+        await GetMemberAsync(memberId);
         var step = await repository.GetStepAsync(memberId, request.StepKey);
         if (step is null) return null;
         step.IsDone = true;
@@ -44,9 +61,13 @@ public class OnboardingService(IOnboardingRepository repository) : IOnboardingSe
 
     public async Task<AssessmentResponse> SubmitAssessmentAsync(SubmitAssessmentRequest request)
     {
+        var member = await GetMemberAsync(request.MemberId);
+        if (!await db.AssessmentTemplates.AnyAsync(t => t.Id == request.TemplateId))
+            throw new KeyNotFoundException($"Assessment template {request.TemplateId} not found.");
         var assessment = new ClientAssessment
         {
-            ClientId = request.MemberId,
+            TenantId = member.TenantId,
+            ClientId = member.Id,
             TemplateId = request.TemplateId,
             Responses = JsonDocument.Parse(JsonSerializer.Serialize(request.Responses)),
             Notes = request.Notes
@@ -57,7 +78,7 @@ public class OnboardingService(IOnboardingRepository repository) : IOnboardingSe
 
     public async Task<List<OnboardingTemplateResponse>> GetTemplatesAsync(ulong tenantId)
     {
-        var templates = await repository.GetTemplatesAsync(tenantId);
+        var templates = await repository.GetTemplatesAsync(currentUser.ResolveTenantId(tenantId));
         return templates.Select(MapTemplate).ToList();
     }
 
@@ -65,7 +86,7 @@ public class OnboardingService(IOnboardingRepository repository) : IOnboardingSe
     {
         var template = new AssessmentTemplate
         {
-            TenantId = request.TenantId,
+            TenantId = currentUser.ResolveTenantId(request.TenantId),
             Name = request.Name,
             Description = request.Description,
             Fields = JsonDocument.Parse(JsonSerializer.Serialize(request.Steps))
@@ -76,6 +97,7 @@ public class OnboardingService(IOnboardingRepository repository) : IOnboardingSe
 
     public async Task<OnboardingStatusResponse?> CompleteAsync(ulong memberId)
     {
+        await GetMemberAsync(memberId);
         var steps = await repository.GetStepsByMemberAsync(memberId);
         if (steps.Count == 0) return null;
         foreach (var s in steps.Where(s => !s.IsDone)) { s.IsDone = true; s.DoneAt = DateTime.UtcNow; await repository.UpdateStepAsync(s); }

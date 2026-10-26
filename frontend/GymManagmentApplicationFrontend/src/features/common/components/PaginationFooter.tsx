@@ -1,4 +1,5 @@
 import { View, Text, Pressable } from 'react-native';
+import { T } from '../../../theme';
 
 interface Props {
   page: number;
@@ -22,18 +23,18 @@ export default function PaginationFooter({ page, totalPages, onChange }: Props) 
         accessibilityState={{ disabled: atFirst }}
         style={{
           paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999,
-          backgroundColor: '#151915', borderWidth: 1, borderColor: '#242B24',
+          backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line,
           opacity: atFirst ? 0.4 : 1,
         }}
       >
-        <Text style={{ color: '#7ED321', fontWeight: '700' }}>Prev</Text>
+        <Text style={{ color: T.brand, fontWeight: '700' }}>Prev</Text>
       </Pressable>
 
       <View
         accessibilityLabel={`Page ${page} of ${totalPages}`}
-        style={{ backgroundColor: '#7ED321', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9 }}
+        style={{ backgroundColor: T.brand, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9 }}
       >
-        <Text style={{ color: '#000', fontWeight: '900' }}>{page} / {totalPages}</Text>
+        <Text style={{ color: T.onBrand, fontWeight: '900' }}>{page} / {totalPages}</Text>
       </View>
 
       <Pressable
@@ -44,11 +45,11 @@ export default function PaginationFooter({ page, totalPages, onChange }: Props) 
         accessibilityState={{ disabled: atLast }}
         style={{
           paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999,
-          backgroundColor: '#151915', borderWidth: 1, borderColor: '#242B24',
+          backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line,
           opacity: atLast ? 0.4 : 1,
         }}
       >
-        <Text style={{ color: '#7ED321', fontWeight: '700' }}>Next</Text>
+        <Text style={{ color: T.brand, fontWeight: '700' }}>Next</Text>
       </Pressable>
     </View>
   );

@@ -6,17 +6,23 @@ Design a mobile fitness app UI using the following exact design system:
 
 ---
 
-COLOR PALETTE:
-- Background (Primary): #0D0D0D (near-black)
-- Surface / Card Background: #1A1A1A (dark charcoal)
-- Surface Elevated: #222222 (slightly lighter card layer)
-- Accent / CTA Green: #AAFF00 (electric lime / acid green)
-- Accent Green Dark (hover/pressed): #88CC00
-- Text Primary: #FFFFFF (pure white)
-- Text Secondary: #AAAAAA (muted gray)
-- Text On Accent: #000000 (black text on green buttons)
-- Icon / Badge Stroke: #FFFFFF at 80% opacity
-- Timer Pill Background: rgba(0,0,0,0.55) with blur backdrop
+COLOR PALETTE (source of truth: src/theme.ts `T`, mirrored in tailwind.config.js):
+- Background (Primary): #0A0F0A (T.bg)
+- Surface / Card Background: #151915 (T.bgInput)
+- Surface Elevated: #1C211C (T.bgInputActive)
+- Border / Divider: #242B24 (T.line)
+- Bottom tab bar: #111111 (T.bgNav)
+- Accent / CTA Green: #7ED321 (T.brand), pressed #5FA317 (T.brandDark)
+- Accent gradient: #7ED321 → #FFC107 (T.brandGradient) — CTAs, progress rings, active nav
+- Text Primary: #FFFFFF (T.text)
+- Text Secondary: #AAB2AA (T.textSub)
+- Text Tertiary / placeholders: #6B726B (T.textFaint); disabled #454B45 (T.textDisabled)
+- Text On Accent: #000000 (T.onBrand)
+- Status: success #22C55E (T.ok), error #EF4444 (T.err)
+- Metric accents: rose #FF4D6D, sky #4DA6FF, violet #9B7EF0
+- Tints: withAlpha(token, 0.08–0.15) for badge/background tints, 0.25–0.30 for tinted borders
+- Scrim over imagery: rgba(0,0,0,0.55) (T.overlay)
+- Never hardcode a hex/rgba value in a screen — use a token or withAlpha(token, a).
 
 ---
 
@@ -31,15 +37,15 @@ TYPOGRAPHY:
 ---
 
 BUTTON STYLE:
-- Primary CTA: full-width, border-radius 50px (pill shape), background #AAFF00, text black, font-weight 700, padding 16px 24px
+- Primary CTA: full-width, border-radius 50px (pill shape), background #7ED321 (or the brand gradient), text black, font-weight 700, padding 16px 24px
 - Icon Button (small): 36x36px circle, background #1E1E1E or #2A2A2A, border: 1px solid #333, icon white
-- Arrow/Link Button: 32x32px rounded square, background #AAFF00, icon black (↗ arrow)
+- Arrow/Link Button: 32x32px rounded square, background #7ED321, icon black (↗ arrow)
 
 ---
 
 CARD DESIGN:
 - Border radius: 16px–20px
-- Background: #1A1A1A or #222222
+- Background: #151915 (T.bgInput) or #1C211C (T.bgInputActive)
 - Padding: 14px–18px
 - Image cards: full bleed image with dark overlay gradient at bottom (linear-gradient from transparent to rgba(0,0,0,0.75))
 - Exercise list cards: 60x60px thumbnail (border-radius 12px), title bold white 15px, subtitle 12px muted gray, right-side play icon button
@@ -51,7 +57,7 @@ LAYOUT & SPACING:
 - Section gap: 24px–28px vertical
 - Card gap in horizontal scroll: 12px
 - List item gap: 12px
-- Navigation bar: bottom tab bar, dark background #111111, icons white/muted, active indicator: small green dot below icon
+- Navigation bar: bottom tab bar, dark background #111111 (T.bgNav), icons white/muted, active indicator: small green dot below icon
 
 ---
 

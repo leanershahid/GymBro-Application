@@ -8,8 +8,11 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("workouts")]
 [Route("api/workouts")]
 [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
+// Shares the /api/workouts prefix with WorkoutController, so it needs the same module gate.
+[RequireModule("workouts")]
 public class WorkoutBuilderController(IWorkoutBuilderService service) : ControllerBase
 {
     [HttpPost("{id:long}/circuits")]

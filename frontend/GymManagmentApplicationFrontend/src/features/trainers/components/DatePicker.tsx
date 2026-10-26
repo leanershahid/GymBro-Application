@@ -4,10 +4,11 @@
  */
 import React, { useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, Modal, ScrollView,
-  Platform, NativeSyntheticEvent, NativeScrollEvent,
+  View, Text, TouchableOpacity, ScrollView,
+  NativeSyntheticEvent, NativeScrollEvent,
 } from 'react-native';
-import { T } from './theme';
+import { T } from '../../../theme';
+import BottomSheet from '../../common/components/BottomSheet';
 
 const ITEM_H  = 44;
 const VISIBLE = 5;
@@ -39,9 +40,11 @@ interface DrumProps {
   selectedIndex: number;
   onSelect: (i: number) => void;
   width?: number;
+  /** Screen-reader name of the column, e.g. "Month". */
+  label?: string;
 }
 
-function Drum({ items, selectedIndex, onSelect, width = 80 }: DrumProps) {
+function Drum({ items, selectedIndex, onSelect, width = 80, label: colLabel }: DrumProps) {
   const ref    = useRef<ScrollView>(null);
   const listH  = VISIBLE * ITEM_H;
   const padded = [...Array(PAD).fill(''), ...items, ...Array(PAD).fill('')];
@@ -81,6 +84,10 @@ function Drum({ items, selectedIndex, onSelect, width = 80 }: DrumProps) {
                 }
               }}
               activeOpacity={0.7}
+              accessible={!!label}
+              accessibilityRole="button"
+              accessibilityLabel={colLabel ? `${colLabel} ${label}` : label}
+              accessibilityState={{ selected: isSelected }}
             >
               <Text style={{
                 fontSize:   isSelected ? 17 : 16,
@@ -145,31 +152,20 @@ function DatePickerModal({ visible, value, onConfirm, onClose, minYear = 1950, m
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity className="flex-1 bg-black/60" activeOpacity={1} onPress={onClose} />
-      <View
-        className="bg-surface rounded-t-[20px]"
-        style={{ paddingBottom: Platform.OS === 'ios' ? 36 : 24 }}
-      >
-        {/* header */}
-        <View className="flex-row items-center justify-between px-5 py-4 border-b border-[#2A2A2A]">
-          <TouchableOpacity onPress={onClose}>
-            <Text className="text-[15px] text-sub">Cancel</Text>
-          </TouchableOpacity>
-          <Text className="text-[15px] font-bold text-white">Select Date</Text>
-          <TouchableOpacity onPress={handleConfirm}>
-            <Text className="text-[15px] font-bold text-brand">Done</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* drums */}
-        <View className="flex-row justify-center items-center gap-1 px-5 py-2">
-          <Drum items={MONTHS} selectedIndex={mIdx}                onSelect={setMIdx} width={130} />
-          <Drum items={days}   selectedIndex={safeDIdx}            onSelect={setDIdx} width={64} />
-          <Drum items={YEARS}  selectedIndex={Math.max(0, yIdx)}  onSelect={setYIdx} width={82} />
-        </View>
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="Select Date"
+      leftAction={{ label: 'Cancel', onPress: onClose }}
+      rightAction={{ label: 'Done', onPress: handleConfirm, primary: true }}
+    >
+      {/* drums */}
+      <View className="flex-row justify-center items-center gap-1 px-5 py-2">
+        <Drum items={MONTHS} selectedIndex={mIdx}                onSelect={setMIdx} width={130} label="Month" />
+        <Drum items={days}   selectedIndex={safeDIdx}            onSelect={setDIdx} width={64} label="Day" />
+        <Drum items={YEARS}  selectedIndex={Math.max(0, yIdx)}  onSelect={setYIdx} width={82} label="Year" />
       </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 
@@ -198,19 +194,22 @@ export function DateField({ label, value, onChange, placeholder = 'Select date',
       <TouchableOpacity
         className="flex-row items-center bg-input border rounded-xl px-4 py-[14px]"
         style={
-          hasError ? { borderColor: '#EF4444' } :
-          open     ? { borderColor: '#444444', backgroundColor: '#1C211C' } :
+          hasError ? { borderColor: T.err } :
+          open     ? { borderColor: T.textDisabled, backgroundColor: T.bgInputActive } :
           { borderColor: T.line }
         }
         onPress={() => setOpen(true)}
         activeOpacity={0.75}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${display || placeholder}`}
+        accessibilityHint="Opens a date picker"
       >
-        <Text className={`flex-1 text-[15px] ${value ? 'text-white' : 'text-faint'}`}>
+        <Text numberOfLines={1} className={`flex-1 text-[15px] ${value ? 'text-white' : 'text-faint'}`}>
           {display || placeholder}
         </Text>
       </TouchableOpacity>
       {hasError && (
-        <Text className="text-[12px] mt-1" style={{ color: '#EF4444' }}>{error}</Text>
+        <Text className="text-[12px] mt-1" style={{ color: T.err }}>{error}</Text>
       )}
 
       <DatePickerModal

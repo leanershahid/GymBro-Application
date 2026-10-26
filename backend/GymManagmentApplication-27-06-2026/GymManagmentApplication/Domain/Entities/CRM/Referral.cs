@@ -5,6 +5,8 @@ namespace GymManagmentApplication.Domain.Entities.CRM;
 public class Referral
 {
     public ulong Id { get; set; }
+    /// <summary>Owning gym (nullable: rows written before this was mapped have none).</summary>
+    public ulong? TenantId { get; set; }
     public ulong ProgramId { get; set; }
     public ulong ReferrerId { get; set; }
     public ulong? RefereeId { get; set; }

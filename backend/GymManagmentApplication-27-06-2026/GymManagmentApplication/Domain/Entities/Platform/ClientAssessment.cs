@@ -5,6 +5,8 @@ namespace GymManagmentApplication.Domain.Entities.Platform;
 public class ClientAssessment
 {
     public ulong Id { get; set; }
+    /// <summary>Owning gym (nullable: rows written before this was mapped have none).</summary>
+    public ulong? TenantId { get; set; }
     public ulong TemplateId { get; set; }
     public ulong ClientId { get; set; }
     public ulong? AssessedBy { get; set; }

@@ -1,16 +1,14 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, ScrollView, Pressable,
-  StatusBar, Platform, Animated, ImageBackground,
-  useWindowDimensions,
+  Animated, ImageBackground,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import AddTrainerPage   from '../../trainers/pages/AddTrainerPage';
-import ViewTrainersPage from '../../trainers/pages/ViewTrainersPage';
-import AddBranchPage    from '../../branches/pages/AddBranchPage';
-import ViewBranchesPage from '../../branches/pages/ViewBranchesPage';
-import AddTenantPage    from '../../tenants/pages/AddTenantPage';
-import ViewTenantsPage  from '../../tenants/pages/ViewTenantsPage';
+import { T, R, withAlpha } from '../../../theme';
+import { useLayout } from '../../../utils/useLayout';
+import Screen from '../../common/components/Screen';
+import BackButton from '../../common/components/BackButton';
+import SectionHeader from '../components/Sectionheader';
 
 // ─── Images ───────────────────────────────────────────────────────
 const IMG_COACH1  = require('../../../assets/dashboard/coach-1.jpg');
@@ -21,42 +19,15 @@ const IMG_HERO    = require('../../../assets/dashboard/hero-athlete.jpg');
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
 // ─── Color palette ────────────────────────────────────────────────
-const ACCENT      = '#7ED321';
-const ACCENT_DARK = '#5FA317';
-const ACCENT_FG   = '#000000';
-const BG          = '#0A0F0A';
-const SURFACE     = '#151915';
-const SURFACE_EL  = '#1C211C';
-const TEXT        = '#FFFFFF';
-const TEXT_SUB    = '#AAAAAA';
-const ICON_STROKE = 'rgba(255,255,255,0.80)';
-
-// ─── Responsive breakpoints ───────────────────────────────────────
-// phone  : w < 480
-// tablet : 480 ≤ w < 768
-// desktop: w ≥ 768
-function useLayout() {
-  const { width, height } = useWindowDimensions();
-  const isTablet  = width >= 480;
-  const isDesktop = width >= 768;
-
-  // Fluid horizontal padding: 16 → 24 → 40
-  const hPad = isDesktop ? 40 : isTablet ? 24 : 16;
-
-  // Number of card columns: 1 → 2
-  const cols = isTablet ? 2 : 1;
-
-  // Card width accounting for columns and gap
-  const cardGap = isTablet ? 14 : 0;
-  const cardW   = cols === 2
-    ? (width - hPad * 2 - cardGap) / 2
-    : width - hPad * 2;
-
-  // Scale factor for font sizes
-  const scale = isDesktop ? 1.1 : isTablet ? 1.05 : 1;
-
-  return { width, height, isTablet, isDesktop, hPad, cols, cardW, cardGap, scale };
-}
+const ACCENT      = T.brand;
+const ACCENT_DARK = T.brandDark;
+const ACCENT_FG   = T.onBrand;
+const BG          = T.bg;
+const SURFACE     = T.bgInput;
+const SURFACE_EL  = T.bgInputActive;
+const TEXT        = T.text;
+const TEXT_SUB    = T.textSub;
+const ICON_STROKE = withAlpha(T.text, 0.80);
 
 // ─── Module data ──────────────────────────────────────────────────
 interface ModuleItem {
@@ -65,20 +36,24 @@ interface ModuleItem {
   stat: string; level: string; image: any;
 }
 
-const MODULES: ModuleItem[] = [
-  { key: 'branch',  category: 'Locations',     label: 'Branches', sublabel: 'Add new location',   icon: 'map-pin',   stat: '5',     level: 'Manager',      image: IMG_WORKOUT },
-  { key: 'trainer', category: 'Staff',          label: 'Trainers', sublabel: 'Onboard coaches',    icon: 'award',     stat: '18',    level: 'Professional', image: IMG_COACH1  },
-  { key: 'tenant',  category: 'Organisations',  label: 'Tenants',  sublabel: 'New organisation',   icon: 'briefcase', stat: '3',     level: 'Enterprise',   image: IMG_COACH2  },
-  { key: 'client',  category: 'Members',        label: 'Clients',  sublabel: 'Enrol members',      icon: 'user-plus', stat: '1,284', level: 'Beginner',     image: IMG_HERO    },
+// Counts come from the dashboard overview so the hub never shows invented numbers.
+interface HubStats { totalBranches: number; totalTrainers: number; totalTenants: number; totalMembers: number; newSignupsToday: number; activeBranches: number; }
+const fmt = (n?: number) => (n === undefined ? '—' : n.toLocaleString('en-IN'));
+const buildModules = (s?: HubStats): ModuleItem[] => [
+  { key: 'branch',  category: 'Locations',     label: 'Branches', sublabel: 'Add new location',   icon: 'map-pin',   stat: fmt(s?.totalBranches), level: 'Manager',      image: IMG_WORKOUT },
+  { key: 'trainer', category: 'Staff',          label: 'Trainers', sublabel: 'Onboard coaches',    icon: 'award',     stat: fmt(s?.totalTrainers), level: 'Professional', image: IMG_COACH1  },
+  { key: 'tenant',  category: 'Organisations',  label: 'Tenants',  sublabel: 'New organisation',   icon: 'briefcase', stat: fmt(s?.totalTenants),  level: 'Enterprise',   image: IMG_COACH2  },
+  { key: 'client',  category: 'Members',        label: 'Clients',  sublabel: 'Enrol members',      icon: 'user-plus', stat: fmt(s?.totalMembers),  level: 'Beginner',     image: IMG_HERO    },
 ];
 
 const CATEGORIES = ['All', 'Locations', 'Staff', 'Organisations', 'Members'];
 
-const ACTIVITY = [
-  { icon: 'map-pin'   as FeatherIconName, title: 'Downtown branch added',   sub: 'Mumbai · 2h ago'             },
-  { icon: 'award'     as FeatherIconName, title: 'Ravi K. onboarded',       sub: 'Trainer · Westside · 5h ago' },
-  { icon: 'user-plus' as FeatherIconName, title: '23 new members enrolled', sub: 'Today · all branches'        },
-];
+// `to` is the AdminDashboard screen each row opens.
+const buildActivity = (s?: HubStats) => s ? [
+  { icon: 'map-pin'   as FeatherIconName, title: `${fmt(s.activeBranches)} of ${fmt(s.totalBranches)} branches active`, sub: 'Locations',            to: 'branches' },
+  { icon: 'award'     as FeatherIconName, title: `${fmt(s.totalTrainers)} trainers on staff`,                          sub: 'Staff',                to: 'trainers' },
+  { icon: 'user-plus' as FeatherIconName, title: `${fmt(s.newSignupsToday)} new members today`,                         sub: 'Today · all branches', to: 'members'  },
+] : [];
 
 // ─── Module card ──────────────────────────────────────────────────
 function ModuleCard({
@@ -102,8 +77,8 @@ function ModuleCard({
         onPress={onPressView} onPressIn={onIn} onPressOut={onOut}
         accessibilityRole="button" accessibilityLabel={mod.label}
         style={{
-          borderRadius: 24, overflow: 'hidden',
-          borderWidth: 1, borderColor: 'rgba(126,211,33,0.20)',
+          borderRadius: R.xl, overflow: 'hidden',
+          borderWidth: 1, borderColor: withAlpha(T.brand, 0.20),
           shadowColor: ACCENT, shadowOffset: { width: 0, height: 8 },
           shadowOpacity: 0.18, shadowRadius: 20, elevation: 10,
         }}
@@ -114,7 +89,7 @@ function ModuleCard({
           imageStyle={{ opacity: 0.45 }}
           resizeMode="cover"
         >
-          <View style={{ backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 24 }}>
+          <View style={{ backgroundColor: T.overlay, borderRadius: R.xl }}>
 
             {/* Top content */}
             <View style={{ padding: cardW * 0.055, paddingBottom: 0 }}>
@@ -122,9 +97,9 @@ function ModuleCard({
               {/* Category pill + arrow */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: cardW * 0.045 }}>
                 <View style={{
-                  backgroundColor: 'rgba(0,0,0,0.55)',
+                  backgroundColor: T.overlay,
                   borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5,
-                  borderWidth: 1, borderColor: 'rgba(126,211,33,0.40)',
+                  borderWidth: 1, borderColor: withAlpha(T.brand, 0.40),
                 }}>
                   <Text style={{ color: ACCENT, fontSize: 11 * scale, fontWeight: '700', letterSpacing: 0.9, textTransform: 'uppercase' }}>
                     {mod.category}
@@ -150,7 +125,7 @@ function ModuleCard({
                   <Text style={{
                     color: TEXT, fontSize: titleSize, fontWeight: '800',
                     letterSpacing: -0.5, lineHeight: titleSize * 1.18,
-                    textShadowColor: 'rgba(0,0,0,0.7)',
+                    textShadowColor: withAlpha(T.black, 0.7),
                     textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8,
                   }}>
                     {mod.label}
@@ -163,7 +138,7 @@ function ModuleCard({
                 {/* Glassy icon circle — size proportional to card width */}
                 <View style={{
                   width: circleSize, height: circleSize, borderRadius: circleSize / 2,
-                  backgroundColor: 'rgba(255,255,255,0.08)',
+                  backgroundColor: withAlpha(T.text, 0.08),
                   borderWidth: 1.5, borderColor: ICON_STROKE,
                   alignItems: 'center', justifyContent: 'center',
                   shadowColor: ACCENT, shadowOffset: { width: 0, height: 4 },
@@ -177,17 +152,17 @@ function ModuleCard({
             {/* Glassy bottom dock */}
             <View style={{
               margin: 10, borderRadius: 18,
-              backgroundColor: 'rgba(26,26,26,0.85)',
-              borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+              backgroundColor: withAlpha(T.bgInput, 0.85),
+              borderWidth: 1, borderColor: withAlpha(T.text, 0.10),
               padding: 12,
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
             }}>
               {/* Level badge + avatars */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
                 <View style={{
-                  backgroundColor: 'rgba(126,211,33,0.12)',
+                  backgroundColor: withAlpha(T.brand, 0.12),
                   borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4,
-                  borderWidth: 1, borderColor: 'rgba(126,211,33,0.30)',
+                  borderWidth: 1, borderColor: withAlpha(T.brand, 0.30),
                   flexDirection: 'row', alignItems: 'center', gap: 5,
                 }}>
                   <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: ACCENT }} />
@@ -195,7 +170,7 @@ function ModuleCard({
                 </View>
 
                 <View style={{ flexDirection: 'row' }}>
-                  {[SURFACE_EL, '#2A2A2A', '#242B24'].map((c, i) => (
+                  {[SURFACE_EL, T.line, T.line].map((c, i) => (
                     <View key={i} style={{
                       width: 24, height: 24, borderRadius: 12,
                       backgroundColor: c, borderWidth: 1.5, borderColor: ICON_STROKE,
@@ -207,8 +182,8 @@ function ModuleCard({
                   ))}
                   <View style={{
                     width: 24, height: 24, borderRadius: 12,
-                    backgroundColor: 'rgba(126,211,33,0.15)',
-                    borderWidth: 1.5, borderColor: 'rgba(126,211,33,0.35)',
+                    backgroundColor: withAlpha(T.brand, 0.15),
+                    borderWidth: 1.5, borderColor: withAlpha(T.brand, 0.35),
                     marginLeft: -8, alignItems: 'center', justifyContent: 'center',
                   }}>
                     <Text style={{ color: ACCENT, fontSize: 11, fontWeight: '800' }}>{mod.stat}</Text>
@@ -219,6 +194,8 @@ function ModuleCard({
               {/* Add CTA */}
               <Pressable
                 onPress={onPressAdd} hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`Add ${mod.label}`}
                 style={({ pressed }) => ({
                   flexDirection: 'row', alignItems: 'center', gap: 6,
                   backgroundColor: pressed ? ACCENT_DARK : ACCENT,
@@ -247,33 +224,24 @@ function ModuleCard({
 interface AdminModuleDevelopmentDashboardProps {
   onNavigate?: (key: string) => void;
   onBack?: () => void;
+  stats?: HubStats;
 }
 
-export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack }: AdminModuleDevelopmentDashboardProps) {
-  const [activePage,   setActivePage]   = useState<string | null>(null);
+export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack, stats }: AdminModuleDevelopmentDashboardProps) {
+  const MODULES = buildModules(stats);
+  const ACTIVITY = buildActivity(stats);
   const [activeFilter, setActiveFilter] = useState('All');
 
   const { hPad, cols, cardW, cardGap, scale, isTablet, isDesktop } = useLayout();
 
-  // ── Sub-page routing ─────────────────────────────────────────
-  if (activePage === 'trainer')       return <AddTrainerPage   onBack={() => setActivePage(null)} />;
-  if (activePage === 'view-trainers') return <ViewTrainersPage onBack={() => setActivePage(null)} onAddTrainer={() => setActivePage('trainer')} />;
-  if (activePage === 'branch')        return <AddBranchPage    onBack={() => setActivePage(null)} />;
-  if (activePage === 'view-branches') return <ViewBranchesPage onBack={() => setActivePage(null)} onAddBranch={() => setActivePage('branch')} />;
-  if (activePage === 'tenant')        return <AddTenantPage    onBack={() => setActivePage(null)} />;
-  if (activePage === 'view-tenants')  return <ViewTenantsPage  onBack={() => setActivePage(null)} onAddTenant={() => setActivePage('tenant')} />;
-
-  const handleNavigate = (key: string) => {
-    if (key === 'trainer')       { setActivePage('trainer');       return; }
-    if (key === 'branch')        { setActivePage('branch');        return; }
-    if (key === 'tenant')        { setActivePage('tenant');        return; }
-    if (key === 'client')        { onNavigate?.('members');        return; }
-    if (key === 'view-branchs')  { setActivePage('view-branches'); return; }
-    if (key === 'view-trainers') { setActivePage('view-trainers'); return; }
-    if (key === 'view-tenants')  { setActivePage('view-tenants');  return; }
-    if (key === 'view-clients')  { onNavigate?.('members');        return; }
-    onNavigate?.(key);
+  // All destinations live in AdminDashboard's router — the hub only reports where to go.
+  const ROUTES: Record<string, string> = {
+    branch: 'add-branch',   'view-branchs':  'branches',
+    trainer: 'add-trainer', 'view-trainers': 'trainers',
+    tenant: 'add-tenant',   'view-tenants':  'tenants',
+    client: 'members',      'view-clients':  'members',
   };
+  const handleNavigate = (key: string) => onNavigate?.(ROUTES[key] ?? key);
 
   const visibleModules = activeFilter === 'All'
     ? MODULES
@@ -287,17 +255,11 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack }: 
 
   // Responsive font sizes
   const heroSize    = isDesktop ? 36 : isTablet ? 32 : 28;
-  const sectionSize = isDesktop ? 20 : isTablet ? 19 : 18;
   const bodySize    = isDesktop ? 15 : 14;
-  const btnSize     = 36; // icon button size (spec: 36×36)
+  const btnSize     = 40; // matches the shared BackButton
 
   return (
-    <View style={{
-      flex: 1, backgroundColor: BG,
-      paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0,
-    }}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
-
+    <Screen style={{ backgroundColor: BG }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
 
         {/* ── Hero header ── */}
@@ -305,24 +267,11 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack }: 
 
           {/* Top bar: back + bell */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: isTablet ? 32 : 24 }}>
-            {onBack ? (
-              <Pressable
-                onPress={onBack} hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="Go back"
-                style={{
-                  width: btnSize, height: btnSize, borderRadius: btnSize / 2,
-                  backgroundColor: SURFACE, borderWidth: 1, borderColor: '#242B24',
-                  alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                <Feather name="arrow-left" size={18} color={TEXT} />
-              </Pressable>
-            ) : <View style={{ width: btnSize }} />}
+            {onBack ? <BackButton onPress={onBack} /> : <View style={{ width: btnSize }} />}
 
-            <View style={{
+            <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden style={{
               width: btnSize, height: btnSize, borderRadius: btnSize / 2,
-              backgroundColor: SURFACE, borderWidth: 1, borderColor: '#242B24',
+              backgroundColor: SURFACE, borderWidth: 1, borderColor: T.line,
               alignItems: 'center', justifyContent: 'center',
             }}>
               <Feather name="bell" size={17} color={ICON_STROKE} />
@@ -348,7 +297,7 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack }: 
         <ScrollView
           horizontal showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: hPad, gap: 8, paddingBottom: 4 }}
-          style={{ marginBottom: isTablet ? 28 : 20 }}
+          style={{ marginBottom: isTablet ? 28 : 24 }}
         >
           {CATEGORIES.map((cat) => {
             const active = cat === activeFilter;
@@ -356,13 +305,16 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack }: 
               <Pressable
                 key={cat}
                 onPress={() => setActiveFilter(cat)}
+                accessibilityRole="button"
+                accessibilityLabel={`Show ${cat}`}
+                accessibilityState={{ selected: active }}
                 style={{
                   paddingHorizontal: isTablet ? 20 : 16,
-                  paddingVertical: isTablet ? 11 : 9,
+                  minHeight: 44, justifyContent: 'center',
                   borderRadius: 999,
                   backgroundColor: active ? ACCENT : SURFACE,
                   borderWidth: 1,
-                  borderColor: active ? ACCENT : '#242B24',
+                  borderColor: active ? ACCENT : T.line,
                   shadowColor: active ? ACCENT : 'transparent',
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: active ? 0.40 : 0,
@@ -388,7 +340,7 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack }: 
               style={{
                 flexDirection: 'row',
                 gap: cardGap,
-                marginBottom: 16,
+                marginBottom: 24,
               }}
             >
               {row.map((mod) => (
@@ -401,22 +353,17 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack }: 
                   onPressView={() => handleNavigate(`view-${mod.key}s`)}
                 />
               ))}
-              {/* Fill empty last cell on odd-count filtered results */}
-              {cols === 2 && row.length === 1 && (
-                <View style={{ width: cardW }} />
-              )}
+              {/* Fill empty cells on a short last row */}
+              {Array.from({ length: cols - row.length }, (_, k) => (
+                <View key={`fill-${k}`} style={{ width: cardW }} />
+              ))}
             </View>
           ))}
         </View>
 
         {/* ── Recent activity ── */}
-        <View style={{ paddingHorizontal: hPad, marginTop: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <Text style={{ color: TEXT, fontSize: sectionSize, fontWeight: '700', letterSpacing: -0.3 }}>
-              Recent Activity
-            </Text>
-            <Text style={{ color: ACCENT, fontSize: 12 * scale, fontWeight: '600' }}>See all</Text>
-          </View>
+        <View style={{ paddingHorizontal: hPad }}>
+          <SectionHeader title="Recent Activity" />
 
           {/* On tablet/desktop, lay activity rows side-by-side in a 2-col wrap */}
           <View style={{
@@ -427,19 +374,22 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack }: 
             {ACTIVITY.map((item, i) => (
               <Pressable
                 key={i}
+                onPress={() => onNavigate?.(item.to)}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.title}, ${item.sub}`}
                 style={({ pressed }) => ({
                   flexDirection: 'row', alignItems: 'center',
                   backgroundColor: pressed ? SURFACE_EL : SURFACE,
                   borderRadius: 18, padding: 14,
-                  borderWidth: 1, borderColor: pressed ? 'rgba(126,211,33,0.20)' : '#1C211C',
+                  borderWidth: 1, borderColor: pressed ? withAlpha(T.brand, 0.20) : T.bgInputActive,
                   // On tablet: each row takes ~half width minus gap
                   ...(isTablet && { flex: 1, minWidth: '45%' }),
                 })}
               >
                 <View style={{
                   width: 42, height: 42, borderRadius: 13,
-                  backgroundColor: 'rgba(126,211,33,0.10)',
-                  borderWidth: 1, borderColor: 'rgba(126,211,33,0.25)',
+                  backgroundColor: withAlpha(T.brand, 0.10),
+                  borderWidth: 1, borderColor: withAlpha(T.brand, 0.25),
                   alignItems: 'center', justifyContent: 'center',
                   marginRight: 12,
                 }}>
@@ -447,14 +397,14 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack }: 
                 </View>
 
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: TEXT, fontSize: 13 * scale, fontWeight: '600' }}>{item.title}</Text>
-                  <Text style={{ color: TEXT_SUB, fontSize: 11 * scale, marginTop: 3 }}>{item.sub}</Text>
+                  <Text numberOfLines={1} style={{ color: TEXT, fontSize: 13 * scale, fontWeight: '600' }}>{item.title}</Text>
+                  <Text numberOfLines={1} style={{ color: TEXT_SUB, fontSize: 11 * scale, marginTop: 3 }}>{item.sub}</Text>
                 </View>
 
                 <View style={{
                   width: 28, height: 28, borderRadius: 14,
-                  backgroundColor: '#2A2A2A',
-                  borderWidth: 1, borderColor: '#242B24',
+                  backgroundColor: T.line,
+                  borderWidth: 1, borderColor: T.line,
                   alignItems: 'center', justifyContent: 'center',
                 }}>
                   <Feather name="chevron-right" size={13} color={ICON_STROKE} />
@@ -465,6 +415,6 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack }: 
         </View>
 
       </ScrollView>
-    </View>
+    </Screen>
   );
 }

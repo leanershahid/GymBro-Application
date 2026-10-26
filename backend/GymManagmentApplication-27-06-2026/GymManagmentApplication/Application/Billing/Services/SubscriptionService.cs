@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Billing.Services;
 
-public class SubscriptionService(AppDbContext db) : ISubscriptionService
+public class SubscriptionService(AppDbContext db, ICurrentUser currentUser) : ISubscriptionService
 {
     private static int CycleToDays(BillingCycle? cycle) => cycle switch
     {
@@ -24,6 +24,7 @@ public class SubscriptionService(AppDbContext db) : ISubscriptionService
 
     public async Task<PagedResponse<SubscriptionResponse>> GetAllAsync(ulong tenantId, int page, int size)
     {
+        tenantId = currentUser.ResolveTenantId(tenantId);
         var query = db.GymMemberships.Include(m => m.Plan)
             .Where(m => m.TenantId == tenantId);
         var total = await query.CountAsync();
@@ -37,12 +38,20 @@ public class SubscriptionService(AppDbContext db) : ISubscriptionService
 
     public async Task<SubscriptionResponse> CreateAsync(CreateSubscriptionRequest request)
     {
-        var plan = await db.MembershipPlans.FindAsync(request.PlanId);
-        var days = CycleToDays(plan?.BillingCycle);
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
+        await db.EnsureUserAsync(request.MemberId, request.TenantId);
+        await db.EnsureMembershipPlanAsync(request.PlanId, request.TenantId);
+        await db.EnsureBranchAsync(request.BranchId, request.TenantId);
+
+        var plan = await db.MembershipPlans.IgnoreQueryFilters().FirstAsync(p => p.Id == request.PlanId);
+        var memberBranch = await db.Users.IgnoreQueryFilters()
+            .Where(u => u.Id == request.MemberId).Select(u => u.BranchId).FirstAsync();
+        var days = CycleToDays(plan.BillingCycle);
         var membership = new GymMembership
         {
             Id = await NextIdAsync(),
             TenantId = request.TenantId,
+            BranchId = request.BranchId is > 0 ? request.BranchId : plan.BranchId ?? memberBranch,
             UserId = request.MemberId,
             PlanId = request.PlanId,
             StartsAt = request.StartDate,
@@ -134,5 +143,5 @@ public class SubscriptionService(AppDbContext db) : ISubscriptionService
     };
 
     private async Task<ulong> NextIdAsync() =>
-        (await db.GymMemberships.MaxAsync(m => (ulong?)m.Id) ?? 0) + 1;
+        (await db.GymMemberships.IgnoreQueryFilters().MaxAsync(m => (ulong?)m.Id) ?? 0) + 1;
 }

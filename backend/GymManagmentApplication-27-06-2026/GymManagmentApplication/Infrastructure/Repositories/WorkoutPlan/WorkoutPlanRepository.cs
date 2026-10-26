@@ -29,7 +29,7 @@ public class WorkoutPlanRepository(AppDbContext db) : IWorkoutPlanRepository
 
     public async Task<Plan> CreateAsync(Plan plan)
     {
-        var maxId = await db.WorkoutPlans.MaxAsync(p => (ulong?)p.Id) ?? 0;
+        var maxId = await db.WorkoutPlans.IgnoreQueryFilters().MaxAsync(p => (ulong?)p.Id) ?? 0;
         plan.Id        = maxId + 1;
         plan.CreatedAt = DateTime.UtcNow;
         plan.UpdatedAt = DateTime.UtcNow;
@@ -65,7 +65,7 @@ public class WorkoutPlanRepository(AppDbContext db) : IWorkoutPlanRepository
 
     public async Task<WorkoutPlanBranch> CreateBranchAsync(WorkoutPlanBranch branch)
     {
-        var maxId = await db.WorkoutPlanBranches.MaxAsync(b => (ulong?)b.Id) ?? 0;
+        var maxId = await db.WorkoutPlanBranches.IgnoreQueryFilters().MaxAsync(b => (ulong?)b.Id) ?? 0;
         branch.Id = maxId + 1;
         db.WorkoutPlanBranches.Add(branch);
         await db.SaveChangesAsync();
@@ -74,7 +74,7 @@ public class WorkoutPlanRepository(AppDbContext db) : IWorkoutPlanRepository
 
     public async Task<WorkoutPlanAssignment> CreateAssignmentAsync(WorkoutPlanAssignment assignment)
     {
-        var maxId = await db.WorkoutPlanAssignments.MaxAsync(a => (ulong?)a.Id) ?? 0;
+        var maxId = await db.WorkoutPlanAssignments.IgnoreQueryFilters().MaxAsync(a => (ulong?)a.Id) ?? 0;
         assignment.Id        = maxId + 1;
         assignment.CreatedAt = DateTime.UtcNow;
         db.WorkoutPlanAssignments.Add(assignment);

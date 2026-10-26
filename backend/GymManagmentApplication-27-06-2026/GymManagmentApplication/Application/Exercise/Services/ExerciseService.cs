@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace GymManagmentApplication.Application.Exercise.Services;
 
-public class ExerciseService(IExerciseRepository repository) : IExerciseService
+public class ExerciseService(IExerciseRepository repository, ICurrentUser currentUser) : IExerciseService
 {
     public async Task<PagedResponse<ExerciseResponse>> GetAllAsync(ExerciseListRequest request)
     {
@@ -24,7 +24,10 @@ public class ExerciseService(IExerciseRepository repository) : IExerciseService
 
     public async Task<ExerciseResponse> CreateAsync(ulong userId, CreateExerciseRequest request)
     {
+        request.TenantId = currentUser.ResolveTenantId(request.TenantId);
         var slug = request.Name.ToLower().Replace(" ", "-");
+        if (await repository.SlugExistsAsync(request.TenantId, slug))
+            throw new ArgumentException($"An exercise named '{request.Name}' already exists in this gym.");
         var tags = request.Tags is not null
             ? JsonDocument.Parse(JsonSerializer.Serialize(request.Tags))
             : null;
@@ -61,10 +64,23 @@ public class ExerciseService(IExerciseRepository repository) : IExerciseService
         return e is null ? null : Map(e);
     }
 
+    /// <summary>
+    /// Shared library exercises (no gym) are platform content: only a super admin edits them.
+    /// Trainers may only change exercises they created; admins/staff any of their gym's.
+    /// </summary>
+    private void EnsureCanEdit(Domain.Entities.Training.Exercise e)
+    {
+        if (e.TenantId is null && !currentUser.IsSuperAdmin)
+            throw new UnauthorizedAccessException("Library exercises are shared by every gym and can't be changed here.");
+        if (currentUser.IsTrainer() && e.CreatedBy != currentUser.UserId)
+            throw new UnauthorizedAccessException("You can only edit exercises you created.");
+    }
+
     public async Task<ExerciseResponse?> UpdateAsync(ulong id, UpdateExerciseRequest request)
     {
         var e = await repository.GetByIdAsync(id);
         if (e is null) return null;
+        EnsureCanEdit(e);
         if (request.Name is not null) { e.Name = request.Name; e.Slug = request.Name.ToLower().Replace(" ", "-"); }
         if (request.Description is not null) e.Description = request.Description;
         if (request.Instructions is not null) e.Instructions = request.Instructions;
@@ -76,7 +92,13 @@ public class ExerciseService(IExerciseRepository repository) : IExerciseService
         return Map(e);
     }
 
-    public Task<bool> DeleteAsync(ulong id) => repository.DeleteAsync(id);
+    public async Task<bool> DeleteAsync(ulong id)
+    {
+        var e = await repository.GetByIdAsync(id);
+        if (e is null) return false;
+        EnsureCanEdit(e);
+        return await repository.DeleteAsync(id);
+    }
 
     public async Task<List<ExerciseResponse>> GetAlternativesAsync(ulong id)
     {
@@ -88,6 +110,7 @@ public class ExerciseService(IExerciseRepository repository) : IExerciseService
     {
         var e = await repository.GetByIdAsync(id);
         if (e is null) return string.Empty;
+        EnsureCanEdit(e);
         var url = $"/uploads/exercises/{id}/{video.FileName}";
         e.VideoUrl = url;
         await repository.UpdateAsync(e);
@@ -96,7 +119,8 @@ public class ExerciseService(IExerciseRepository repository) : IExerciseService
 
     public async Task<VideoAnnotationResponse> AnnotateVideoAsync(ulong id, AnnotateVideoRequest request)
     {
-        var e = await repository.GetByIdAsync(id);
+        var e = await repository.GetByIdAsync(id) ?? throw new KeyNotFoundException($"Exercise {id} not found.");
+        EnsureCanEdit(e);
         return new VideoAnnotationResponse
         {
             VideoUrl = e?.VideoUrl ?? string.Empty,

@@ -1,3 +1,4 @@
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Dashboard.Interfaces;
 using GymManagmentApplication.Application.Dashboard.Responses;
 using GymManagmentApplication.Domain.Enums;
@@ -6,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Dashboard.Services;
 
-public class DashboardService(AppDbContext db) : IDashboardService
+public class DashboardService(AppDbContext db, ICurrentUser currentUser) : IDashboardService
 {
     private const string ClientRoleSlug = "client";
 
@@ -35,6 +36,8 @@ public class DashboardService(AppDbContext db) : IDashboardService
         var activeBranches = await db.Branches.CountAsync(b => b.Status == BranchStatus.Active);
 
         var trainersOnline = await db.TrainerProfiles.CountAsync(t => t.IsAvailable);
+        var totalTrainers = await db.TrainerProfiles.CountAsync();
+        var totalTenants = currentUser.IsSuperAdmin ? await db.Tenants.CountAsync() : 1;
 
         var trendStart = startOfThisMonth.AddMonths(-6);
         var recentPayments = await completedPayments
@@ -95,7 +98,9 @@ public class DashboardService(AppDbContext db) : IDashboardService
                 ActiveBranches = activeBranches,
                 TotalBranches = totalBranches,
                 NewSignupsToday = newSignupsToday,
-                TrainersOnline = trainersOnline
+                TrainersOnline = trainersOnline,
+                TotalTrainers = totalTrainers,
+                TotalTenants = totalTenants
             },
             RevenueTrend = revenueTrend,
             Branches = branches,

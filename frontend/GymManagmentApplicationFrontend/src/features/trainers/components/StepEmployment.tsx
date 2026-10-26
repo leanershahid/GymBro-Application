@@ -18,7 +18,7 @@ export default function StepEmployment({ data, onChange }: Props) {
   const update = (f: object) => onChange({ employment: { ...emp, ...f } });
 
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+    <ScrollView className="flex-1 bg-bg" keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
       <Text className="text-[30px] font-extrabold text-white mb-[6px]" style={{ letterSpacing: -0.5 }}>Employment</Text>
       <Text className="text-[14px] font-normal text-sub mb-7" style={{ lineHeight: 20 }}>Role, department and contract dates</Text>
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop, Circle, Line } from 'react-native-svg';
 import { RevenueTrendPoint } from '../types/dashboard';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 
 interface AreaChartProps {
   data: RevenueTrendPoint[];
@@ -54,7 +54,7 @@ export default function AreaChart({ data, width, height = 88, yLabels, xLabels }
         {hasAxes && (
           <View style={{ width: yAxisWidth, height: chartHeight, justifyContent: 'space-between', paddingBottom: 4 }}>
             {yLabels!.map((l) => (
-              <Text key={l} style={{ color: T.textFaint, fontSize: 9.5 }}>{l}</Text>
+              <Text key={l} numberOfLines={1} style={{ color: T.textFaint, fontSize: 11 }}>{l}</Text>
             ))}
           </View>
         )}
@@ -81,7 +81,7 @@ export default function AreaChart({ data, width, height = 88, yLabels, xLabels }
       {hasAxes && (
         <View style={{ flexDirection: 'row', marginLeft: yAxisWidth, marginTop: 4, justifyContent: 'space-between' }}>
           {labels.map((l, i) => (
-            <Text key={i} style={{ color: T.textFaint, fontSize: 9.5 }}>{l}</Text>
+            <Text key={i} numberOfLines={1} style={{ color: T.textFaint, fontSize: 11 }}>{l}</Text>
           ))}
         </View>
       )}

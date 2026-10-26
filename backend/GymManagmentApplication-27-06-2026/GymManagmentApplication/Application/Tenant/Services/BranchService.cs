@@ -1,12 +1,15 @@
 using GymManagmentApplication.Application.Branch.Interfaces;
 using GymManagmentApplication.Application.Branch.Requests;
 using GymManagmentApplication.Application.Branch.Responses;
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Enums;
+using GymManagmentApplication.Infrastructure.Data;
 using GymManagmentApplication.Infrastructure.Repositories.Branch;
+using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Branch.Services;
 
-public class BranchService(IBranchRepository repository) : IBranchService
+public class BranchService(IBranchRepository repository, ICurrentUser currentUser, AppDbContext db) : IBranchService
 {
     public async Task<List<BranchResponse>> GetAllAsync()
         => (await repository.GetAllAsync()).Select(Map).ToList();
@@ -22,10 +25,22 @@ public class BranchService(IBranchRepository repository) : IBranchService
 
     public async Task<BranchResponse> CreateAsync(CreateBranchRequest request)
     {
+        // Tenant comes from the caller's token; only a super admin may create for another gym.
+        var tenantId = currentUser.ResolveTenantId(request.TenantId);
+        var parentId = request.ParentId == 0 ? null : request.ParentId;
+
+        if (!await db.Tenants.AnyAsync(t => t.Id == tenantId))
+            throw new ArgumentException($"Tenant {tenantId} does not exist.");
+        if (parentId is { } pid &&
+            !await db.Branches.IgnoreQueryFilters().AnyAsync(b => b.Id == pid && b.TenantId == tenantId))
+            throw new ArgumentException($"Parent branch {pid} does not belong to this gym.");
+        if (await db.Branches.IgnoreQueryFilters().AnyAsync(b => b.TenantId == tenantId && b.Code == request.Code))
+            throw new ArgumentException($"Branch code '{request.Code}' is already used in this gym.");
+
         var branch = new Domain.Entities.Core.Branch
         {
-            TenantId = request.TenantId,
-            ParentId = request.ParentId == 0 ? null : request.ParentId,
+            TenantId = tenantId,
+            ParentId = parentId,
             Name = request.Name,
             Code = request.Code,
             Status = BranchStatus.Active,
@@ -63,7 +78,39 @@ public class BranchService(IBranchRepository repository) : IBranchService
         return Map(branch);
     }
 
-    public Task<bool> DeleteAsync(ulong id) => repository.DeleteAsync(id);
+    /// <summary>
+    /// Deletes a branch only when nothing references it. Some branch FKs are NO ACTION
+    /// (users, trainers, leads, plans) and others CASCADE (classes, attendance, lockers…),
+    /// so a blind delete would either fail or silently wipe history. Deactivate instead.
+    /// </summary>
+    public async Task<bool> DeleteAsync(ulong id)
+    {
+        var branch = await repository.GetByIdAsync(id); // tenant-filtered
+        if (branch is null) return false;
+
+        var usage = new (string Label, int Count)[]
+        {
+            ("sub-branches",        await db.Branches.CountAsync(b => b.ParentId == id)),
+            ("users",               await db.Users.CountAsync(u => u.BranchId == id && u.DeletedAt == null)),
+            ("trainers",            await db.TrainerProfiles.CountAsync(t => t.BranchId == id)),
+            ("trainer assignments", await db.TrainerClientAssignments.CountAsync(a => a.BranchId == id)),
+            ("leads",               await db.Leads.CountAsync(l => l.BranchId == id)),
+            ("membership plans",    await db.MembershipPlans.CountAsync(p => p.BranchId == id)),
+            ("memberships",         await db.GymMemberships.CountAsync(m => m.BranchId == id)),
+            ("classes",             await db.GymClasses.CountAsync(c => c.BranchId == id)),
+            ("attendance records",  await db.Attendances.CountAsync(a => a.BranchId == id)),
+            ("lockers",             await db.Lockers.CountAsync(l => l.BranchId == id)),
+            ("access devices",      await db.AccessDevices.CountAsync(d => d.BranchId == id)),
+            ("equipment",           await db.FacilityEquipments.CountAsync(e => e.BranchId == id)),
+        }.Where(x => x.Count > 0).ToList();
+
+        if (usage.Count > 0)
+            throw new ArgumentException(
+                "Branch is still in use (" + string.Join(", ", usage.Select(u => $"{u.Count} {u.Label}")) +
+                "). Set its status to Inactive instead of deleting it.");
+
+        return await repository.DeleteAsync(id);
+    }
 
     private static BranchResponse Map(Domain.Entities.Core.Branch b) => new()
     {

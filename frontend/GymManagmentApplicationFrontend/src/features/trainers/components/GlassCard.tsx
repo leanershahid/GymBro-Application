@@ -15,7 +15,7 @@ export default function GlassCard({ children, style, neonBorder, elevated, varia
   const cls = {
     default: 'bg-surface border-line',
     raised:  'bg-elevated border-line',
-    brand:   'bg-[rgba(126,211,33,0.10)] border-[rgba(126,211,33,0.25)]',
+    brand:   'bg-brand/10 border-brand/25',
   }[v];
 
   return (

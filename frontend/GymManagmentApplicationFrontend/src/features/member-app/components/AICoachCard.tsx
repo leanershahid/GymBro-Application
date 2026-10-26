@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 
 interface AICoachCardProps {
   recoveryScore: number | null;
@@ -30,6 +30,9 @@ export default function AICoachCard({ recoveryScore, tip: tipOverride, onPress }
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="AI Coach"
+      accessibilityHint="Opens your training plan"
       style={{
         backgroundColor: T.bgInput, borderRadius: 20, padding: 16,
         borderWidth: 1, borderColor: T.line,
@@ -48,7 +51,7 @@ export default function AICoachCard({ recoveryScore, tip: tipOverride, onPress }
             AI Coach
           </Text>
           <View style={{ backgroundColor: T.brandDim, borderWidth: 1, borderColor: T.brandBorder, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-            <Text style={{ color: T.brand, fontSize: 9.5, fontWeight: '700' }}>LIVE</Text>
+            <Text style={{ color: T.brand, fontSize: 11, fontWeight: '700' }}>LIVE</Text>
           </View>
         </View>
       </View>

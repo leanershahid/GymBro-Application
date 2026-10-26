@@ -17,7 +17,6 @@ public class VerifyFaceValidator : AbstractValidator<VerifyFaceRequest>
     public VerifyFaceValidator()
     {
         RuleFor(x => x.FaceImageBase64).NotEmpty();
-        RuleFor(x => x.TenantId).GreaterThan(0ul);
     }
 }
 
@@ -35,6 +34,5 @@ public class VerifyFingerprintValidator : AbstractValidator<VerifyFingerprintReq
     public VerifyFingerprintValidator()
     {
         RuleFor(x => x.FingerprintData).NotEmpty();
-        RuleFor(x => x.TenantId).GreaterThan(0ul);
     }
 }

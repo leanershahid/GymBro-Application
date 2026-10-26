@@ -10,8 +10,11 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("plans")]
 [Route("api/plans")]
 [RequireModule("plans")]
+// Every endpoint needs a role (or a matrix grant for staff/custom roles); writes narrow it further.
+[AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
 public class WorkoutPlanController(
     IWorkoutPlanService service,
     IValidator<CreatePlanRequest> createValidator,

@@ -9,3 +9,7 @@ backend/GymManagmentApplication-27-06-2026/GymManagmentApplication/appsettings.D
 # OS cruft
 .DS_Store
 Thumbs.db
+
+# Dependencies / build output
+node_modules/
+.expo/

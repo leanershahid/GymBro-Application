@@ -214,6 +214,8 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("TenantId");
 
                     b.ToTable("AnalyticsDailys");
@@ -360,6 +362,8 @@ namespace GymManagmentApplication.Migrations
                         .HasColumnType("numeric(20,0)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("ScheduledTasks");
                 });
@@ -1219,7 +1223,8 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasIndex("ParentId");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
 
                     b.ToTable("Branches");
                 });
@@ -2384,7 +2389,8 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId", "Slug")
+                        .IsUnique();
 
                     b.ToTable("Roles");
                 });
@@ -2876,6 +2882,8 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId");
+
                     b.ToTable("FoodItems");
                 });
 
@@ -2979,6 +2987,8 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("TenantId");
 
                     b.ToTable("PosOrders");
@@ -3073,6 +3083,8 @@ namespace GymManagmentApplication.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
 
                     b.HasIndex("TenantId");
 
@@ -3200,6 +3212,8 @@ namespace GymManagmentApplication.Migrations
                         .HasColumnType("numeric(20,0)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("AuditLogs");
                 });
@@ -3520,9 +3534,15 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal>("TenantId")
                         .HasColumnType("numeric(20,0)");
 
+                    b.Property<decimal?>("UserId")
+                        .HasColumnType("numeric(20,0)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId");
+
+                    b.HasIndex("UserId", "StepKey")
+                        .IsUnique();
 
                     b.ToTable("OnboardingSteps");
                 });
@@ -3679,6 +3699,8 @@ namespace GymManagmentApplication.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("SearchIndexCaches");
                 });
@@ -4072,11 +4094,16 @@ namespace GymManagmentApplication.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<decimal>("TenantId")
+                        .HasColumnType("numeric(20,0)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClassId");
 
                     b.HasIndex("ClientId");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("ClassBookings");
                 });
@@ -4198,6 +4225,8 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId");
+
                     b.ToTable("Equipment");
                 });
 
@@ -4263,10 +4292,8 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasIndex("CreatorId");
 
-                    b.HasIndex("Slug")
+                    b.HasIndex("TenantId", "Slug")
                         .IsUnique();
-
-                    b.HasIndex("TenantId");
 
                     b.ToTable("Exercises");
                 });
@@ -4371,6 +4398,8 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("ClientId");
 
                     b.HasIndex("SessionTypeId");
@@ -4473,6 +4502,9 @@ namespace GymManagmentApplication.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<decimal>("TenantId")
+                        .HasColumnType("numeric(20,0)");
+
                     b.Property<decimal>("TrainerId")
                         .HasColumnType("numeric(20,0)");
 
@@ -4481,6 +4513,8 @@ namespace GymManagmentApplication.Migrations
                     b.HasIndex("BranchId");
 
                     b.HasIndex("ClientId");
+
+                    b.HasIndex("TenantId");
 
                     b.HasIndex("TrainerId");
 
@@ -4580,6 +4614,9 @@ namespace GymManagmentApplication.Migrations
                     b.Property<string>("Specializations")
                         .HasColumnType("jsonb");
 
+                    b.Property<decimal>("TenantId")
+                        .HasColumnType("numeric(20,0)");
+
                     b.Property<long>("TotalSessions")
                         .HasColumnType("bigint");
 
@@ -4595,6 +4632,8 @@ namespace GymManagmentApplication.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BranchId");
+
+                    b.HasIndex("TenantId");
 
                     b.HasIndex("UserId");
 
@@ -4860,13 +4899,20 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal?>("TemplateId")
                         .HasColumnType("numeric(20,0)");
 
+                    b.Property<decimal>("TenantId")
+                        .HasColumnType("numeric(20,0)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssignmentId");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("ClientId");
 
                     b.HasIndex("TemplateId");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("WorkoutLogs");
                 });
@@ -4988,6 +5034,9 @@ namespace GymManagmentApplication.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<decimal>("TenantId")
+                        .HasColumnType("numeric(20,0)");
+
                     b.Property<decimal?>("TrainerId")
                         .HasColumnType("numeric(20,0)");
 
@@ -4996,6 +5045,8 @@ namespace GymManagmentApplication.Migrations
                     b.HasIndex("ClientId");
 
                     b.HasIndex("PlanId");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("WorkoutPlanAssignments");
                 });
@@ -5265,6 +5316,11 @@ namespace GymManagmentApplication.Migrations
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Analytics.AnalyticsDaily", b =>
                 {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
                         .WithMany()
                         .HasForeignKey("TenantId")
@@ -5305,6 +5361,14 @@ namespace GymManagmentApplication.Migrations
                         .IsRequired();
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Automation.ScheduledTask", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Billing.Coupon", b =>
@@ -6230,6 +6294,14 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Nutrition.FoodItem", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Nutrition.NutritionLog", b =>
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Client")
@@ -6260,6 +6332,11 @@ namespace GymManagmentApplication.Migrations
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.POS.PosOrder", b =>
                 {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
                         .WithMany()
                         .HasForeignKey("TenantId")
@@ -6294,6 +6371,11 @@ namespace GymManagmentApplication.Migrations
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.POS.PosProduct", b =>
                 {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
                         .WithMany()
                         .HasForeignKey("TenantId")
@@ -6323,6 +6405,14 @@ namespace GymManagmentApplication.Migrations
                         .IsRequired();
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.AuditLog", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.ClientAssessment", b =>
@@ -6418,7 +6508,14 @@ namespace GymManagmentApplication.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.Navigation("Tenant");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.PricingRule", b =>
@@ -6449,6 +6546,15 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Reviewer");
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.SearchIndexCache", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.SocialPost", b =>
@@ -6652,9 +6758,17 @@ namespace GymManagmentApplication.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Class");
 
                     b.Navigation("Client");
+
+                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Scheduling.ClassType", b =>
@@ -6699,6 +6813,14 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Tenant");
 
                     b.Navigation("Trainer");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.Equipment", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.Exercise", b =>
@@ -6756,6 +6878,11 @@ namespace GymManagmentApplication.Migrations
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.PtSession", b =>
                 {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Client")
                         .WithMany()
                         .HasForeignKey("ClientId")
@@ -6833,6 +6960,12 @@ namespace GymManagmentApplication.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("GymManagmentApplication.Domain.Entities.Training.TrainerProfile", "Trainer")
                         .WithMany("ClientAssignments")
                         .HasForeignKey("TrainerId")
@@ -6843,6 +6976,8 @@ namespace GymManagmentApplication.Migrations
 
                     b.Navigation("Client");
 
+                    b.Navigation("Tenant");
+
                     b.Navigation("Trainer");
                 });
 
@@ -6852,11 +6987,19 @@ namespace GymManagmentApplication.Migrations
                         .WithMany()
                         .HasForeignKey("BranchId");
 
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId");
 
                     b.Navigation("Branch");
+
+                    b.Navigation("Tenant");
 
                     b.Navigation("User");
                 });
@@ -6958,6 +7101,11 @@ namespace GymManagmentApplication.Migrations
                         .WithMany("Logs")
                         .HasForeignKey("AssignmentId");
 
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Branch", null)
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Client")
                         .WithMany()
                         .HasForeignKey("ClientId")
@@ -6968,11 +7116,19 @@ namespace GymManagmentApplication.Migrations
                         .WithMany()
                         .HasForeignKey("TemplateId");
 
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Assignment");
 
                     b.Navigation("Client");
 
                     b.Navigation("Template");
+
+                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutLogSet", b =>
@@ -7027,9 +7183,17 @@ namespace GymManagmentApplication.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Client");
 
                     b.Navigation("Plan");
+
+                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutPlanBranch", b =>

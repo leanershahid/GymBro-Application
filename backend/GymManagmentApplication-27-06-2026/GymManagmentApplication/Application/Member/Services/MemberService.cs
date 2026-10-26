@@ -1,14 +1,14 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
+using GymManagmentApplication.Application.Auth;
 using GymManagmentApplication.Application.Auth.Interfaces;
-using GymManagmentApplication.Application.Auth.Requests;
+using GymManagmentApplication.Application.Auth.Services;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Member.Interfaces;
 using GymManagmentApplication.Application.Member.Requests;
 using GymManagmentApplication.Application.Member.Responses;
 using GymManagmentApplication.Application.Trainer.Interfaces;
 using GymManagmentApplication.Application.Trainer.Requests;
+using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Domain.Entities.Platform;
 using GymManagmentApplication.Domain.Enums;
@@ -19,12 +19,25 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Member.Services;
 
-public class MemberService(IMemberRepository repository, ITrainerService trainerService, IAuthService authService, AppDbContext db) : IMemberService
+public class MemberService(
+    IMemberRepository repository,
+    ITrainerService trainerService,
+    IAuthService authService,
+    ICurrentUser currentUser,
+    AppDbContext db) : IMemberService
 {
+    /// <summary>
+    /// Loads a member the caller may act on (see <see cref="MemberScope"/>): clients only
+    /// themselves, trainers only their assigned clients, super admin accounts only by a
+    /// super admin. Throws (→ 403) otherwise; null when not found in the caller's gym.
+    /// </summary>
+    private Task<User?> GetAccessibleAsync(ulong id) => db.GetActionableUserAsync(currentUser, id);
 
     public async Task<PagedResponse<MemberResponse>> GetAllAsync(MemberSearchRequest request)
     {
-        var (items, total) = await repository.GetAllAsync(request);
+        // Trainers list only the clients assigned to them.
+        var onlyAssignedTo = currentUser.IsTrainer() ? currentUser.UserId : null;
+        var (items, total) = await repository.GetAllAsync(request, onlyAssignedTo);
         return new PagedResponse<MemberResponse>
         {
             Items = items.Select(Map),
@@ -41,26 +54,23 @@ public class MemberService(IMemberRepository repository, ITrainerService trainer
             ? "Member"
             : char.ToUpper(request.FirstName[0]) + request.FirstName[1..].ToLower();
 
-        var defaultPassword = $"{firstName}@123";
+        // Random one-time password, returned once so staff can hand it over.
+        var defaultPassword = PasswordHasher.GenerateTemporary();
+        var tenantId = currentUser.ResolveTenantId(request.TenantId);
 
-        // Register through AuthService so the User row is created with a
-        // proper hashed password, resolved TenantId, and 'client' role.
-        var authResult = await authService.RegisterAsync(new RegisterRequest
-        {
-            Email     = request.Email,
-            Password  = defaultPassword,
-            FirstName = firstName,
-            LastName  = request.LastName ?? string.Empty,
-            TenantId  = request.TenantId
-        });
+        // Home branch: explicit, else the chosen trainer's branch.
+        var branchId = request.BranchId;
+        if (branchId is null && request.TrainerId is { } tid)
+            branchId = (await db.TrainerProfiles.FirstOrDefaultAsync(t => t.Id == tid))?.BranchId;
 
-        // authResult is null only when email already exists
-        if (authResult is null)
-            throw new InvalidOperationException($"Email '{request.Email}' is already registered.");
+        await using var tx = await db.Database.BeginTransactionAsync();
 
-        // Fetch the newly created User to fill remaining profile fields
-        var created = await repository.GetByEmailAsync(request.Email)
-                      ?? throw new InvalidOperationException("User was registered but could not be retrieved.");
+        // Creates the User in this tenant/branch with the tenant's own 'client' role
+        // (and checks the branch belongs to the tenant).
+        var created = await authService.CreateUserAsync(new NewUser(
+                tenantId, branchId, RoleNames.Client,
+                request.Email, defaultPassword, firstName, request.LastName ?? string.Empty))
+            ?? throw new ArgumentException($"Email '{request.Email}' is already registered.");
 
         // Patch profile fields that RegisterRequest doesn't cover
         if (request.Phone is not null)     created.Phone = request.Phone;
@@ -75,32 +85,41 @@ public class MemberService(IMemberRepository repository, ITrainerService trainer
         var response = Map(created);
         response.DefaultPassword = defaultPassword; // surface once so admin can share it
 
-        // Optionally assign to a trainer immediately
+        // Optionally assign to a trainer immediately (same tenant/branch checks apply)
         if (request.TrainerId.HasValue)
         {
             await trainerService.AssignClientAsync(request.TrainerId.Value, new AssignClientRequest
             {
                 ClientId = created.Id,
-                BranchId = request.BranchId ?? 0,
+                BranchId = branchId ?? 0,
                 Notes    = "Assigned during member creation"
             });
             response.TrainerId = request.TrainerId;
-            response.BranchId  = request.BranchId;
         }
 
+        await tx.CommitAsync();
         return response;
     }
 
     public async Task<MemberResponse?> GetByIdAsync(ulong id)
     {
-        var user = await repository.GetByIdAsync(id);
+        var user = await GetAccessibleAsync(id);
         return user is null ? null : Map(user);
     }
 
     public async Task<MemberResponse?> UpdateAsync(ulong id, UpdateMemberRequest request)
     {
-        var user = await repository.GetByIdAsync(id);
+        var user = await GetAccessibleAsync(id);
         if (user is null) return null;
+        if (request.BranchId is { } newBranch && newBranch != user.BranchId)
+        {
+            if (!currentUser.IsAdmin && !currentUser.IsDelegatedRole)
+                throw new UnauthorizedAccessException("Only an admin can move a member to another branch.");
+            if (!await db.Branches.AnyAsync(b => b.Id == newBranch && b.TenantId == user.TenantId))
+                throw new ArgumentException($"Branch {newBranch} does not belong to this gym.");
+            user.BranchId = newBranch;
+        }
+        if (request.Notes is not null && !currentUser.IsClient()) user.Notes = request.Notes;
         if (request.FirstName is not null) user.FirstName = request.FirstName;
         if (request.LastName is not null) user.LastName = request.LastName;
         if (request.Phone is not null) user.Phone = request.Phone;
@@ -111,7 +130,15 @@ public class MemberService(IMemberRepository repository, ITrainerService trainer
         return Map(user);
     }
 
-    public Task<bool> DeleteAsync(ulong id) => repository.SoftDeleteAsync(id);
+    public async Task<bool> DeleteAsync(ulong id)
+    {
+        if (await GetAccessibleAsync(id) is null) return false;
+        if (id == currentUser.UserId)
+            throw new ArgumentException("You cannot archive your own account.");
+        var deleted = await repository.SoftDeleteAsync(id);
+        if (deleted) AuthService.RevokeRefreshTokens(id); // signed-in sessions end at next request
+        return deleted;
+    }
 
     public async Task<List<MemberResponse>> BulkImportAsync(BulkImportMemberRequest request)
     {
@@ -123,7 +150,7 @@ public class MemberService(IMemberRepository repository, ITrainerService trainer
 
     public async Task<List<MemberTimelineResponse>> GetTimelineAsync(ulong id)
     {
-        var user = await repository.GetByIdAsync(id);
+        var user = await GetAccessibleAsync(id);
         if (user is null) return [];
         return
         [
@@ -133,7 +160,7 @@ public class MemberService(IMemberRepository repository, ITrainerService trainer
 
     public async Task<string> UploadPhotoAsync(ulong id, IFormFile photo)
     {
-        var user = await repository.GetByIdAsync(id);
+        var user = await GetAccessibleAsync(id);
         if (user is null) return string.Empty;
         var url = $"/uploads/members/{id}/{photo.FileName}";
         user.AvatarUrl = url;
@@ -143,8 +170,10 @@ public class MemberService(IMemberRepository repository, ITrainerService trainer
 
     public async Task<List<MemberNoteResponse>> GetNotesAsync(ulong id)
     {
+        var member = await GetAccessibleAsync(id);
+        if (member is null) return [];
         var notes = await db.AuditLogs
-            .Where(a => a.EntityType == "MemberNote" && a.EntityId == id)
+            .Where(a => a.EntityType == "MemberNote" && a.EntityId == id && a.TenantId == member.TenantId)
             .OrderByDescending(a => a.CreatedAt)
             .ToListAsync();
 
@@ -161,25 +190,27 @@ public class MemberService(IMemberRepository repository, ITrainerService trainer
 
     public async Task<MemberNoteResponse> AddNoteAsync(ulong id, AddMemberNoteRequest request)
     {
-        var maxId = await db.AuditLogs.MaxAsync(a => (ulong?)a.Id) ?? 0;
+        var member = await GetAccessibleAsync(id) ?? throw new KeyNotFoundException($"Member {id} not found.");
+        var authorId = currentUser.UserId ?? 0;
         var entry = new AuditLog
         {
-            Id = maxId + 1,
+            TenantId = member.TenantId,
             EntityType = "MemberNote",
             EntityId = id,
             Action = "create",
-            UserId = request.TrainerId,
+            UserId = authorId,
             NewValues = JsonDocument.Parse(JsonSerializer.Serialize(new { note = request.Note })),
             CreatedAt = DateTime.UtcNow
         };
         db.AuditLogs.Add(entry);
         await db.SaveChangesAsync();
 
-        return new MemberNoteResponse { Id = entry.Id, Note = request.Note, TrainerId = request.TrainerId, CreatedAt = entry.CreatedAt };
+        return new MemberNoteResponse { Id = entry.Id, Note = request.Note, TrainerId = authorId, CreatedAt = entry.CreatedAt };
     }
 
     public async Task<List<MemberDocumentResponse>> GetDocumentsAsync(ulong id)
     {
+        if (await GetAccessibleAsync(id) is null) return [];
         var docs = await db.MediaLibraries
             .Where(m => m.UploadedBy == id || (m.Tags != null && EF.Functions.Like(m.Tags.RootElement.ToString(), $"%memberId:{id}%")))
             .OrderByDescending(m => m.CreatedAt)
@@ -197,13 +228,12 @@ public class MemberService(IMemberRepository repository, ITrainerService trainer
 
     public async Task<MemberDocumentResponse> UploadDocumentAsync(ulong id, IFormFile file, string? documentType)
     {
-        var tenantId = (await db.Users.FindAsync(id))?.TenantId ?? 0;
-        var maxId = await db.MediaLibraries.MaxAsync(m => (ulong?)m.Id) ?? 0;
+        var member = await GetAccessibleAsync(id) ?? throw new KeyNotFoundException($"Member {id} not found.");
+        var tenantId = member.TenantId;
         var url = $"/uploads/members/{id}/docs/{file.FileName}";
 
         var media = new MediaLibrary
         {
-            Id = maxId + 1,
             TenantId = tenantId,
             UploadedBy = id,
             Name = file.FileName,
@@ -229,6 +259,7 @@ public class MemberService(IMemberRepository repository, ITrainerService trainer
 
     public async Task<List<string>> GetTagsAsync(ulong id)
     {
+        if (await GetAccessibleAsync(id) is null) return [];
         return await db.Taggables
             .Where(t => t.TaggableType == "User" && t.TaggableId == id)
             .Include(t => t.Tag)
@@ -238,13 +269,15 @@ public class MemberService(IMemberRepository repository, ITrainerService trainer
 
     public async Task<bool> AssignTagsAsync(ulong id, AssignTagsRequest request)
     {
+        var member = await GetAccessibleAsync(id) ?? throw new KeyNotFoundException($"Member {id} not found.");
+
         // Remove existing tags for this member
         var existing = await db.Taggables
             .Where(t => t.TaggableType == "User" && t.TaggableId == id)
             .ToListAsync();
         db.Taggables.RemoveRange(existing);
 
-        var tenantId = (await db.Users.FindAsync(id))?.TenantId ?? 0;
+        var tenantId = member.TenantId;
 
         foreach (var tagName in request.Tags)
         {
@@ -252,8 +285,7 @@ public class MemberService(IMemberRepository repository, ITrainerService trainer
             var tag = await db.Tags.FirstOrDefaultAsync(t => t.TenantId == tenantId && t.Name == tagName);
             if (tag is null)
             {
-                var maxTagId = await db.Tags.MaxAsync(t => (ulong?)t.Id) ?? 0;
-                tag = new Tag { Id = maxTagId + 1, TenantId = tenantId, Name = tagName };
+                tag = new Tag { TenantId = tenantId, Name = tagName };
                 db.Tags.Add(tag);
                 await db.SaveChangesAsync();
             }
@@ -268,6 +300,8 @@ public class MemberService(IMemberRepository repository, ITrainerService trainer
     {
         Id = u.Id,
         TenantId = u.TenantId,
+        BranchId = u.BranchId,
+        BranchName = u.Branch?.Name,
         Email = u.Email,
         FirstName = u.FirstName,
         LastName = u.LastName,

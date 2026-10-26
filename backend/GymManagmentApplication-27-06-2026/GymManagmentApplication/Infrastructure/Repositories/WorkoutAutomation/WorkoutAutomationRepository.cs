@@ -15,7 +15,7 @@ public class WorkoutAutomationRepository(AppDbContext db) : IWorkoutAutomationRe
 
     public async Task<WorkoutAutomationRule> CreateRuleAsync(WorkoutAutomationRule rule)
     {
-        var maxId = await db.WorkoutAutomationRules.MaxAsync(r => (ulong?)r.Id) ?? 0;
+        var maxId = await db.WorkoutAutomationRules.IgnoreQueryFilters().MaxAsync(r => (ulong?)r.Id) ?? 0;
         rule.Id        = maxId + 1;
         rule.CreatedAt = DateTime.UtcNow;
         rule.UpdatedAt = DateTime.UtcNow;
@@ -49,7 +49,7 @@ public class WorkoutAutomationRepository(AppDbContext db) : IWorkoutAutomationRe
 
     public async Task<WorkoutAutomationLog> CreateLogAsync(WorkoutAutomationLog log)
     {
-        var maxId = await db.WorkoutAutomationLogs.MaxAsync(l => (ulong?)l.Id) ?? 0;
+        var maxId = await db.WorkoutAutomationLogs.IgnoreQueryFilters().MaxAsync(l => (ulong?)l.Id) ?? 0;
         log.Id          = maxId + 1;
         log.ExecutedAt  = DateTime.UtcNow;
         db.WorkoutAutomationLogs.Add(log);
@@ -59,7 +59,9 @@ public class WorkoutAutomationRepository(AppDbContext db) : IWorkoutAutomationRe
 
     public async Task<(List<WorkoutAutomationLog> Items, int Total)> GetLogsAsync(AutomationLogListRequest request)
     {
-        var q = db.WorkoutAutomationLogs.AsQueryable();
+        // Logs have no TenantId; keep only those whose rule is visible (tenant-filtered).
+        var visibleRules = db.WorkoutAutomationRules.Select(r => r.Id);
+        var q = db.WorkoutAutomationLogs.Where(l => visibleRules.Contains(l.RuleId));
 
         if (request.RuleId.HasValue)
             q = q.Where(l => l.RuleId == request.RuleId.Value);

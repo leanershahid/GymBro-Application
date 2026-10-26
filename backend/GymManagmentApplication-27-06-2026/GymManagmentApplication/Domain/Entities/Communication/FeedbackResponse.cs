@@ -5,6 +5,8 @@ namespace GymManagmentApplication.Domain.Entities.Communication;
 public class FeedbackResponse
 {
     public ulong Id { get; set; }
+    /// <summary>Owning gym (nullable: rows written before this was mapped have none).</summary>
+    public ulong? TenantId { get; set; }
     public ulong SurveyId { get; set; }
     public ulong UserId { get; set; }
     public sbyte? Score { get; set; }

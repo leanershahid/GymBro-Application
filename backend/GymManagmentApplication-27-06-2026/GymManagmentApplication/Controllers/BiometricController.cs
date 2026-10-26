@@ -9,6 +9,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
+[PermissionModule("attendance")]
 [Route("api/biometric")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class BiometricController(
@@ -43,7 +44,7 @@ public class BiometricController(
     }
 
     [HttpGet("entry/logs")]
-    public async Task<ActionResult<ApiResponse<object>>> GetEntryLogs([FromQuery] ulong tenantId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+    public async Task<ActionResult<ApiResponse<object>>> GetEntryLogs([FromQuery] ulong tenantId = 0, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         => Ok(ApiResponse<object>.Ok(await service.GetEntryLogsAsync(tenantId, pageNumber, pageSize)));
 
     [HttpPost("fingerprint/enroll")]

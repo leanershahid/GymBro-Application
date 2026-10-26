@@ -5,6 +5,8 @@ namespace GymManagmentApplication.Domain.Entities.Health;
 
 public class ClientProfile : BaseEntity
 {
+    /// <summary>Owning gym (nullable: rows written before this was mapped have none).</summary>
+    public ulong? TenantId { get; set; }
     public ulong UserId { get; set; }
     public decimal? HeightCm { get; set; }
     public decimal? WeightKg { get; set; }

@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, StatusBar, Platform } from 'react-native';
-import { T } from '../../trainers/components/theme';
+import { View, Text, ScrollView } from 'react-native';
+import { T, R } from '../../../theme';
 import { useHealthToday } from '../api/memberAppQueries';
 import SummaryRing from '../components/SummaryRing';
 import MetricBar from '../components/MetricBar';
 import StatChip from '../components/StatChip';
 import StreakCard from '../components/StreakCard';
+import Screen from '../../common/components/Screen';
 
 interface Props { userId: number; }
 
@@ -22,8 +23,7 @@ export default function StatsScreen({ userId }: Props) {
     : 0;
 
   return (
-    <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
 
       <View className="px-5 pt-5 pb-3">
         <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 2 }}>Today</Text>
@@ -31,7 +31,7 @@ export default function StatsScreen({ userId }: Props) {
       </View>
 
       <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
-        <View style={{ alignItems: 'center', backgroundColor: T.bgInput, borderRadius: 22, padding: 20, borderWidth: 1, borderColor: T.line, marginBottom: 20 }}>
+        <View style={{ alignItems: 'center', backgroundColor: T.bgInput, borderRadius: R.xl, padding: 20, borderWidth: 1, borderColor: T.line, marginBottom: 20 }}>
           <SummaryRing pct={overallPct} size={140} strokeWidth={14} sublabel="Daily" />
         </View>
 
@@ -50,6 +50,6 @@ export default function StatsScreen({ userId }: Props) {
 
         <StreakCard days={health?.streakDays ?? 0} />
       </ScrollView>
-    </View>
+    </Screen>
   );
 }

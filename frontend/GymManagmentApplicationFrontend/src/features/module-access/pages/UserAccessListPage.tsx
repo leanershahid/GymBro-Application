@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, StatusBar, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T } from '../../trainers/components/theme';
+import { T } from '../../../theme';
 import { useTrainers } from '../../trainers/api/trainerQueries';
 import { useMembers } from '../../members/api/memberQueries';
-import BackButton from '../../common/components/BackButton';
+import Screen from '../../common/components/Screen';
+import ScreenHeader from '../../common/components/ScreenHeader';
+import SegmentedTabs from '../../common/components/SegmentedTabs';
+import SearchBar from '../../common/components/SearchBar';
+import LoadingState from '../../common/components/LoadingState';
+import EmptyState from '../../dashboard/components/EmptyState';
 import ManageUserAccessPage from './ManageUserAccessPage';
 
 interface Props { onBack?: () => void; }
@@ -42,58 +47,24 @@ export default function UserAccessListPage({ onBack }: Props) {
   const isLoading = tab === 'trainers' ? trainersLoading : membersLoading;
 
   return (
-    <View className="flex-1 bg-bg" style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+    <Screen>
+      <ScreenHeader eyebrow="Access control" title="Feature Access" onBack={onBack} />
 
-      <View className="px-5 pt-5 pb-4">
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-          {onBack && <BackButton onPress={onBack} />}
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 2 }}>
-              Access control
-            </Text>
-            <Text style={{ color: T.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.5 }}>Feature Access</Text>
-          </View>
-        </View>
-
-        {/* Tab switcher */}
-        <View style={{ flexDirection: 'row', backgroundColor: T.bgInput, borderRadius: 14, padding: 4, marginBottom: 14 }}>
-          {(['trainers', 'clients'] as Tab[]).map(t => {
-            const active = tab === t;
-            return (
-              <Pressable
-                key={t}
-                onPress={() => setTab(t)}
-                style={{ flex: 1, paddingVertical: 10, borderRadius: 11, alignItems: 'center', backgroundColor: active ? T.brand : 'transparent' }}
-              >
-                <Text style={{ color: active ? T.onBrand : T.textSub, fontSize: 13, fontWeight: '700', textTransform: 'capitalize' }}>{t}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* Search */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: T.bgInput, borderRadius: 14, paddingHorizontal: 14, height: 44, borderWidth: 1, borderColor: T.line }}>
-          <Feather name="search" size={15} color={T.textFaint} style={{ marginRight: 8 }} />
-          <TextInput
-            style={{ flex: 1, color: T.text, fontSize: 14 }}
-            placeholder={`Search ${tab}…`}
-            placeholderTextColor={T.textFaint}
-            value={search}
-            onChangeText={setSearch}
-            autoCapitalize="none"
-          />
-        </View>
+      <View className="px-5 pb-4">
+        <SegmentedTabs<Tab>
+          tabs={[{ key: 'trainers', label: 'Trainers' }, { key: 'clients', label: 'Clients' }]}
+          value={tab}
+          onChange={setTab}
+          style={{ marginBottom: 14 }}
+        />
+        <SearchBar value={search} onChangeText={setSearch} placeholder={'Search ' + tab + '…'} />
       </View>
 
       <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
         {isLoading ? (
-          <ActivityIndicator size="large" color={T.brand} style={{ marginTop: 40 }} />
+          <LoadingState label={'Loading ' + tab} />
         ) : rows.length === 0 ? (
-          <View style={{ alignItems: 'center', paddingTop: 60 }}>
-            <Feather name="users" size={28} color={T.textFaint} />
-            <Text style={{ color: T.textSub, fontSize: 14, marginTop: 12 }}>No {tab} found</Text>
-          </View>
+          <EmptyState icon="users" title={'No ' + tab + ' found'} />
         ) : (
           rows.map(row => (
             <Pressable
@@ -116,6 +87,6 @@ export default function UserAccessListPage({ onBack }: Props) {
           ))
         )}
       </ScrollView>
-    </View>
+    </Screen>
   );
 }

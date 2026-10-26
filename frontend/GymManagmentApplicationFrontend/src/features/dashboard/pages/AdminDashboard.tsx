@@ -1,11 +1,14 @@
 import React, { useCallback, useState } from 'react';
 import {
   View, Text, ScrollView, RefreshControl,
-  ActivityIndicator, FlatList, Pressable, StatusBar, Platform,
+  FlatList, Pressable,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { T } from '../../trainers/components/theme';
+import { T, SP } from '../../../theme';
+import { useLayout } from '../../../utils/useLayout';
+import ScreenRoot             from '../../common/components/Screen';
+import LoadingState           from '../../common/components/LoadingState';
+import BottomTabBar           from '../../common/components/BottomTabBar';
 
 import DashboardBanner        from '../components/DashboardBanner';
 import MonthlyInsightCard     from '../components/MonthlyInsightCard';
@@ -19,7 +22,8 @@ import { useDashboardStats }  from '../hooks/useDashboardStats';
 import AdminModuleDevelopmentDashboard from './AdminModuleDevelopmentDashboard';
 import MoreActionsPage        from './MoreActionsPage';
 import StatsStrip, { StatStripItem }   from '../../common/StatsStrip';
-import { ADMIN_ACTIONS } from '../adminActions';
+import { useVisibleAdminActions } from '../adminActions';
+import { getSession, isAdminRole, isSuperAdmin } from '../../../api/session';
 
 // ─── Feature pages ────────────────────────────────────────────────
 import ViewMembersPage   from '../../members/pages/ViewMembersPage';
@@ -60,11 +64,11 @@ type Screen =
   | 'ai-coach-admin'
   | 'more-actions';
 
-const DASHBOARD_STATS: StatStripItem[] = [
-  { icon: 'map-pin',   label: 'Branches', value: '5',     accent: '#7ED321' },
-  { icon: 'award',     label: 'Trainers', value: '18',    accent: '#7ED321' },
-  { icon: 'briefcase', label: 'Tenants',  value: '3',     accent: '#7ED321' },
-  { icon: 'users',     label: 'Members',  value: '1,284', accent: '#7ED321' },
+const dashboardStats = (s: { totalBranches: number; totalTrainers: number; totalTenants: number; totalMembers: number }): StatStripItem[] => [
+  { icon: 'map-pin',   label: 'Branches', value: s.totalBranches.toLocaleString('en-IN'), accent: T.brand },
+  { icon: 'award',     label: 'Trainers', value: s.totalTrainers.toLocaleString('en-IN'), accent: T.brand },
+  { icon: 'briefcase', label: 'Tenants',  value: s.totalTenants.toLocaleString('en-IN'),  accent: T.brand },
+  { icon: 'users',     label: 'Members',  value: s.totalMembers.toLocaleString('en-IN'),  accent: T.brand },
 ];
 
 // Labels match the reference (Dashboard/Members/+/Activity/More); destinations are
@@ -79,12 +83,17 @@ const NAV_ITEMS: { icon: FeatherIconName; label: string; key: string }[] = [
   { icon: 'grid',       label: 'More',      key: 'more'    },
 ];
 
-interface AdminDashboardProps { adminName?: string; }
+interface AdminDashboardProps { adminName?: string; onLogout?: () => void; }
 
-export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardProps) {
+export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminDashboardProps) {
   const { data, loading, refreshing, error, refresh } = useDashboardStats();
+  const actions = useVisibleAdminActions();
+  const role = getSession()?.role;
+  const roleLabel = isSuperAdmin(role) ? 'Super Admin' : isAdminRole(role) ? 'Administrator' : 'Staff';
   const [screen, setScreen] = useState<Screen>('home');
   const [activeTab, setActiveTab] = useState('home');
+  const { tileW, tileCols } = useLayout();
+  const quickTileW = tileW(tileCols, 10);
 
   const go = useCallback((s: Screen) => setScreen(s), []);
   const goHome = useCallback(() => { setScreen('home'); setActiveTab('home'); }, []);
@@ -99,7 +108,7 @@ export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardPr
   }, []);
 
   // ── Sub-page routing ──────────────────────────────────────────
-  if (screen === 'module-hub')  return <AdminModuleDevelopmentDashboard onBack={goHome} onNavigate={(k) => go(k as Screen)} />;
+  if (screen === 'module-hub')  return <AdminModuleDevelopmentDashboard onBack={goHome} onNavigate={(k) => go(k as Screen)} stats={data?.stats} />;
   if (screen === 'members')     return <ViewMembersPage   onBack={goHome} onAddMember={() => go('add-member')} />;
   if (screen === 'add-member')  return <AddMemberPage     onBack={() => go('members')} />;
   if (screen === 'trainers')    return <ViewTrainersPage  onBack={goHome} onAddTrainer={() => go('add-trainer')} />;
@@ -118,23 +127,21 @@ export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardPr
   if (screen === 'stats-admin')        return <StatsAdminPage        onBack={goHome} />;
   if (screen === 'live-coaching-admin') return <LiveCoachingAdminPage onBack={goHome} />;
   if (screen === 'ai-coach-admin')     return <AiCoachSettingsPage   onBack={goHome} />;
-  if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} />;
+  if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} onLogout={onLogout} />;
 
   // ── Loading / Error states ─────────────────────────────────────
-  if (loading && !data) return (
-    <View style={{ flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center' }}>
-      <ActivityIndicator size="large" color={T.brand} />
-    </View>
-  );
+  if (loading && !data) return <LoadingState fullScreen label="Loading dashboard" />;
 
   if (error && !data) return (
-    <View style={{ flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
-      <Text style={{ color: T.text, fontSize: 16, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>Something went wrong</Text>
-      <Text style={{ color: T.textSub, fontSize: 14, textAlign: 'center', marginBottom: 24 }}>{error}</Text>
-      <Pressable onPress={refresh} style={{ backgroundColor: T.brand, borderRadius: 999, paddingHorizontal: 28, paddingVertical: 14 }}>
-        <Text style={{ color: T.onBrand, fontSize: 16, fontWeight: '700' }}>Try again</Text>
-      </Pressable>
-    </View>
+    <ScreenRoot style={{ justifyContent: 'center' }}>
+      <EmptyState
+        icon="alert-triangle"
+        tone="error"
+        title="Something went wrong"
+        subtitle={error}
+        action={{ label: 'Try again', onPress: refresh }}
+      />
+    </ScreenRoot>
   );
 
   if (!data) return null;
@@ -142,19 +149,18 @@ export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardPr
   const { stats, revenueTrend, branches, recentMembers } = data;
 
   return (
-    <View style={{ flex: 1, backgroundColor: T.bg, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
-
+    <ScreenRoot>
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: SP.xl, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={T.brand} colors={[T.brand]} />}
       >
         {/* Header */}
-        <View style={{ paddingTop: 16, marginBottom: 20 }}>
+        <View style={{ paddingTop: 16, marginBottom: 24 }}>
           <DashboardBanner
             adminName={adminName}
-            roleLabel="Administrator"
+            roleLabel={roleLabel}
             hasUnreadNotifications
             onPressNotifications={() => {}}
             onPressAvatar={() => {}}
@@ -162,7 +168,7 @@ export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardPr
         </View>
 
         {/* Monthly insight (replaces the old plain headline text) */}
-        <View style={{ marginBottom: 20 }}>
+        <View style={{ marginBottom: 24 }}>
           <MonthlyInsightCard
             growthPct={stats.revenueGrowthPct}
             activeBranches={stats.activeBranches}
@@ -172,7 +178,7 @@ export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardPr
 
         {/* Stats strip — borderless inline row, per the reference */}
         <View style={{ marginBottom: 24 }}>
-          <StatsStrip items={DASHBOARD_STATS} bare />
+          <StatsStrip items={dashboardStats(stats)} bare />
         </View>
 
         {/* Revenue */}
@@ -194,10 +200,11 @@ export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardPr
         <View style={{ marginBottom: 28 }}>
           <SectionHeader title="Quick access" />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            {ADMIN_ACTIONS.map(q => (
+            {actions.map(q => (
               <Pressable key={q.screen} onPress={() => go(q.screen as Screen)}
+                accessibilityRole="button" accessibilityLabel={q.label}
                 style={({ pressed }) => ({
-                  flexGrow: 1, flexBasis: '22%', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 14,
+                  width: quickTileW, alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 14,
                   backgroundColor: pressed ? T.brandDim : T.bgInput,
                   borderRadius: 18, borderWidth: 1,
                   borderColor: pressed ? T.brandBorder : T.line,
@@ -226,7 +233,7 @@ export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardPr
         </View>
 
         {/* Recent sign-ups */}
-        <View style={{ marginBottom: 12 }}>
+        <View style={{ marginBottom: 24 }}>
           <SectionHeader title="Recent sign-ups" onPressAction={() => go('members')} />
           {recentMembers.length === 0 ? (
             <EmptyState icon="user-plus" title="No sign-ups yet" subtitle="New members will show up here as they join." />
@@ -238,45 +245,8 @@ export default function AdminDashboard({ adminName = 'Admin' }: AdminDashboardPr
         </View>
       </ScrollView>
 
-      {/* ── Bottom nav ── */}
-      <View style={{
-        position: 'absolute', bottom: Platform.OS === 'ios' ? 32 : 20,
-        left: 24, right: 24,
-        backgroundColor: 'rgba(10,30,15,0.92)',
-        borderRadius: 36, borderWidth: 1, borderColor: 'rgba(34,197,94,0.25)',
-        flexDirection: 'row', alignItems: 'center',
-        paddingVertical: 10, paddingHorizontal: 8,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.55, shadowRadius: 24, elevation: 18,
-      }}>
-        {NAV_ITEMS.map((item) => {
-          const isActive = activeTab === item.key;
-          const isHub    = item.key === 'hub';
-          return (
-            <Pressable key={item.key} onPress={() => handleTab(item.key)} hitSlop={8}
-              style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
-              accessibilityRole="button" accessibilityLabel={item.label}>
-              {isHub ? (
-                <LinearGradient
-                  colors={T.brandGradient}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', shadowColor: T.brand, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 8 }}
-                >
-                  <Feather name="plus" size={22} color={T.onBrand} />
-                </LinearGradient>
-              ) : (
-                <View style={{ alignItems: 'center', justifyContent: 'center', height: 44 }}>
-                  <View style={{ width: 44, height: 36, borderRadius: 18, backgroundColor: isActive ? T.brandDim : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-                    <Feather name={item.icon} size={21} color={isActive ? T.brand : T.textSub} />
-                  </View>
-                  {/* Active indicator dot */}
-                  {isActive && <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: T.brand, marginTop: 2 }} />}
-                </View>
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
+      {/* ── Bottom nav — shared tab bar (same style as the member/trainer apps) ── */}
+      <BottomTabBar tabs={NAV_ITEMS} active={activeTab} onChange={handleTab} />
+    </ScreenRoot>
   );
 }

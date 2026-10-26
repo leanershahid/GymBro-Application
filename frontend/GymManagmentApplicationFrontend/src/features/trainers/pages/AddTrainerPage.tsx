@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TouchableOpacity,
-  Alert, ActivityIndicator, StatusBar, Platform, ScrollView,
-} from 'react-native';
+import { Alert } from 'react-native';
+import WizardScaffold from '../../common/components/WizardScaffold';
 import { useCreateTrainer } from '../api/trainerQueries';
 import { defaultTrainerValues } from '../hooks/useTrainerDefaults';
 import { TrainerPayload } from '../types/trainer.types';
@@ -14,8 +12,7 @@ import StepAvailability from '../components/StepAvailability';
 import StepBookingCommission from '../components/StepBookingCommission';
 import StepCertDocuments from '../components/StepCertDocuments';
 import StepMiscellaneous from '../components/StepMiscellaneous';
-import BranchDropdown from '../../branches/components/BranchDropdown';
-import { Branch } from '../../branches/types/branch.types';import { T } from '../components/theme';
+import { Branch } from '../../branches/types/branch.types';
 import { isValidEmail } from '../../../utils/validation';
 
 // ─── Steps ────────────────────────────────────────────────────────
@@ -76,8 +73,7 @@ export default function AddTrainerPage({ onBack }: AddTrainerPageProps) {
   const [branchError, setBranchError] = useState('');
   const { mutate, isPending }     = useCreateTrainer();
 
-  // selected branch id (= tenantId)
-  const selectedBranchId: number | null = formData.tenantId || null;
+  const selectedBranchId: number | null = formData.branchId || null;
 
   const updateForm = (fields: Partial<TrainerPayload>) => {
     setFormData((prev) => ({ ...prev, ...fields }));
@@ -88,7 +84,7 @@ export default function AddTrainerPage({ onBack }: AddTrainerPageProps) {
   };
 
   const handleBranchSelect = (branch: Branch) => {
-    setFormData((prev) => ({ ...prev, tenantId: branch.tenantId }));
+    setFormData((prev) => ({ ...prev, branchId: branch.id }));
     setBranchError('');
   };
 
@@ -115,7 +111,14 @@ export default function AddTrainerPage({ onBack }: AddTrainerPageProps) {
       return;
     }
     mutate(formData, {
-      onSuccess: (res) => Alert.alert(res.success ? 'Success' : 'Error', res.message ?? 'Something went wrong.'),
+      onSuccess: (res) => {
+        const pwd = (res.data as { temporaryPassword?: string } | undefined)?.temporaryPassword;
+        Alert.alert(
+          res.success ? 'Success' : 'Error',
+          (res.message ?? 'Something went wrong.') +
+            (res.success && pwd ? `\n\nTemporary password: ${pwd}\nShare it with the trainer — it is shown only once.` : ''),
+        );
+      },
       onError:   ()    => Alert.alert('Error', 'Failed to connect to server.'),
     });
   };
@@ -142,71 +145,17 @@ export default function AddTrainerPage({ onBack }: AddTrainerPageProps) {
   ];
 
   return (
-    <View
-      className="flex-1 bg-bg"
-      style={{ paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0 }}
+    <WizardScaffold
+      title="Add Trainer"
+      steps={STEPS}
+      step={step}
+      onBack={onBack}
+      onPrev={() => setStep((p) => p - 1)}
+      onNext={isLast ? handleSubmit : handleNext}
+      nextLabel={isLast ? 'Submit' : 'Continue'}
+      loading={isPending}
     >
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
-
-      {/* ── Top nav bar ─────────────────────────────────────── */}
-      <View className="flex-row items-center px-5 pt-4 pb-2 bg-bg">
-        <TouchableOpacity
-          className="w-9 h-9 rounded-full bg-input items-center justify-center"
-          onPress={step > 0 ? () => setStep((p) => p - 1) : onBack}
-          activeOpacity={0.7}
-          style={{ opacity: step === 0 && !onBack ? 0 : 1 }}
-        >
-          <Text className="text-[18px] text-white" style={{ lineHeight: 22 }}>←</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* ── Step content ────────────────────────────────────── */}
-      <View className="flex-1">{stepViews[step]}</View>
-
-      {/* ── Bottom area ─────────────────────────────────────── */}
-      <View
-        className="px-5 pt-3 bg-bg border-t border-line"
-        style={{ paddingBottom: Platform.OS === 'ios' ? 32 : 20 }}
-      >
-        {/* Progress bar */}
-        <View className="flex-row gap-1 mb-4">
-          {STEPS.map((_, i) => (
-            <View
-              key={i}
-              className="flex-1 h-[3px] rounded-sm"
-              style={{ backgroundColor: i <= step ? T.brand : T.line }}
-            />
-          ))}
-        </View>
-
-        {/* Buttons */}
-        <View className="flex-row gap-3">
-          {step > 0 && (
-            <TouchableOpacity
-              className="flex-1 py-[17px] rounded-full border-[1.5px] border-line items-center justify-center"
-              onPress={() => setStep((p) => p - 1)}
-              activeOpacity={0.7}
-            >
-              <Text className="text-[16px] font-semibold text-white">Previous</Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            className={`flex-1 py-[17px] rounded-full bg-brand items-center justify-center ${isPending ? 'opacity-60' : ''}`}
-            onPress={isLast ? handleSubmit : handleNext}
-            disabled={isPending}
-            activeOpacity={0.85}
-          >
-            {isPending ? (
-              <ActivityIndicator color={T.onBrand} />
-            ) : (
-              <Text className="text-[16px] font-bold text-black">
-                {isLast ? 'Submit' : 'Continue'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
+      {stepViews[step]}
+    </WizardScaffold>
   );
 }
