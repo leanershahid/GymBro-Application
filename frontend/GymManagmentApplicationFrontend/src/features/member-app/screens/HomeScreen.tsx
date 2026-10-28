@@ -12,6 +12,7 @@ import EmptyState from '../../dashboard/components/EmptyState';
 import Screen from '../../common/components/Screen';
 import Skeleton from '../../common/components/Skeleton';
 import PhotoHero from '../../common/components/dashboard/PhotoHero';
+import CheckInCard from '../../attendance/components/CheckInCard';
 import ActionList, { ActionItem } from '../../common/components/dashboard/ActionList';
 import HomeGreeting from '../components/HomeGreeting';
 import ActivityRingsCard from '../components/ActivityRingsCard';
@@ -167,6 +168,9 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
           streakDays={canStats && health ? health.streakDays : null}
           onOpenProfile={() => onNavigate('profile')}
         />
+
+        {/* Location check-in (only when the gym has it switched on at a branch) */}
+        <View style={{ marginTop: SP.xl }}><CheckInCard /></View>
 
         {/* 2 · Today's workout hero */}
         <View style={{ marginTop: SP.xl }}>{hero}</View>

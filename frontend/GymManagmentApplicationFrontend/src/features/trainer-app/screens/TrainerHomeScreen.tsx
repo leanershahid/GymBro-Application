@@ -11,6 +11,7 @@ import LoadingState from '../../common/components/LoadingState';
 import EmptyState from '../../dashboard/components/EmptyState';
 import SectionHeader from '../../dashboard/components/Sectionheader';
 import PhotoHero from '../../common/components/dashboard/PhotoHero';
+import CheckInCard from '../../attendance/components/CheckInCard';
 import KpiTile from '../../common/components/dashboard/KpiTile';
 import ActionList, { ActionItem } from '../../common/components/dashboard/ActionList';
 import TrainerHomeHeader from '../components/TrainerHomeHeader';
@@ -153,6 +154,9 @@ export default function TrainerHomeScreen({ trainerId, onNavigate }: Props) {
           firstName={firstName}
           branchName={profile?.branchName}
         />
+
+        {/* Location check-in (only when the gym has it switched on at a branch) */}
+        <View style={{ marginTop: SP.xl }}><CheckInCard /></View>
 
         {/* 2 ── Photo hero: the month's number */}
         <View style={{ marginTop: SP.xl }}>

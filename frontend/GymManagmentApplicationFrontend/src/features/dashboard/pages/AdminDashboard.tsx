@@ -44,6 +44,8 @@ import ChallengesAdminPage    from '../../challenges/pages/ChallengesAdminPage';
 import StatsAdminPage         from '../../health/pages/StatsAdminPage';
 import LiveCoachingAdminPage  from '../../trainers/pages/LiveCoachingAdminPage';
 import AiCoachSettingsPage    from '../../ai-coach/pages/AiCoachSettingsPage';
+import AttendanceSettingsPage from '../../attendance/pages/AttendanceSettingsPage';
+import AttendanceLogPage      from '../../attendance/pages/AttendanceLogPage';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 type Screen =
@@ -62,6 +64,8 @@ type Screen =
   | 'stats-admin'
   | 'live-coaching-admin'
   | 'ai-coach-admin'
+  | 'attendance'
+  | 'attendance-log'
   | 'more-actions';
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -163,6 +167,8 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
     if (screen === 'stats-admin')        return <StatsAdminPage        onBack={goHome} />;
     if (screen === 'live-coaching-admin') return <LiveCoachingAdminPage onBack={goHome} />;
     if (screen === 'ai-coach-admin')     return <AiCoachSettingsPage   onBack={goHome} />;
+    if (screen === 'attendance')         return <AttendanceSettingsPage onBack={goHome} onOpenLog={() => go('attendance-log')} />;
+    if (screen === 'attendance-log')     return <AttendanceLogPage     onBack={() => go('attendance')} />;
     if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} onLogout={onLogout} />;
     return null;
   })();

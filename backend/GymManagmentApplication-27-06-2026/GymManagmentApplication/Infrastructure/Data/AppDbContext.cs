@@ -393,6 +393,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CommunicationLog>().Property(e => e.Cost).HasPrecision(18, 6);
         modelBuilder.Entity<Branch>().Property(e => e.Lat).HasPrecision(10, 7);
         modelBuilder.Entity<Branch>().Property(e => e.Lng).HasPrecision(10, 7);
+        modelBuilder.Entity<Attendance>().Property(e => e.CheckInLat).HasPrecision(10, 7);
+        modelBuilder.Entity<Attendance>().Property(e => e.CheckInLng).HasPrecision(10, 7);
+        modelBuilder.Entity<Attendance>().HasIndex(a => new { a.UserId, a.CheckInAt });
         modelBuilder.Entity<AccessEvent>().Property(e => e.Confidence).HasPrecision(10, 4);
         modelBuilder.Entity<EquipmentMaintenanceLog>().Property(e => e.Cost).HasPrecision(18, 2);
         modelBuilder.Entity<Challenge>().Property(e => e.TargetValue).HasPrecision(18, 4);

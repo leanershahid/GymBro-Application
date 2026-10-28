@@ -9,6 +9,12 @@ export const queryKeys = {
     adminList: ['challenges-admin'] as const,
   },
   aiCoach:    { settings: ['ai-coach-settings'] as const },
+  attendance: {
+    settings: ['attendance-settings'] as const,
+    myStatus: ['attendance-me-status'] as const,
+    myHistory: (days: number) => ['attendance-me', days] as const,
+    log:      (date?: string, branchId?: number) => ['attendance-log', date, branchId] as const,
+  },
   trainers:   { all: ['trainers']   as const },
   branches:   { all: ['branches']   as const },
   tenants:    { all: ['tenants']    as const },

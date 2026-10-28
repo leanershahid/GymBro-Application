@@ -24,7 +24,7 @@ public enum MealType { Breakfast, Lunch, Dinner, Snack, PreWorkout, PostWorkout 
 public enum FitnessLevel { Beginner, Intermediate, Advanced, Athlete }
 public enum MetricSource { Manual, Wearable, App, Trainer }
 public enum HabitFrequency { Daily, Weekly, Custom }
-public enum AttendanceMethod { Qr, Face, Biometric, Pin, Card, Manual }
+public enum AttendanceMethod { Qr, Face, Biometric, Pin, Card, Manual, Location }
 public enum ClassStatus { Scheduled, InProgress, Completed, Cancelled }
 public enum BookingStatus { Booked, Waitlisted, Attended, NoShow, Cancelled }
 public enum LeadStatus { New, Contacted, Qualified, Proposal, Negotiation, Converted, Lost }

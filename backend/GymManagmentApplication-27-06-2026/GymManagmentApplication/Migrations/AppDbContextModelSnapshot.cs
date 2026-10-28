@@ -1176,6 +1176,9 @@ namespace GymManagmentApplication.Migrations
                     b.Property<string>("Email")
                         .HasColumnType("text");
 
+                    b.Property<int?>("GeofenceRadiusM")
+                        .HasColumnType("integer");
+
                     b.Property<decimal?>("Lat")
                         .HasPrecision(10, 7)
                         .HasColumnType("numeric(10,7)");
@@ -1183,6 +1186,9 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal?>("Lng")
                         .HasPrecision(10, 7)
                         .HasColumnType("numeric(10,7)");
+
+                    b.Property<bool>("LocationCheckInEnabled")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("LogoUrl")
                         .HasColumnType("text");
@@ -4045,6 +4051,17 @@ namespace GymManagmentApplication.Migrations
                     b.Property<DateTime>("CheckInAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("CheckInDistanceM")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("CheckInLat")
+                        .HasPrecision(10, 7)
+                        .HasColumnType("numeric(10,7)");
+
+                    b.Property<decimal?>("CheckInLng")
+                        .HasPrecision(10, 7)
+                        .HasColumnType("numeric(10,7)");
+
                     b.Property<DateTime?>("CheckOutAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -4069,7 +4086,7 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "CheckInAt");
 
                     b.ToTable("Attendances");
                 });
