@@ -3,7 +3,7 @@ import { queryKeys } from '../../../api/queryKeys';
 import {
   fetchModuleKeys, fetchModuleAccess, fetchMatrix,
   upsertModuleAccess, bulkUpsertModuleAccess,
-  checkAccess, deleteModuleAccess, deleteRoleAccess,
+  checkAccess, deleteModuleAccess, deleteRoleAccess, fetchRoles,
 } from './moduleAccessApi';
 import {
   ModuleAccessPayload, BulkModuleAccessPayload,
@@ -11,6 +11,13 @@ import {
 } from '../types/moduleAccess.types';
 
 // ── Queries ───────────────────────────────────────────────────────
+
+export const useRoles = () =>
+  useQuery({
+    queryKey: queryKeys.moduleAccess.roles(),
+    queryFn:  fetchRoles,
+    select:   r => r.data ?? [],
+  });
 
 export const useModuleKeys = () =>
   useQuery({

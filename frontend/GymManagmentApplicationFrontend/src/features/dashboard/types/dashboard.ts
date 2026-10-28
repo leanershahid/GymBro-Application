@@ -26,7 +26,8 @@ export interface BranchSummary {
   isOpen: boolean;
 }
 
-export type MemberStatus = 'active' | 'pending' | 'overdue';
+/** Colour bucket for a member's status; the label shown is always the API's own status text. */
+export type MemberStatus = 'active' | 'pending' | 'other';
 
 export interface RecentMember {
   id: string;
@@ -35,6 +36,8 @@ export interface RecentMember {
   branchName: string;
   joinedAgo: string;
   status: MemberStatus;
+  /** Raw status text from the API (e.g. "Active", "Suspended"). */
+  statusLabel: string;
 }
 
 export interface DashboardData {

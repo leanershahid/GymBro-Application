@@ -33,17 +33,17 @@ const ICON_STROKE = withAlpha(T.text, 0.80);
 interface ModuleItem {
   key: string; category: string; label: string;
   sublabel: string; icon: FeatherIconName;
-  stat: string; level: string; image: any;
+  stat: string; image: any;
 }
 
 // Counts come from the dashboard overview so the hub never shows invented numbers.
 interface HubStats { totalBranches: number; totalTrainers: number; totalTenants: number; totalMembers: number; newSignupsToday: number; activeBranches: number; }
 const fmt = (n?: number) => (n === undefined ? '—' : n.toLocaleString('en-IN'));
 const buildModules = (s?: HubStats): ModuleItem[] => [
-  { key: 'branch',  category: 'Locations',     label: 'Branches', sublabel: 'Add new location',   icon: 'map-pin',   stat: fmt(s?.totalBranches), level: 'Manager',      image: IMG_WORKOUT },
-  { key: 'trainer', category: 'Staff',          label: 'Trainers', sublabel: 'Onboard coaches',    icon: 'award',     stat: fmt(s?.totalTrainers), level: 'Professional', image: IMG_COACH1  },
-  { key: 'tenant',  category: 'Organisations',  label: 'Tenants',  sublabel: 'New organisation',   icon: 'briefcase', stat: fmt(s?.totalTenants),  level: 'Enterprise',   image: IMG_COACH2  },
-  { key: 'client',  category: 'Members',        label: 'Clients',  sublabel: 'Enrol members',      icon: 'user-plus', stat: fmt(s?.totalMembers),  level: 'Beginner',     image: IMG_HERO    },
+  { key: 'branch',  category: 'Locations',     label: 'Branches', sublabel: 'Add new location',   icon: 'map-pin',   stat: fmt(s?.totalBranches), image: IMG_WORKOUT },
+  { key: 'trainer', category: 'Staff',          label: 'Trainers', sublabel: 'Onboard coaches',    icon: 'award',     stat: fmt(s?.totalTrainers), image: IMG_COACH1  },
+  { key: 'tenant',  category: 'Organisations',  label: 'Tenants',  sublabel: 'New organisation',   icon: 'briefcase', stat: fmt(s?.totalTenants),  image: IMG_COACH2  },
+  { key: 'client',  category: 'Members',        label: 'Clients',  sublabel: 'Enrol members',      icon: 'user-plus', stat: fmt(s?.totalMembers),  image: IMG_HERO    },
 ];
 
 const CATEGORIES = ['All', 'Locations', 'Staff', 'Organisations', 'Members'];
@@ -157,38 +157,14 @@ function ModuleCard({
               padding: 12,
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
             }}>
-              {/* Level badge + avatars */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
-                <View style={{
-                  backgroundColor: withAlpha(T.brand, 0.12),
-                  borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4,
-                  borderWidth: 1, borderColor: withAlpha(T.brand, 0.30),
-                  flexDirection: 'row', alignItems: 'center', gap: 5,
-                }}>
-                  <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: ACCENT }} />
-                  <Text style={{ color: ACCENT, fontSize: 11 * scale, fontWeight: '600' }}>{mod.level}</Text>
-                </View>
-
-                <View style={{ flexDirection: 'row' }}>
-                  {[SURFACE_EL, T.line, T.line].map((c, i) => (
-                    <View key={i} style={{
-                      width: 24, height: 24, borderRadius: 12,
-                      backgroundColor: c, borderWidth: 1.5, borderColor: ICON_STROKE,
-                      marginLeft: i === 0 ? 0 : -8,
-                      alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <Feather name="user" size={10} color={ICON_STROKE} />
-                    </View>
-                  ))}
-                  <View style={{
-                    width: 24, height: 24, borderRadius: 12,
-                    backgroundColor: withAlpha(T.brand, 0.15),
-                    borderWidth: 1.5, borderColor: withAlpha(T.brand, 0.35),
-                    marginLeft: -8, alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <Text style={{ color: ACCENT, fontSize: 11, fontWeight: '800' }}>{mod.stat}</Text>
-                  </View>
-                </View>
+              {/* Real total from the dashboard overview ("—" until loaded) */}
+              <View
+                accessible
+                accessibilityLabel={`${mod.stat === '—' ? 'Total not available' : `${mod.stat} ${mod.label.toLowerCase()} in total`}`}
+                style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, flexShrink: 1 }}
+              >
+                <Text style={{ color: ACCENT, fontSize: 18 * scale, fontWeight: '800' }}>{mod.stat}</Text>
+                <Text numberOfLines={1} style={{ color: TEXT_SUB, fontSize: 11 * scale, fontWeight: '600', flexShrink: 1 }}>total</Text>
               </View>
 
               {/* Add CTA */}
@@ -265,17 +241,9 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack, st
         {/* ── Hero header ── */}
         <View style={{ paddingHorizontal: hPad, paddingTop: 22 }}>
 
-          {/* Top bar: back + bell */}
+          {/* Top bar: back */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: isTablet ? 32 : 24 }}>
             {onBack ? <BackButton onPress={onBack} /> : <View style={{ width: btnSize }} />}
-
-            <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden style={{
-              width: btnSize, height: btnSize, borderRadius: btnSize / 2,
-              backgroundColor: SURFACE, borderWidth: 1, borderColor: T.line,
-              alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Feather name="bell" size={17} color={ICON_STROKE} />
-            </View>
           </View>
 
           {/* Hero title — fluid size */}
@@ -363,7 +331,7 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack, st
 
         {/* ── Recent activity ── */}
         <View style={{ paddingHorizontal: hPad }}>
-          <SectionHeader title="Recent Activity" />
+          <SectionHeader title="At a glance" />
 
           {/* On tablet/desktop, lay activity rows side-by-side in a 2-col wrap */}
           <View style={{

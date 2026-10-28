@@ -1,27 +1,27 @@
 import React, { useCallback, useState } from 'react';
-import {
-  View, Text, ScrollView, RefreshControl,
-  FlatList, Pressable,
-} from 'react-native';
+import { View, ScrollView, RefreshControl } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T, SP } from '../../../theme';
+import { T, SP, R } from '../../../theme';
 import { useLayout } from '../../../utils/useLayout';
 import ScreenRoot             from '../../common/components/Screen';
 import LoadingState           from '../../common/components/LoadingState';
 import BottomTabBar           from '../../common/components/BottomTabBar';
+import ActionList, { ActionItem } from '../../common/components/dashboard/ActionList';
+import KpiTile                from '../../common/components/dashboard/KpiTile';
+import BarList                from '../../common/components/dashboard/BarList';
 
-import DashboardBanner        from '../components/DashboardBanner';
-import MonthlyInsightCard     from '../components/MonthlyInsightCard';
-import RevenueOverviewCard    from '../components/Revenueoverviewcard';
-import StatTile               from '../components/Stattile';
+import DashboardHeader        from '../components/Dashboardheader';
+import AdminRevenueHero       from '../components/AdminRevenueHero';
+import RevenueTrendCard       from '../components/RevenueTrendCard';
+import QuickAccessGrid        from '../components/QuickAccessGrid';
 import SectionHeader          from '../components/Sectionheader';
-import BranchCard             from '../components/Branchcard';
 import RecentMemberRow        from '../components/RecentMemberRow';
 import EmptyState             from '../components/EmptyState';
+import { formatInrCompact, formatPct } from '../components/formatInr';
 import { useDashboardStats }  from '../hooks/useDashboardStats';
+import { DashboardData }      from '../types/dashboard';
 import AdminModuleDevelopmentDashboard from './AdminModuleDevelopmentDashboard';
 import MoreActionsPage        from './MoreActionsPage';
-import StatsStrip, { StatStripItem }   from '../../common/StatsStrip';
 import { useVisibleAdminActions } from '../adminActions';
 import { getSession, isAdminRole, isSuperAdmin } from '../../../api/session';
 
@@ -64,12 +64,47 @@ type Screen =
   | 'ai-coach-admin'
   | 'more-actions';
 
-const dashboardStats = (s: { totalBranches: number; totalTrainers: number; totalTenants: number; totalMembers: number }): StatStripItem[] => [
-  { icon: 'map-pin',   label: 'Branches', value: s.totalBranches.toLocaleString('en-IN'), accent: T.brand },
-  { icon: 'award',     label: 'Trainers', value: s.totalTrainers.toLocaleString('en-IN'), accent: T.brand },
-  { icon: 'briefcase', label: 'Tenants',  value: s.totalTenants.toLocaleString('en-IN'),  accent: T.brand },
-  { icon: 'users',     label: 'Members',  value: s.totalMembers.toLocaleString('en-IN'),  accent: T.brand },
-];
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** "Today" — things that need the admin's attention, built only from live dashboard data. */
+function buildTodayItems({ stats, branches, recentMembers }: DashboardData, go: (s: Screen) => void): ActionItem[] {
+  const items: ActionItem[] = [];
+
+  if (stats.newSignupsToday > 0) items.push({
+    key: 'signups', icon: 'user-plus', tone: 'brand', badge: 'Today',
+    title: plural(stats.newSignupsToday, 'new sign-up', 'new sign-ups'),
+    subtitle: 'Assign a trainer',
+    onPress: () => go('members'),
+  });
+
+  const pending = recentMembers.filter(m => m.status === 'pending');
+  if (pending.length > 0) items.push({
+    key: 'pending', icon: 'clock', tone: 'warn', badge: `${pending.length}`,
+    title: `${plural(pending.length, 'member', 'members')} pending`,
+    subtitle: pending.map(m => m.name).join(', '),
+    onPress: () => go('members'),
+  });
+
+  const closed = branches.filter(b => !b.isOpen);
+  if (closed.length > 0) items.push({
+    key: 'closed', icon: 'alert-triangle', tone: 'err', badge: `${closed.length}`,
+    title: `${plural(closed.length, 'branch', 'branches')} closed`,
+    subtitle: closed.map(b => b.name).join(', '),
+    onPress: () => go('branches'),
+  });
+
+  if (stats.totalTrainers > 0) items.push({
+    key: 'trainers', icon: 'activity', tone: stats.trainersOnline === 0 ? 'warn' : 'info',
+    badge: `${stats.trainersOnline} of ${stats.totalTrainers}`,
+    title: 'Trainers online',
+    subtitle: stats.trainersOnline === 0 ? 'None on the floor now' : 'On the floor now',
+    onPress: () => go('trainers'),
+  });
+
+  return items;
+}
+
+const SECTION = SP.xxl; // 28px between home sections
 
 // Labels match the reference (Dashboard/Members/+/Activity/More); destinations are
 // unchanged from before — "Activity" still opens Workouts, "More" replaces the old
@@ -89,17 +124,17 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
   const { data, loading, refreshing, error, refresh } = useDashboardStats();
   const actions = useVisibleAdminActions();
   const role = getSession()?.role;
-  const roleLabel = isSuperAdmin(role) ? 'Super Admin' : isAdminRole(role) ? 'Administrator' : 'Staff';
+  const superAdmin = isSuperAdmin(role);
+  const roleLabel = superAdmin ? 'Super Admin' : isAdminRole(role) ? 'Administrator' : 'Staff';
   const [screen, setScreen] = useState<Screen>('home');
-  const [activeTab, setActiveTab] = useState('home');
-  const { tileW, tileCols } = useLayout();
-  const quickTileW = tileW(tileCols, 10);
+  const activeTab = tabForScreen(screen);
+  const { tileW } = useLayout();
+  const kpiW = tileW(2, 12);
 
   const go = useCallback((s: Screen) => setScreen(s), []);
-  const goHome = useCallback(() => { setScreen('home'); setActiveTab('home'); }, []);
+  const goHome = useCallback(() => setScreen('home'), []);
 
   const handleTab = useCallback((key: string) => {
-    setActiveTab(key);
     if (key === 'hub')      go('module-hub');
     else if (key === 'members')  go('members');
     else if (key === 'workouts') go('workouts');
@@ -107,29 +142,43 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
     else                         go('home');
   }, []);
 
-  // ── Sub-page routing ──────────────────────────────────────────
-  if (screen === 'module-hub')  return <AdminModuleDevelopmentDashboard onBack={goHome} onNavigate={(k) => go(k as Screen)} stats={data?.stats} />;
-  if (screen === 'members')     return <ViewMembersPage   onBack={goHome} onAddMember={() => go('add-member')} />;
-  if (screen === 'add-member')  return <AddMemberPage     onBack={() => go('members')} />;
-  if (screen === 'trainers')    return <ViewTrainersPage  onBack={goHome} onAddTrainer={() => go('add-trainer')} />;
-  if (screen === 'add-trainer') return <AddTrainerPage    onBack={() => go('trainers')} />;
-  if (screen === 'branches')    return <ViewBranchesPage  onBack={goHome} onAddBranch={() => go('add-branch')} />;
-  if (screen === 'add-branch')  return <AddBranchPage     onBack={() => go('branches')} />;
-  if (screen === 'tenants')     return <ViewTenantsPage   onBack={goHome} onAddTenant={() => go('add-tenant')} />;
-  if (screen === 'add-tenant')  return <AddTenantPage     onBack={() => go('tenants')} />;
-  if (screen === 'leads')       return <ViewLeadsPage     onBack={goHome} />;
-  if (screen === 'exercises')   return <ViewExercisesPage onBack={goHome} />;
-  if (screen === 'workouts')    return <ViewWorkoutsPage  onBack={goHome} />;
-  if (screen === 'plans')       return <ViewPlansPage     onBack={goHome} />;
-  if (screen === 'module-access') return <ModuleAccessPage  onBack={goHome} />;
-  if (screen === 'user-access')   return <UserAccessListPage onBack={goHome} />;
-  if (screen === 'challenges-admin')   return <ChallengesAdminPage   onBack={goHome} />;
-  if (screen === 'stats-admin')        return <StatsAdminPage        onBack={goHome} />;
-  if (screen === 'live-coaching-admin') return <LiveCoachingAdminPage onBack={goHome} />;
-  if (screen === 'ai-coach-admin')     return <AiCoachSettingsPage   onBack={goHome} />;
-  if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} onLogout={onLogout} />;
+  // ── Sub-page routing — rendered above the persistent bottom nav ──
+  const subPage = (() => {
+    if (screen === 'module-hub')  return <AdminModuleDevelopmentDashboard onBack={goHome} onNavigate={(k) => go(k as Screen)} stats={data?.stats} />;
+    if (screen === 'members')     return <ViewMembersPage   onBack={goHome} onAddMember={() => go('add-member')} />;
+    if (screen === 'add-member')  return <AddMemberPage     onBack={() => go('members')} />;
+    if (screen === 'trainers')    return <ViewTrainersPage  onBack={goHome} onAddTrainer={() => go('add-trainer')} />;
+    if (screen === 'add-trainer') return <AddTrainerPage    onBack={() => go('trainers')} />;
+    if (screen === 'branches')    return <ViewBranchesPage  onBack={goHome} onAddBranch={() => go('add-branch')} />;
+    if (screen === 'add-branch')  return <AddBranchPage     onBack={() => go('branches')} />;
+    if (screen === 'tenants')     return <ViewTenantsPage   onBack={goHome} onAddTenant={() => go('add-tenant')} />;
+    if (screen === 'add-tenant')  return <AddTenantPage     onBack={() => go('tenants')} />;
+    if (screen === 'leads')       return <ViewLeadsPage     onBack={goHome} />;
+    if (screen === 'exercises')   return <ViewExercisesPage onBack={goHome} />;
+    if (screen === 'workouts')    return <ViewWorkoutsPage  onBack={goHome} />;
+    if (screen === 'plans')       return <ViewPlansPage     onBack={goHome} />;
+    if (screen === 'module-access') return <ModuleAccessPage  onBack={goHome} />;
+    if (screen === 'user-access')   return <UserAccessListPage onBack={goHome} />;
+    if (screen === 'challenges-admin')   return <ChallengesAdminPage   onBack={goHome} />;
+    if (screen === 'stats-admin')        return <StatsAdminPage        onBack={goHome} />;
+    if (screen === 'live-coaching-admin') return <LiveCoachingAdminPage onBack={goHome} />;
+    if (screen === 'ai-coach-admin')     return <AiCoachSettingsPage   onBack={goHome} />;
+    if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} onLogout={onLogout} />;
+    return null;
+  })();
 
   // ── Loading / Error states ─────────────────────────────────────
+  return (
+    <View style={{ flex: 1, backgroundColor: T.bg }}>
+      <View style={{ flex: 1 }}>
+        {subPage ?? renderHome()}
+      </View>
+      {/* Bottom nav stays fixed on every admin screen */}
+      <BottomTabBar tabs={NAV_ITEMS} active={activeTab} onChange={handleTab} />
+    </View>
+  );
+
+  function renderHome() {
   if (loading && !data) return <LoadingState fullScreen label="Loading dashboard" />;
 
   if (error && !data) return (
@@ -147,6 +196,24 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
   if (!data) return null;
 
   const { stats, revenueTrend, branches, recentMembers } = data;
+  const todayItems = buildTodayItems(data, go);
+
+  const closedCount = branches.filter(b => !b.isOpen).length;
+  const openBranches = branches.filter(b => b.isOpen);
+  const avgOccupancy = openBranches.length
+    ? Math.round(openBranches.reduce((sum, b) => sum + b.occupancyPct, 0) / openBranches.length)
+    : 0;
+
+  const branchRows = [...branches]
+    .sort((a, b) => b.revenue - a.revenue)
+    .map(b => ({
+      key: b.id,
+      label: b.name,
+      value: b.revenue,
+      display: formatInrCompact(b.revenue),
+      hint: [b.city, `${b.memberCount.toLocaleString('en-IN')} members`, b.isOpen ? `${b.occupancyPct}% full` : 'Closed']
+        .filter(Boolean).join(' · '),
+    }));
 
   return (
     <ScreenRoot>
@@ -156,83 +223,104 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={T.brand} colors={[T.brand]} />}
       >
-        {/* Header */}
-        <View style={{ paddingTop: 16, marginBottom: 24 }}>
-          <DashboardBanner
+        {/* 1. Header — greeting, name, role */}
+        <View style={{ paddingTop: SP.lg, marginBottom: 24 }}>
+          <DashboardHeader
             adminName={adminName}
             roleLabel={roleLabel}
-            hasUnreadNotifications
-            onPressNotifications={() => {}}
             onPressAvatar={() => {}}
           />
         </View>
 
-        {/* Monthly insight (replaces the old plain headline text) */}
-        <View style={{ marginBottom: 24 }}>
-          <MonthlyInsightCard
+        {/* 2. Today — action-first: what needs doing before any statistics */}
+        {todayItems.length > 0 && (
+          <View style={{ marginBottom: SECTION }}>
+            <SectionHeader title="Today" />
+            <ActionList items={todayItems} />
+          </View>
+        )}
+
+        {/* 3. Hero — the one key number: revenue this month */}
+        <View style={{ marginBottom: SECTION }}>
+          <AdminRevenueHero
+            totalRevenue={stats.totalRevenue}
             growthPct={stats.revenueGrowthPct}
             activeBranches={stats.activeBranches}
             trend={revenueTrend}
           />
         </View>
 
-        {/* Stats strip — borderless inline row, per the reference */}
-        <View style={{ marginBottom: 24 }}>
-          <StatsStrip items={dashboardStats(stats)} bare />
-        </View>
-
-        {/* Revenue */}
-        <View style={{ marginBottom: 24 }}>
-          <RevenueOverviewCard totalRevenue={stats.totalRevenue} growthPct={stats.revenueGrowthPct} trend={revenueTrend} />
-        </View>
-
-        {/* Stat tiles — no direct slot in the reference crop; placed here as a
-            secondary "today at a glance" row since this live data isn't shown
-            anywhere else on the screen. */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 28 }}>
-          <StatTile icon="users"     label="Total members"     value={stats.totalMembers.toLocaleString('en-IN')} deltaLabel={`+${stats.memberGrowthPct}%`} />
-          <StatTile icon="home"      label="Active branches"   value={`${stats.activeBranches}/${stats.totalBranches}`} />
-          <StatTile icon="user-plus" label="New sign-ups today" value={`${stats.newSignupsToday}`} />
-          <StatTile icon="activity"  label="Trainers online"   value={`${stats.trainersOnline}`} />
-        </View>
-
-        {/* Quick access — every action shown directly, no expand/collapse needed. */}
-        <View style={{ marginBottom: 28 }}>
-          <SectionHeader title="Quick access" />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            {actions.map(q => (
-              <Pressable key={q.screen} onPress={() => go(q.screen as Screen)}
-                accessibilityRole="button" accessibilityLabel={q.label}
-                style={({ pressed }) => ({
-                  width: quickTileW, alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 14,
-                  backgroundColor: pressed ? T.brandDim : T.bgInput,
-                  borderRadius: 18, borderWidth: 1,
-                  borderColor: pressed ? T.brandBorder : T.line,
-                })}>
-                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: T.brandDim, borderWidth: 1, borderColor: T.brandBorder, alignItems: 'center', justifyContent: 'center' }}>
-                  <Feather name={q.icon} size={18} color={T.brand} />
-                </View>
-                <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600' }} numberOfLines={1}>{q.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {/* Branch performance */}
-        <View style={{ marginBottom: 28 }}>
-          <SectionHeader title="Branch performance" onPressAction={() => go('branches')} />
-          {branches.length === 0 ? (
-            <EmptyState icon="map-pin" title="No branches yet" subtitle="Add your first branch to see performance here." />
+        {/* 4. KPI grid */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: SECTION }}>
+          <KpiTile
+            width={kpiW} icon="users" label="Members"
+            value={stats.totalMembers.toLocaleString('en-IN')}
+            delta={{ label: formatPct(stats.memberGrowthPct), positive: stats.memberGrowthPct >= 0 }}
+            hint="vs last month"
+            onPress={() => go('members')}
+          />
+          <KpiTile
+            width={kpiW} icon="map-pin" label="Active branches"
+            value={`${stats.activeBranches}/${stats.totalBranches}`}
+            hint={closedCount > 0 ? `${closedCount} closed` : 'All open'}
+            accent={closedCount > 0 ? T.brandGold : T.brand}
+            onPress={() => go('branches')}
+          />
+          <KpiTile
+            width={kpiW} icon="award" label="Trainers"
+            value={stats.totalTrainers.toLocaleString('en-IN')}
+            hint={`${stats.trainersOnline} online`}
+            accent={T.sky}
+            onPress={() => go('trainers')}
+          />
+          {superAdmin ? (
+            <KpiTile
+              width={kpiW} icon="briefcase" label="Gyms"
+              value={stats.totalTenants.toLocaleString('en-IN')}
+              hint="On the platform"
+              accent={T.violet}
+              onPress={() => go('tenants')}
+            />
           ) : (
-            <FlatList
-              data={branches} keyExtractor={(item) => item.id} horizontal
-              showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 4 }}
-              renderItem={({ item }) => <BranchCard branch={item} onPress={() => go('branches')} />}
+            <KpiTile
+              width={kpiW} icon="pie-chart" label="Avg occupancy"
+              value={openBranches.length ? `${avgOccupancy}%` : '—'}
+              hint={`Across ${openBranches.length} open ${openBranches.length === 1 ? 'branch' : 'branches'}`}
+              accent={T.violet}
+              onPress={() => go('branches')}
             />
           )}
         </View>
 
-        {/* Recent sign-ups */}
+        {/* 5. Revenue trend — history, average and best month (the hero has the total) */}
+        {revenueTrend.length > 1 && (
+          <View style={{ marginBottom: SECTION }}>
+            <SectionHeader title="Revenue trend" />
+            <RevenueTrendCard trend={revenueTrend} />
+          </View>
+        )}
+
+        {/* 6. Branch performance — ranked by revenue */}
+        <View style={{ marginBottom: SECTION }}>
+          <SectionHeader title="Branch performance" onPressAction={() => go('branches')} />
+          {branches.length === 0 ? (
+            <EmptyState icon="map-pin" title="No branches yet" subtitle="Add your first branch to see performance here." />
+          ) : (
+            <View style={{ borderRadius: R.lg, padding: SP.lg, backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line }}>
+              <BarList rows={branchRows} />
+            </View>
+          )}
+        </View>
+
+        {/* 7. Quick access — lighter, below the data */}
+        {actions.length > 0 && (
+          <View style={{ marginBottom: SECTION }}>
+            <SectionHeader title="Quick access" />
+            <QuickAccessGrid actions={actions} onPress={(s) => go(s as Screen)} />
+          </View>
+        )}
+
+        {/* 8. Recent sign-ups */}
         <View style={{ marginBottom: 24 }}>
           <SectionHeader title="Recent sign-ups" onPressAction={() => go('members')} />
           {recentMembers.length === 0 ? (
@@ -244,9 +332,16 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
           )}
         </View>
       </ScrollView>
-
-      {/* ── Bottom nav — shared tab bar (same style as the member/trainer apps) ── */}
-      <BottomTabBar tabs={NAV_ITEMS} active={activeTab} onChange={handleTab} />
     </ScreenRoot>
   );
+  }
+}
+
+/** Which bottom tab is highlighted for each screen. */
+function tabForScreen(screen: Screen): string {
+  if (screen === 'home') return 'home';
+  if (screen === 'members' || screen === 'add-member') return 'members';
+  if (screen === 'workouts') return 'workouts';
+  if (screen === 'module-hub') return 'hub';
+  return 'more';
 }

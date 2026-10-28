@@ -18,6 +18,8 @@ type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 const CAT_ICON: Record<string, FeatherIconName> = {
   strength: 'zap', cardio: 'activity', flexibility: 'wind', balance: 'target',
 };
+// NOTE: static filter options sent as the `tag` query param. No tag/category list endpoint is
+// used here yet — if the API exposes one, build these chips from it instead.
 const EX_FILTERS = ['All', 'Strength', 'Cardio', 'Flexibility', 'Balance'];
 
 interface Props { userId: number; onOpenWorkout: (id: number) => void; }
@@ -144,10 +146,9 @@ export default function TrainScreen({ userId, onOpenWorkout }: Props) {
               <EmptyState icon="wifi-off" tone="error" title="Failed to load exercises" action={{ label: 'Retry', onPress: () => exRefetch() }} />
             )}
             {!exLoad && !exErr && filteredEx.map(ex => {
-              const diff  = ex.difficulty?.toLowerCase() ?? 'beginner';
-              const cat   = ex.category?.toLowerCase()   ?? 'strength';
-              const color = getDifficultyColor(diff);
-              const icon  = CAT_ICON[cat]  ?? 'zap';
+              // Icon/tint are decoration only; neutral when the API has no category/difficulty.
+              const color = ex.difficulty ? getDifficultyColor(ex.difficulty.toLowerCase()) : T.textSub;
+              const icon  = (ex.category && CAT_ICON[ex.category.toLowerCase()]) || 'activity';
               return (
                 <View key={ex.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: T.bgInput, borderRadius: 18, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: T.bgInputActive }}>
                   <View style={{ width: 60, height: 60, borderRadius: 12, backgroundColor: T.bgInputActive, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>

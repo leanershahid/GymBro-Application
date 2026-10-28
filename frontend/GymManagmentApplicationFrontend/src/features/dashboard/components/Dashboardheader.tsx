@@ -6,8 +6,6 @@ import { T } from '../../../theme';
 interface DashboardHeaderProps {
   adminName: string;
   avatarUrl?: string;
-  hasUnreadNotifications?: boolean;
-  onPressNotifications?: () => void;
   onPressAvatar?: () => void;
   /** Optional role badge shown under the name (e.g. "Administrator"). */
   roleLabel?: string;
@@ -27,8 +25,6 @@ function getInitials(name: string): string {
 export default function DashboardHeader({
   adminName,
   avatarUrl,
-  hasUnreadNotifications,
-  onPressNotifications,
   onPressAvatar,
   roleLabel,
 }: DashboardHeaderProps) {
@@ -98,40 +94,6 @@ export default function DashboardHeader({
             </View>
           )}
         </View>
-      </Pressable>
-
-      {/* Right — notification bell */}
-      <Pressable
-        onPress={onPressNotifications}
-        hitSlop={12}
-        accessibilityRole="button"
-        accessibilityLabel="Notifications"
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          backgroundColor: T.bgInputActive,
-          borderWidth: 1,
-          borderColor: T.border,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginLeft: 12,
-        }}
-      >
-        <Feather name="bell" size={20} color={T.text} />
-        {hasUnreadNotifications && (
-          <View style={{
-            position: 'absolute',
-            top: 9,
-            right: 9,
-            width: 8,
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: T.brand,
-            borderWidth: 1.5,
-            borderColor: T.bg,
-          }} />
-        )}
       </Pressable>
     </View>
   );

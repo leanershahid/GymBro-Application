@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useQueries, useMutation } from '@tanstack/react-query';
 import {
   fetchTrainerProfile, updateTrainerProfile,
   fetchSchedule, updateSchedule,
@@ -32,6 +32,14 @@ export const useMyClients = (trainerId: number) =>
 
 export const useClientProfile  = (memberId: number) =>
   useQuery({ queryKey: K.clientProf(memberId),  queryFn: () => fetchClientProfile(memberId),  select: r => r.data, enabled: memberId > 0 });
+
+/** Profiles for a set of clients (shares the cache with useClientProfile), e.g. to search a roster by name. */
+export const useClientProfiles = (memberIds: number[]) =>
+  useQueries({
+    queries: memberIds.map(id => ({
+      queryKey: K.clientProf(id), queryFn: () => fetchClientProfile(id), select: (r: Awaited<ReturnType<typeof fetchClientProfile>>) => r.data, enabled: id > 0,
+    })),
+  });
 
 export const useClientTimeline = (memberId: number) =>
   useQuery({ queryKey: K.clientTime(memberId),  queryFn: () => fetchClientTimeline(memberId), select: r => r.data ?? [], enabled: memberId > 0 });

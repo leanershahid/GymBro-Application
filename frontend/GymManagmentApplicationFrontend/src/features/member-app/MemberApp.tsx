@@ -79,31 +79,28 @@ function MemberAppContent({ userId, onLogout }: Props) {
       setScreen({ id: target as 'train' | 'plans' });
       return;
     }
-    goTo(target);
+    // Only real tabs; unknown targets are ignored
+    // instead of leaving an empty content area.
+    if (TABS.some(t => t.key === target)) goTo(target);
   };
-
-  // ── Full-screen sub-routes (no tab bar) ──────────────────────
-  if (screen.id === 'workout') {
-    return (
-      <WorkoutDetailScreen
-        workoutId={screen.workoutId}
-        userId={userId}
-        onBack={() => { setScreen({ id: 'train' }); setActiveTab('train'); }}
-      />
-    );
-  }
-  if (screen.id === 'train') {
-    if (!canWorkouts) { setScreen({ id: 'home' }); return null; }
-    return <TrainScreen userId={userId} onOpenWorkout={(id) => setScreen({ id: 'workout', workoutId: id })} />;
-  }
-  if (screen.id === 'plans') {
-    return <PlansScreen onBack={() => { setScreen({ id: 'home' }); setActiveTab('home'); }} />;
-  }
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       {/* ── Screen content ── */}
       <View style={{ flex: 1 }}>
+        {screen.id === 'workout' && (
+          <WorkoutDetailScreen
+            workoutId={screen.workoutId}
+            userId={userId}
+            onBack={() => setScreen({ id: canWorkouts ? 'train' : 'home' })}
+          />
+        )}
+        {screen.id === 'train' && (canWorkouts
+          ? <TrainScreen userId={userId} onOpenWorkout={(id) => setScreen({ id: 'workout', workoutId: id })} />
+          : <HomeScreen userId={userId} onNavigate={navigateFrom} />)}
+        {screen.id === 'plans' && (
+          <PlansScreen onBack={() => goTo('home')} />
+        )}
         {screen.id === 'home' && (
           <HomeScreen userId={userId} onNavigate={navigateFrom} />
         )}
@@ -121,7 +118,7 @@ function MemberAppContent({ userId, onLogout }: Props) {
         )}
       </View>
 
-      {/* ── Bottom tab bar ── */}
+      {/* ── Bottom tab bar — fixed on every member screen ── */}
       <BottomTabBar tabs={visibleTabs} active={activeTab} onChange={goTo} />
     </View>
   );

@@ -3,7 +3,7 @@ import { ENDPOINTS } from '../../../api/endpoints';
 import {
   MemberProfile, TimelineEvent, MemberDocument,
   WorkoutDetail, WorkoutCompletePayload,
-  HealthToday, ActiveChallenge,
+  HealthToday, ActiveChallenge, AssignedTrainer,
   ApiResponse, PaginatedData,
 } from '../types/member-app.types';
 
@@ -93,5 +93,11 @@ export const fetchHealthToday = async (): Promise<ApiResponse<HealthToday>> => {
 // ─── Active challenges ──────────────────────────────────────────────
 export const fetchActiveChallenges = async (): Promise<ApiResponse<ActiveChallenge[]>> => {
   const { data } = await axiosInstance.get<ApiResponse<ActiveChallenge[]>>(ENDPOINTS.CHALLENGES_ACTIVE);
+  return data;
+};
+
+// ─── Assigned trainer (name for the profile chip) ──────────────────
+export const fetchAssignedTrainer = async (trainerId: number): Promise<ApiResponse<AssignedTrainer>> => {
+  const { data } = await axiosInstance.get<ApiResponse<AssignedTrainer>>(`${ENDPOINTS.TRAINERS}/${trainerId}`);
   return data;
 };

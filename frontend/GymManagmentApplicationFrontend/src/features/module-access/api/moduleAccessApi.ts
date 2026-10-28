@@ -3,8 +3,14 @@ import { ENDPOINTS } from '../../../api/endpoints';
 import {
   ApiResponse, ModuleAccessEntry, ModuleAccessMatrix,
   ModuleAccessPayload, BulkModuleAccessPayload,
-  CheckAccessPayload, CheckAccessResult,
+  CheckAccessPayload, CheckAccessResult, Role,
 } from '../types/moduleAccess.types';
+
+// ─── 0. List roles ───────────────────────────────────────────────
+export const fetchRoles = async (): Promise<ApiResponse<Role[]>> => {
+  const { data } = await axiosInstance.get<ApiResponse<Role[]>>(ENDPOINTS.ROLES);
+  return data;
+};
 
 // ─── 1. List available module keys ───────────────────────────────
 export const fetchModuleKeys = async (): Promise<ApiResponse<string[]>> => {

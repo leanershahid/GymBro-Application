@@ -90,7 +90,7 @@ function TrainerCard({ trainer, onPress }: { trainer: TrainerSummary; onPress: (
             borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4,
           }}>
             <Text numberOfLines={1} style={{ color: c.accent, fontSize: 11, fontWeight: '700', letterSpacing: 0.4 }}>
-              {trainer.trainerCode || 'N/A'}
+              {trainer.trainerCode || '—'}
             </Text>
           </View>
 
@@ -182,7 +182,7 @@ export default function ViewTrainersPage({ onBack, onAddTrainer }: ViewTrainersP
   }
 
   const items        = paged?.items        ?? [];
-  const totalRecords = paged?.totalRecords ?? 0;
+  const totalRecords = paged?.totalRecords;
   const totalPages   = paged?.totalPages   ?? 1;
 
   const filtered = items.filter((t) =>
@@ -199,9 +199,8 @@ export default function ViewTrainersPage({ onBack, onAddTrainer }: ViewTrainersP
       {!isLoading && !isError && (
         <View style={{ marginBottom: 24 }}>
           <StatsStrip items={[
-            { icon: 'award',        label: 'Total',     value: String(totalRecords),                                                                  accent: T.sky },
-            { icon: 'check-circle', label: 'Available', value: String(items.filter((t) => t.isAvailable).length),                                     accent: T.brand   },
-            { icon: 'eye',          label: 'This page', value: String(filtered.length),                                                               accent: T.violet },
+            { icon: 'award', label: 'Total',        value: totalRecords == null ? '—' : totalRecords.toLocaleString('en-IN'), accent: T.sky },
+            { icon: 'eye',   label: search.trim() ? 'Matching on page' : 'On this page', value: String(filtered.length), accent: T.violet },
           ]} />
         </View>
       )}

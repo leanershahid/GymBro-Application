@@ -61,7 +61,7 @@ export default function ViewPlansPage({ onBack, onAddPlan }: Props) {
   const { data: paged, isLoading, isError, refetch } = usePlans(page, 20);
   const items      = paged?.items ?? [];
   const totalPages = paged?.totalPages ?? 1;
-  const totalRecs  = paged?.totalRecords ?? 0;
+  const totalRecs  = paged?.totalRecords;
 
   return (
     <Screen>
@@ -75,9 +75,8 @@ export default function ViewPlansPage({ onBack, onAddPlan }: Props) {
       {!isLoading && !isError && (
         <View style={{ paddingHorizontal: SP.xl, paddingBottom: SP.lg }}>
           <StatsStrip items={[
-            { icon: 'book-open',    label: 'Total',  value: String(totalRecs),                          accent: T.brand },
-            { icon: 'check-circle', label: 'Active', value: String(items.filter(p => p.isActive).length), accent: T.sky },
-            { icon: 'layers',       label: 'Page',   value: `${page}/${totalPages}`,                    accent: T.violet },
+            { icon: 'book-open', label: 'Total', value: totalRecs == null ? '—' : totalRecs.toLocaleString('en-IN'), accent: T.brand },
+            { icon: 'layers',    label: 'Page',  value: `${page}/${totalPages}`,                                       accent: T.violet },
           ]} />
         </View>
       )}

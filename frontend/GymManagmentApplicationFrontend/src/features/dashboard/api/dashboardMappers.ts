@@ -1,14 +1,13 @@
 import { DashboardData, MemberStatus, RecentMember } from '../types/dashboard';
 import { DashboardOverviewRaw, RecentMemberRaw } from './dashboardApi';
 
-// Backend `status` is the raw UserStatus enum text (e.g. "Active" / "Pending" / "Inactive" / "Suspended"),
-// but the dashboard UI only distinguishes 'active' | 'pending' | 'overdue'. Judgment-call mapping:
-// "Active" -> active, "Pending" -> pending, everything else (Inactive/Suspended/unrecognized) -> overdue.
+// Backend `status` is the raw UserStatus enum text (e.g. "Active" / "Pending" / "Inactive" / "Suspended").
+// We only bucket it for colour; the row shows the API's own text (never an invented status).
 function mapMemberStatus(status: string): MemberStatus {
-  const normalized = status.trim().toLowerCase();
+  const normalized = (status ?? '').trim().toLowerCase();
   if (normalized === 'active') return 'active';
   if (normalized === 'pending') return 'pending';
-  return 'overdue';
+  return 'other';
 }
 
 // Renders a raw ISO datetime as a short relative string ("2h ago") to match the existing
@@ -36,6 +35,7 @@ function mapRecentMember(raw: RecentMemberRaw): RecentMember {
     branchName: raw.branchName ?? '',
     joinedAgo: formatJoinedAgo(raw.joinedAt),
     status: mapMemberStatus(raw.status),
+    statusLabel: (raw.status ?? '').trim(),
   };
 }
 

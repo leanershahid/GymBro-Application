@@ -101,7 +101,7 @@ export default function ViewLeadsPage({ onBack, onAddLead }: Props) {
 
   const items      = paged?.items ?? [];
   const totalPages = paged?.totalPages ?? 1;
-  const totalRecs  = paged?.totalRecords ?? 0;
+  const totalRecs  = paged?.totalRecords;
 
   const filtered = filter === 'all' ? items : items.filter(l => l.status === filter);
 
@@ -131,9 +131,8 @@ export default function ViewLeadsPage({ onBack, onAddLead }: Props) {
         {!isLoading && !isError && (
           <View style={{ marginBottom: SP.lg }}>
             <StatsStrip items={[
-              { icon: 'target',       label: 'Total',     value: String(totalRecs),                                          accent: T.sky },
-              { icon: 'star',         label: 'Qualified', value: String(items.filter(l => l.status === 'qualified').length), accent: T.brand },
-              { icon: 'user-check',   label: 'Converted', value: String(items.filter(l => l.status === 'converted').length), accent: T.ok },
+              { icon: 'target', label: 'Total',        value: totalRecs == null ? '—' : totalRecs.toLocaleString('en-IN'), accent: T.sky },
+              { icon: 'eye',    label: 'On this page', value: String(items.length),                                         accent: T.violet },
             ]} />
           </View>
         )}

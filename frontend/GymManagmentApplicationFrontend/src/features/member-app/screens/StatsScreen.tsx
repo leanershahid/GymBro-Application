@@ -20,7 +20,7 @@ export default function StatsScreen({ userId }: Props) {
           + Math.min(100, (rings.train.current / Math.max(1, rings.train.goal)) * 100)
           + Math.min(100, (rings.stand.current / Math.max(1, rings.stand.goal)) * 100)) / 3,
       )
-    : 0;
+    : null;
 
   return (
     <Screen>
@@ -32,13 +32,13 @@ export default function StatsScreen({ userId }: Props) {
 
       <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
         <View style={{ alignItems: 'center', backgroundColor: T.bgInput, borderRadius: R.xl, padding: 20, borderWidth: 1, borderColor: T.line, marginBottom: 20 }}>
-          <SummaryRing pct={overallPct} size={140} strokeWidth={14} sublabel="Daily" />
+          <SummaryRing pct={overallPct ?? 0} label={overallPct == null ? '—' : undefined} size={140} strokeWidth={14} sublabel="Daily" />
         </View>
 
         <View style={{ backgroundColor: T.bgInput, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: T.line, marginBottom: 20 }}>
-          <MetricBar label="Move" current={rings?.move.current ?? 0} goal={rings?.move.goal ?? 8000} unit="steps" color={T.brand} />
-          <MetricBar label="Train" current={rings?.train.current ?? 0} goal={rings?.train.goal ?? 60} unit="min" color={T.brandGold} />
-          <MetricBar label="Stand" current={rings?.stand.current ?? 0} goal={rings?.stand.goal ?? 12} unit="hr" color={T.sky} />
+          <MetricBar label="Move" current={rings?.move.current ?? null} goal={rings?.move.goal ?? null} unit="steps" color={T.brand} />
+          <MetricBar label="Train" current={rings?.train.current ?? null} goal={rings?.train.goal ?? null} unit="min" color={T.brandGold} />
+          <MetricBar label="Stand" current={rings?.stand.current ?? null} goal={rings?.stand.goal ?? null} unit="hr" color={T.sky} />
         </View>
 
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
@@ -48,7 +48,7 @@ export default function StatsScreen({ userId }: Props) {
           <StatChip icon="zap" value={health?.stats.energyPct != null ? `${health.stats.energyPct}%` : '--'} label="Energy" color={T.brandGold} />
         </View>
 
-        <StreakCard days={health?.streakDays ?? 0} />
+        <StreakCard days={health ? health.streakDays : null} />
       </ScrollView>
     </Screen>
   );

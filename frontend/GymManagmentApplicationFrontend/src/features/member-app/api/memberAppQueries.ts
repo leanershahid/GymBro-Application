@@ -4,7 +4,7 @@ import {
   fetchMyTimeline, fetchMyDocuments,
   fetchMyWorkouts, fetchWorkoutDetail, completeWorkout, bookmarkWorkout,
   fetchExercises, fetchMyPlans,
-  fetchHealthToday, fetchActiveChallenges,
+  fetchHealthToday, fetchActiveChallenges, fetchAssignedTrainer,
 } from './memberAppApi';
 import { WorkoutCompletePayload } from '../types/member-app.types';
 import { queryKeys } from '../../../api/queryKeys';
@@ -46,3 +46,13 @@ export const useHealthToday = (userId: number) =>
 
 export const useActiveChallenges = (userId: number) =>
   useQuery({ queryKey: queryKeys.challenges.active(userId), queryFn: fetchActiveChallenges, select: r => r.data ?? [], enabled: userId > 0 });
+
+/** The member's assigned trainer (GET /trainers/{id}) — only used to show their real name. */
+export const useAssignedTrainer = (trainerId: number | null | undefined) =>
+  useQuery({
+    queryKey: ['member-assigned-trainer', trainerId ?? 0] as const,
+    queryFn: () => fetchAssignedTrainer(trainerId as number),
+    select: r => (r.success ? r.data : null),
+    enabled: !!trainerId && trainerId > 0,
+    retry: false,
+  });

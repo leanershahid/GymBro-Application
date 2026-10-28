@@ -13,6 +13,8 @@ public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser 
 {
     public async Task<PagedResponse<PlanResponse>> GetAllAsync(PlanListRequest request)
     {
+        // Members see only the plans assigned to them ("My plans"), never the gym's whole catalogue.
+        request.AssignedToUserId = currentUser.IsClient() ? currentUser.UserId ?? 0 : null;
         var (items, total) = await repository.GetAllAsync(request);
         return new PagedResponse<PlanResponse>
         {

@@ -17,8 +17,8 @@ const STEPS = [
 ];
 
 // ─── Default values ───────────────────────────────────────────────
-const DEFAULT_VALUES: BranchPayload = {
-  tenantId:  currentTenantId(),
+// tenantId is read from the session at mount (see the useState initializer), not at module load.
+const DEFAULT_VALUES: Omit<BranchPayload, 'tenantId'> = {
   name:      '',
   code:      '',
   address:   '',
@@ -70,7 +70,7 @@ interface AddBranchPageProps {
 
 export default function AddBranchPage({ onBack }: AddBranchPageProps) {
   const [step, setStep]       = useState(0);
-  const [formData, setFormData] = useState<BranchPayload>({ ...DEFAULT_VALUES });
+  const [formData, setFormData] = useState<BranchPayload>(() => ({ ...DEFAULT_VALUES, tenantId: currentTenantId() }));
   const [basicErrors, setBasicErrors]     = useState<BranchBasicInfoErrors>({});
   const [locationErrors, setLocationErrors] = useState<BranchLocationErrors>({});
   const [settingsErrors, setSettingsErrors] = useState<BranchSettingsErrors>({});

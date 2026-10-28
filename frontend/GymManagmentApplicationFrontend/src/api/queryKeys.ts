@@ -22,6 +22,7 @@ export const queryKeys = {
     byRole:   (tenantId: number, roleId: number) => ['module-access', tenantId, roleId] as const,
     matrix:   (tenantId: number)                 => ['module-access-matrix', tenantId]  as const,
     modules:  ()                                 => ['module-access-modules']            as const,
+    roles:    ()                                 => ['roles']                            as const,
   },
   memberApp: {
     profile:    (id: number) => ['member-profile', id]   as const,
