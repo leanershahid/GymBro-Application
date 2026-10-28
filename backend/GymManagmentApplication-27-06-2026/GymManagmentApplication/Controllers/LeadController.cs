@@ -68,11 +68,13 @@ public class LeadController(ILeadService service, IValidator<CreateLeadRequest> 
 
     [HttpGet("sources")]
     [AuthorizeRoles(RoleNames.Admin)]
+    [RequireModule("leads")]
     public async Task<ActionResult<ApiResponse<object>>> GetSources([FromQuery] ulong tenantId = 0)
         => Ok(ApiResponse<object>.Ok(await service.GetSourceBreakdownAsync(tenantId)));
 
     [HttpPost("import")]
     [AuthorizeRoles(RoleNames.Admin)]
+    [RequireModule("leads")]
     public async Task<ActionResult<ApiResponse<object>>> BulkImport([FromBody] BulkImportLeadRequest request)
         => Ok(ApiResponse<object>.Ok(await service.BulkImportAsync(request)));
 }

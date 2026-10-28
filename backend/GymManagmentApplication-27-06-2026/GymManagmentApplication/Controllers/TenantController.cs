@@ -12,6 +12,9 @@ namespace GymManagmentApplication.Controllers;
 [ApiController]
 [Route("api/tenants")]
 [AuthorizeRoles(RoleNames.Admin)]
+// Every action here is Admin/SuperAdmin-only (see above and the per-action overrides), so this
+// is safe at class level — it never gates a Trainer/Client caller.
+[RequireModule("tenants")]
 public class TenantController(
     ITenantService service,
     IBranchService branchService,

@@ -95,9 +95,12 @@ public static class DbSeeder
             // defaults to allowed (see IUserModulesService.CanAsync), so adding these keys
             // never locks out an existing admin; it only takes effect once someone explicitly
             // restricts a specific user's access.
-            ("members",  "Members",  "Viewing and managing gym members", "users"),
-            ("trainers", "Trainers", "Viewing and managing trainers", "award"),
-            ("branches", "Branches", "Viewing and managing branches", "map-pin"),
+            ("members",    "Members",    "Viewing and managing gym members", "users"),
+            ("trainers",   "Trainers",   "Viewing and managing trainers", "award"),
+            ("branches",   "Branches",   "Viewing and managing branches", "map-pin"),
+            ("tenants",    "Tenants",    "Viewing and managing gyms on the platform", "briefcase"),
+            ("attendance", "Attendance", "Attendance settings and branch check-in geofences", "map-pin"),
+            ("leads",      "Leads",      "Lead source reports and bulk lead import", "target"),
         };
 
         foreach (var (key, name, desc, icon) in seedModules)

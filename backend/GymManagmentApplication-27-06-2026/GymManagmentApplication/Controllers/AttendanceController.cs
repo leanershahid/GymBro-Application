@@ -15,16 +15,19 @@ public class AttendanceController(IAttendanceService service) : ControllerBase
 
     [HttpGet("settings")]
     [AuthorizeRoles(RoleNames.Admin)]
+    [RequireModule("attendance")]
     public async Task<ActionResult<ApiResponse<object>>> GetSettings()
         => Ok(ApiResponse<object>.Ok(await service.GetSettingsAsync()));
 
     [HttpPut("settings")]
     [AuthorizeRoles(RoleNames.Admin)]
+    [RequireModule("attendance")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateSettings([FromBody] AttendanceSettings settings)
         => Ok(ApiResponse<object>.Ok(await service.UpdateSettingsAsync(settings), "Attendance settings saved."));
 
     [HttpPut("branches/{branchId:long}/geofence")]
     [AuthorizeRoles(RoleNames.Admin)]
+    [RequireModule("attendance")]
     public async Task<ActionResult<ApiResponse<object>>> SetGeofence(ulong branchId, [FromBody] SetBranchGeofenceRequest request)
     {
         var result = await service.SetBranchGeofenceAsync(branchId, request);
@@ -35,6 +38,7 @@ public class AttendanceController(IAttendanceService service) : ControllerBase
 
     [HttpDelete("branches/{branchId:long}/geofence")]
     [AuthorizeRoles(RoleNames.Admin)]
+    [RequireModule("attendance")]
     public async Task<ActionResult<ApiResponse<object>>> ClearGeofence(ulong branchId)
         => await service.ClearBranchGeofenceAsync(branchId)
             ? Ok(ApiResponse<object>.Ok((object)null!, "Check-in location removed."))

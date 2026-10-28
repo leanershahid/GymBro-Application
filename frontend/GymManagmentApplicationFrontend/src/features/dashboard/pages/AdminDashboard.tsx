@@ -188,6 +188,10 @@ function AdminDashboardInner({ adminName = 'Admin', onLogout }: AdminDashboardPr
   const canAddMember    = useModuleCan('members', 'create');
   const canAddTrainer   = useModuleCan('trainers', 'create');
   const canAddBranch    = useModuleCan('branches', 'create');
+  const canViewTenants  = useModuleAccess('tenants');
+  const canAddTenant    = useModuleCan('tenants', 'create');
+  const canViewAttendance = useModuleAccess('attendance');
+  const canViewLeads    = useModuleAccess('leads');
 
   const go = useCallback((s: Screen) => setScreen(s), []);
   const goHome = useCallback(() => setScreen('home'), []);
@@ -221,9 +225,15 @@ function AdminDashboardInner({ adminName = 'Admin', onLogout }: AdminDashboardPr
     if (screen === 'add-branch') return canAddBranch
       ? <AddBranchPage onBack={() => go('branches')} />
       : <NoModuleAccess onBack={() => go('branches')} />;
-    if (screen === 'tenants')     return <ViewTenantsPage   onBack={goHome} onAddTenant={() => go('add-tenant')} />;
-    if (screen === 'add-tenant')  return <AddTenantPage     onBack={() => go('tenants')} />;
-    if (screen === 'leads')       return <ViewLeadsPage     onBack={goHome} />;
+    if (screen === 'tenants') return canViewTenants
+      ? <ViewTenantsPage onBack={goHome} onAddTenant={canAddTenant ? () => go('add-tenant') : undefined} />
+      : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'add-tenant') return canAddTenant
+      ? <AddTenantPage onBack={() => go('tenants')} />
+      : <NoModuleAccess onBack={() => go('tenants')} />;
+    if (screen === 'leads') return canViewLeads
+      ? <ViewLeadsPage onBack={goHome} />
+      : <NoModuleAccess onBack={goHome} />;
     if (screen === 'exercises')   return <ViewExercisesPage onBack={goHome} />;
     if (screen === 'workouts')    return <ViewWorkoutsPage  onBack={goHome} />;
     if (screen === 'plans')       return <ViewPlansPage     onBack={goHome} />;
@@ -233,7 +243,9 @@ function AdminDashboardInner({ adminName = 'Admin', onLogout }: AdminDashboardPr
     if (screen === 'stats-admin')        return <StatsAdminPage        onBack={goHome} />;
     if (screen === 'live-coaching-admin') return <LiveCoachingAdminPage onBack={goHome} />;
     if (screen === 'ai-coach-admin')     return <AiCoachSettingsPage   onBack={goHome} />;
-    if (screen === 'attendance')         return <AttendanceSettingsPage onBack={goHome} onOpenLog={() => go('attendance-log')} />;
+    if (screen === 'attendance') return canViewAttendance
+      ? <AttendanceSettingsPage onBack={goHome} onOpenLog={() => go('attendance-log')} />
+      : <NoModuleAccess onBack={goHome} />;
     if (screen === 'attendance-log')     return <AttendanceLogPage     onBack={() => go('attendance')} />;
     if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} onLogout={onLogout} />;
     if (screen === 'profile-details')    return <AdminProfileDetailsPage onBack={goHome} roleLabel={roleLabel} />;
