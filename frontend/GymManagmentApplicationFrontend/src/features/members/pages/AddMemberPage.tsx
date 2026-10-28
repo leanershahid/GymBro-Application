@@ -15,6 +15,8 @@ import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import { Field } from '../../trainers/components/FormFields';
+import { DateField } from '../../trainers/components/DatePicker';
+import { describeApiError, fieldErrorsFrom } from '../../../api/apiError';
 
 const GENDERS: { label: string; value: MemberGender }[] = [
   { label: 'Male',   value: 'male'   },
@@ -45,7 +47,10 @@ export default function AddMemberPage({ onBack }: Props) {
     if (!form.lastName.trim())  e.lastName  = 'Last name is required';
     if (!form.email.trim())     e.email     = 'Email is required';
     else if (!isValidEmail(form.email)) e.email = 'Invalid email';
-    // If trainerId given, branchId is strongly recommended
+    if (form.phone.trim() && !/^[+\d][\d\s-]{6,19}$/.test(form.phone.trim()))
+      e.phone = 'Enter a valid phone number';
+    if (form.dob && form.dob >= new Date().toISOString().slice(0, 10))
+      e.dob = 'Date of birth must be in the past';
 
     return e;
   };
@@ -60,10 +65,10 @@ export default function AddMemberPage({ onBack }: Props) {
       email:     form.email.trim(),
       firstName: form.firstName.trim(),
       lastName:  form.lastName.trim(),
-      phone:     form.phone     || undefined,
+      phone:     form.phone.trim() || undefined,
       gender,
       dob:       form.dob       || undefined,
-      notes:     form.notes     || undefined,
+      notes:     form.notes.trim() || undefined,
       trainerId: form.trainerId ? Number(form.trainerId) : undefined,
       branchId:  form.branchId  ? Number(form.branchId)  : undefined,
     };
@@ -78,10 +83,18 @@ export default function AddMemberPage({ onBack }: Props) {
           const password = pwd ? `\n\nTemporary password: ${pwd}\nShare it with the member — it is shown only once.` : '';
           Alert.alert('Success 🎉', (res.message ?? 'Member created.') + assigned + password);
         } else {
-          Alert.alert('Error', res.message ?? 'Something went wrong.');
+          Alert.alert('Could not create member', res.message ?? 'Something went wrong.');
         }
       },
-      onError: () => Alert.alert('Error', 'Failed to connect to server.'),
+      onError: (err) => {
+        // Show the server's reasons under the matching fields, plus a summary.
+        const { message, errors: list } = describeApiError(err);
+        setErrors(fieldErrorsFrom(list, {
+          'first name': 'firstName', 'last name': 'lastName', 'email': 'email',
+          'phone': 'phone', 'dob': 'dob', 'date of birth': 'dob', 'branch id': 'branchId',
+        }));
+        Alert.alert('Could not create member', list.length ? `${message}\n\n• ${list.join('\n• ')}` : message);
+      },
     });
   };
 
@@ -101,15 +114,15 @@ export default function AddMemberPage({ onBack }: Props) {
           <Text className="text-sub text-[13px] font-semibold uppercase tracking-widest mb-3">Personal Info</Text>
           <View className="flex-row gap-3">
             <View className="flex-1">
-              <Field label="First Name" value={form.firstName} onChangeText={v => update('firstName', v)} autoCorrect={false} error={errors.firstName} />
+              <Field label="First Name *" value={form.firstName} onChangeText={v => update('firstName', v)} autoCorrect={false} error={errors.firstName} />
             </View>
             <View className="flex-1">
-              <Field label="Last Name" value={form.lastName} onChangeText={v => update('lastName', v)} autoCorrect={false} error={errors.lastName} />
+              <Field label="Last Name *" value={form.lastName} onChangeText={v => update('lastName', v)} autoCorrect={false} error={errors.lastName} />
             </View>
           </View>
-          <Field label="Email" value={form.email} onChangeText={v => update('email', v)} placeholder="member@email.com" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} error={errors.email} />
-          <Field label="Phone" value={form.phone ?? ''} onChangeText={v => update('phone', v)} placeholder="+91..." keyboardType="phone-pad" autoCorrect={false} />
-          <Field label="Date of Birth" value={form.dob ?? ''} onChangeText={v => update('dob', v)} placeholder="YYYY-MM-DD" autoCorrect={false} />
+          <Field label="Email *" value={form.email} onChangeText={v => update('email', v)} placeholder="member@email.com" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} error={errors.email} />
+          <Field label="Phone" value={form.phone ?? ''} onChangeText={v => update('phone', v)} placeholder="+91..." keyboardType="phone-pad" autoCorrect={false} error={errors.phone} />
+          <DateField label="Date of Birth" value={form.dob ?? ''} onChange={v => update('dob', v)} maxYear={new Date().getFullYear()} error={errors.dob} />
 
           {/* Gender picker */}
           <Text className="text-sub text-[13px] mb-1.5">Gender</Text>

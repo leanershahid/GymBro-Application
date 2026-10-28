@@ -175,26 +175,26 @@ export default function StepBasicInfo({ data, onChange, errors = {}, selectedBra
             value={selectedBranchId ?? null}
             onChange={onBranchSelect}
             error={branchError}
-            label="Branch"
+            label="Branch *"
           />
         </View>
       )}
 
       <Section title="Identity" />
-      <Field label="Display Name" value={data.displayName ?? ''} onChangeText={(v) => onChange({ displayName: v })} error={errors.displayName} />
-      <Field label="Trainer Code" value={data.trainerCode ?? ''} onChangeText={(v) => onChange({ trainerCode: v })} error={errors.trainerCode} />
+      <Field label="Display Name *" value={data.displayName ?? ''} onChangeText={(v) => onChange({ displayName: v })} error={errors.displayName} />
+      <Field label="Trainer Code *" value={data.trainerCode ?? ''} onChangeText={(v) => onChange({ trainerCode: v })} error={errors.trainerCode} />
       <GenderPills value={data.gender ?? ''} onChange={(v) => onChange({ gender: v })} error={errors.gender} />
       <RowGrid>
         <GridCell>
           <DateField label="Date of Birth" value={data.dateOfBirth ?? ''} onChange={(v) => onChange({ dateOfBirth: v })} maxYear={new Date().getFullYear()} error={errors.dateOfBirth} />
         </GridCell>
         <GridCell>
-          <Field label="Exp. Years" value={String(data.experienceYears ?? '')} onChangeText={(v) => onChange({ experienceYears: Number(v) })} keyboardType="numeric" error={errors.experienceYears} />
+          <Field label="Exp. Years" value={String(data.experienceYears ?? '')} onChangeText={(v) => onChange({ experienceYears: v.trim() === '' ? (undefined as unknown as number) : Number(v.replace(/[^\d]/g, '')) })} keyboardType="numeric" error={errors.experienceYears} />
         </GridCell>
       </RowGrid>
 
       <Section title="Contact" />
-      <Field label="Email"   value={data.email ?? ''}   onChangeText={(v) => onChange({ email: v })}   keyboardType="email-address" autoCapitalize="none" error={errors.email} />
+      <Field label="Email *"   value={data.email ?? ''}   onChangeText={(v) => onChange({ email: v })}   keyboardType="email-address" autoCapitalize="none" error={errors.email} />
       <Field label="Phone"   value={data.phone ?? ''}   onChangeText={(v) => onChange({ phone: v })}   keyboardType="phone-pad" error={errors.phone} />
       <Field label="Address" value={data.address ?? ''} onChangeText={(v) => onChange({ address: v })} error={errors.address} />
 
