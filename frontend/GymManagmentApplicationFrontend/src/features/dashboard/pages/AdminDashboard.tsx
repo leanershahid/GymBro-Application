@@ -161,8 +161,12 @@ interface AdminDashboardProps { adminName?: string; onLogout?: () => void; }
 
 export default function AdminDashboard(props: AdminDashboardProps) {
   const session = getSession();
+  // Staff/custom roles are governed entirely by the per-role Module Access matrix (a separate
+  // screen/table this provider knows nothing about) — only admin/superadmin go through this
+  // per-user check, mirroring the backend's RequireModuleAttribute.
+  const admin = isAdminRole(session?.role);
   return (
-    <ModuleAccessProvider userId={session?.userId ?? 0} isAdmin={isAdminRole(session?.role)}>
+    <ModuleAccessProvider userId={session?.userId ?? 0} isAdmin={admin} enforced={admin}>
       <AdminDashboardInner {...props} />
     </ModuleAccessProvider>
   );

@@ -7,6 +7,8 @@ type Action = 'view' | 'create' | 'edit' | 'delete';
 interface ModuleAccessContextValue {
   isLoading: boolean;
   isAdmin: boolean;
+  /** When false, every check passes through as allowed (see ProviderProps.enforced). */
+  enforced: boolean;
   getEntry: (key: string) => UserModuleAccessEntry | undefined;
 }
 
@@ -21,6 +23,14 @@ interface ProviderProps {
    * denied until a module is explicitly turned on for them.
    */
   isAdmin?: boolean;
+  /**
+   * Mirrors the backend's RequireModuleAttribute, which only runs this per-user check for
+   * built-in roles (admin/superadmin/trainer/client) — a staff/custom role is governed entirely
+   * by the separate per-role Module Access matrix instead, which this provider knows nothing
+   * about. Set to false for non-built-in roles so this provider never contradicts a grant made
+   * through that other screen. Defaults to true.
+   */
+  enforced?: boolean;
   children: React.ReactNode;
 }
 
@@ -29,12 +39,13 @@ interface ProviderProps {
  * This is UX-only hiding — real enforcement is the backend's 403 check (RequireModuleAttribute),
  * not this provider.
  */
-export function ModuleAccessProvider({ userId, isAdmin = false, children }: ProviderProps) {
+export function ModuleAccessProvider({ userId, isAdmin = false, enforced = true, children }: ProviderProps) {
   const { data: modules, isLoading } = useUserModules(userId);
 
   const value: ModuleAccessContextValue = {
     isLoading,
     isAdmin,
+    enforced,
     getEntry: (key: string) => (modules ?? []).find(m => m.key === key),
   };
 
@@ -46,9 +57,12 @@ function checkAction(
   moduleKey: string,
   action: Action,
 ): boolean {
+  if (!ctx.enforced) return true; // staff/custom roles: governed by the per-role matrix instead
   if (ctx.isLoading) return false; // fail-closed while unconfirmed, to avoid a content flash
   const entry = ctx.getEntry(moduleKey);
-  if (!entry) return ctx.isAdmin; // no explicit row: admins default-allow, everyone else default-deny
+  // The API always returns one entry per module (synthesizing isEnabled: false when nothing was
+  // ever explicitly granted) — grantedAt is the only reliable "was this ever configured?" signal.
+  if (!entry || entry.grantedAt == null) return ctx.isAdmin;
   if (!entry.isEnabled) return false;
   switch (action) {
     case 'view':   return true;
