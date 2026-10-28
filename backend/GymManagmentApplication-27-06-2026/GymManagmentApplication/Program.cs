@@ -130,7 +130,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 builder.Services.AddMemoryCache();
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(o =>
+    {
+        // Blank optional form fields ("") arrive as null instead of failing the request;
+        // numbers typed into text inputs ("12") are accepted too.
+        o.JsonSerializerOptions.Converters.Add(new GymManagmentApplication.Infrastructure.Json.EmptyStringAsNullConverterFactory());
+        o.JsonSerializerOptions.NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString;
+    })
+    .ConfigureApiBehaviorOptions(o =>
+        // Field-level, human-readable 400s in the usual { success, message, errors } shape.
+        o.InvalidModelStateResponseFactory = GymManagmentApplication.Infrastructure.Json.ValidationResponses.Create);
 builder.Services.AddEndpointsApiExplorer();
 
 // Swagger with Bearer auth support

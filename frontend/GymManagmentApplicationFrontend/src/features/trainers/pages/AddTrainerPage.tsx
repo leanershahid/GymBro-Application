@@ -14,6 +14,7 @@ import StepCertDocuments from '../components/StepCertDocuments';
 import StepMiscellaneous from '../components/StepMiscellaneous';
 import { Branch } from '../../branches/types/branch.types';
 import { isValidEmail } from '../../../utils/validation';
+import { describeApiError, fieldErrorsFrom } from '../../../api/apiError';
 
 // ─── Steps ────────────────────────────────────────────────────────
 const STEPS = [
@@ -43,14 +44,17 @@ export type BasicInfoErrors = {
 
 function validateBasicInfo(data: TrainerPayload): BasicInfoErrors {
   const errs: BasicInfoErrors = {};
+  // Required by the API: branch (checked separately), trainer code and email.
+  // Display name becomes the trainer's name on their account, so it's required too.
+  // Everything else is optional, but must be valid when filled in.
   if (!data.trainerCode?.trim())  errs.trainerCode  = 'Trainer code is required';
   if (!data.displayName?.trim())  errs.displayName  = 'Display name is required';
-  if (!data.bio?.trim())          errs.bio          = 'Bio is required';
-  if (!data.gender?.trim())       errs.gender       = 'Please select a gender';
-  if (!data.dateOfBirth?.trim())  errs.dateOfBirth  = 'Date of birth is required';
-  if (!data.phone?.trim())        errs.phone        = 'Phone number is required';
-  if (!data.address?.trim())      errs.address      = 'Address is required';
-  if (!data.experienceYears)      errs.experienceYears = 'Experience years is required';
+  if (data.dateOfBirth && data.dateOfBirth >= new Date().toISOString().slice(0, 10))
+    errs.dateOfBirth = 'Date of birth must be in the past';
+  if (data.phone?.trim() && !/^[+\d][\d\s-]{6,19}$/.test(data.phone.trim()))
+    errs.phone = 'Enter a valid phone number';
+  if (data.experienceYears != null && (Number.isNaN(data.experienceYears) || data.experienceYears < 0 || data.experienceYears > 60))
+    errs.experienceYears = 'Enter years between 0 and 60';
 
   const email = data.email?.trim() ?? '';
   if (!email)
@@ -59,6 +63,20 @@ function validateBasicInfo(data: TrainerPayload): BasicInfoErrors {
     errs.email = 'Enter a valid email address';
 
   return errs;
+}
+
+/** Deep copy with "" strings removed, so optional blanks are sent as absent, not as invalid values. */
+function stripBlanks<V>(value: V): V {
+  if (Array.isArray(value)) return value.map(stripBlanks) as unknown as V;
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof v === 'string' && v.trim() === '') continue;
+      out[k] = stripBlanks(v);
+    }
+    return out as V;
+  }
+  return value;
 }
 
 // ─── Component ────────────────────────────────────────────────────
@@ -110,7 +128,8 @@ export default function AddTrainerPage({ onBack }: AddTrainerPageProps) {
       setBranchError('Please select a branch first');
       return;
     }
-    mutate(formData, {
+    // Blank optional fields go to the API as "not provided" rather than empty strings.
+    mutate(stripBlanks(formData), {
       onSuccess: (res) => {
         const pwd = (res.data as { temporaryPassword?: string } | undefined)?.temporaryPassword;
         Alert.alert(
@@ -119,7 +138,16 @@ export default function AddTrainerPage({ onBack }: AddTrainerPageProps) {
             (res.success && pwd ? `\n\nTemporary password: ${pwd}\nShare it with the trainer — it is shown only once.` : ''),
         );
       },
-      onError:   ()    => Alert.alert('Error', 'Failed to connect to server.'),
+      onError: (err) => {
+        const { message, errors: list } = describeApiError(err);
+        const fieldErrs = fieldErrorsFrom(list, {
+          'trainer code': 'trainerCode', 'display name': 'displayName', 'email': 'email', 'phone': 'phone',
+          'date of birth': 'dateOfBirth', 'experience years': 'experienceYears', 'address': 'address', 'bio': 'bio',
+        });
+        if (Object.keys(fieldErrs).length) { setErrors(fieldErrs); setStep(0); }
+        if (list.some(l => l.toLowerCase().startsWith('branch'))) setBranchError('Please select a branch');
+        Alert.alert('Could not create trainer', list.length ? `${message}\n\n• ${list.join('\n• ')}` : message);
+      },
     });
   };
 
