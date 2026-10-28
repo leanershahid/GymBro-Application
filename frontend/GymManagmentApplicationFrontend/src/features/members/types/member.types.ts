@@ -15,6 +15,7 @@ export interface Member {
   // New fields — returned from the API when trainer assignment is performed
   trainerId: number | null;
   branchId: number | null;
+  needsNewTrainer: boolean;
   createdAt: string;
 }
 

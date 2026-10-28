@@ -53,8 +53,8 @@ export default function AreaChart({ data, width, height = 88, yLabels, xLabels }
       <View style={{ flexDirection: 'row' }}>
         {hasAxes && (
           <View style={{ width: yAxisWidth, height: chartHeight, justifyContent: 'space-between', paddingBottom: 4 }}>
-            {yLabels!.map((l) => (
-              <Text key={l} numberOfLines={1} style={{ color: T.textFaint, fontSize: 11 }}>{l}</Text>
+            {yLabels!.map((l, i) => (
+              <Text key={i} numberOfLines={1} style={{ color: T.textFaint, fontSize: 11 }}>{l}</Text>
             ))}
           </View>
         )}

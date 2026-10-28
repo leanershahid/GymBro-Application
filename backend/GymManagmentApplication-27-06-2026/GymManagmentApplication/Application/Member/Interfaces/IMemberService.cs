@@ -12,6 +12,7 @@ public interface IMemberService
     Task<MemberResponse?> GetByIdAsync(ulong id);
     Task<MemberResponse?> UpdateAsync(ulong id, UpdateMemberRequest request);
     Task<bool> DeleteAsync(ulong id);
+    Task<bool> SetStatusAsync(ulong id, bool isActive);
     Task<List<MemberResponse>> BulkImportAsync(BulkImportMemberRequest request);
     Task<List<MemberTimelineResponse>> GetTimelineAsync(ulong id);
     Task<string> UploadPhotoAsync(ulong id, IFormFile photo);

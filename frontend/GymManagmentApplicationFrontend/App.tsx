@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import QueryProvider  from './src/app/providers/QueryProvider';
+import { ToastProvider } from './src/features/common/components/Toast';
 import LoginPage      from './src/features/auth/components/LoginPage';
 import AdminDashboard from './src/features/dashboard/pages/AdminDashboard';
 import MemberApp      from './src/features/member-app/MemberApp';
@@ -36,24 +37,26 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <QueryProvider>
-        {appState.status === 'unauthenticated' && (
-          <LoginPage onLoginSuccess={handleLoginSuccess} errorMessage={appState.error} />
-        )}
-        {appState.status === 'admin' && (
-          <AdminDashboard onLogout={logout} />
-        )}
-        {appState.status === 'member' && (
-          <MemberApp
-            userId={appState.userId}
-            onLogout={logout}
-          />
-        )}
-        {appState.status === 'trainer' && (
-          <TrainerApp
-            userId={appState.userId}
-            onLogout={logout}
-          />
-        )}
+        <ToastProvider>
+          {appState.status === 'unauthenticated' && (
+            <LoginPage onLoginSuccess={handleLoginSuccess} errorMessage={appState.error} />
+          )}
+          {appState.status === 'admin' && (
+            <AdminDashboard onLogout={logout} />
+          )}
+          {appState.status === 'member' && (
+            <MemberApp
+              userId={appState.userId}
+              onLogout={logout}
+            />
+          )}
+          {appState.status === 'trainer' && (
+            <TrainerApp
+              userId={appState.userId}
+              onLogout={logout}
+            />
+          )}
+        </ToastProvider>
       </QueryProvider>
     </SafeAreaProvider>
   );

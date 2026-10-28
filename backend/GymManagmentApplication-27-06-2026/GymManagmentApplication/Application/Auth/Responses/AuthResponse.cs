@@ -22,4 +22,6 @@ public class UserProfileResponse
     public string LastName { get; set; } = default!;
     public string Role { get; set; } = default!;
     public bool IsEmailVerified { get; set; }
+    public string? Phone { get; set; }
+    public string? AvatarUrl { get; set; }
 }

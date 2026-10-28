@@ -11,6 +11,9 @@ import KpiTile                from '../../common/components/dashboard/KpiTile';
 import BarList                from '../../common/components/dashboard/BarList';
 
 import DashboardHeader        from '../components/Dashboardheader';
+import ProfileSheet           from '../components/ProfileSheet';
+import AdminProfileDetailsPage from './AdminProfileDetailsPage';
+import { useMe }              from '../../auth/api/authQueries';
 import AdminRevenueHero       from '../components/AdminRevenueHero';
 import RevenueTrendCard       from '../components/RevenueTrendCard';
 import QuickAccessGrid        from '../components/QuickAccessGrid';
@@ -24,6 +27,7 @@ import AdminModuleDevelopmentDashboard from './AdminModuleDevelopmentDashboard';
 import MoreActionsPage        from './MoreActionsPage';
 import { useVisibleAdminActions } from '../adminActions';
 import { getSession, isAdminRole, isSuperAdmin } from '../../../api/session';
+import { ModuleAccessProvider, useModuleAccess, useModuleCan } from '../../module-access/context/ModuleAccessContext';
 
 // ─── Feature pages ────────────────────────────────────────────────
 import ViewMembersPage   from '../../members/pages/ViewMembersPage';
@@ -66,7 +70,8 @@ type Screen =
   | 'ai-coach-admin'
   | 'attendance'
   | 'attendance-log'
-  | 'more-actions';
+  | 'more-actions'
+  | 'profile-details';
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -105,7 +110,37 @@ function buildTodayItems({ stats, branches, recentMembers }: DashboardData, go: 
     onPress: () => go('trainers'),
   });
 
+  if (stats.membersNeedingTrainer > 0) items.push({
+    key: 'needs-trainer', icon: 'user-x', tone: 'err', badge: `${stats.membersNeedingTrainer}`,
+    title: plural(stats.membersNeedingTrainer, 'member needs', 'members need') + ' a new trainer',
+    subtitle: 'Their trainer was removed or deactivated',
+    onPress: () => go('members'),
+  });
+
+  if (stats.totalMembers > 0) items.push({
+    key: 'members-present', icon: 'users', tone: stats.membersPresent === 0 ? 'warn' : 'info',
+    badge: `${stats.membersPresent} of ${stats.totalMembers}`,
+    title: 'Members checked in',
+    subtitle: stats.membersPresent === 0 ? 'No one on the floor now' : 'On the floor now',
+    onPress: () => go('members'),
+  });
+
   return items;
+}
+
+/** Shown instead of a page when the signed-in user's own module access doesn't grant it. */
+function NoModuleAccess({ onBack }: { onBack: () => void }) {
+  return (
+    <ScreenRoot style={{ justifyContent: 'center' }}>
+      <EmptyState
+        icon="lock"
+        tone="error"
+        title="No access"
+        subtitle="Your account doesn't have access to this module. Ask an admin to grant it."
+        action={{ label: 'Go back', onPress: onBack }}
+      />
+    </ScreenRoot>
+  );
 }
 
 const SECTION = SP.xxl; // 28px between home sections
@@ -124,16 +159,35 @@ const NAV_ITEMS: { icon: FeatherIconName; label: string; key: string }[] = [
 
 interface AdminDashboardProps { adminName?: string; onLogout?: () => void; }
 
-export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminDashboardProps) {
+export default function AdminDashboard(props: AdminDashboardProps) {
+  const session = getSession();
+  return (
+    <ModuleAccessProvider userId={session?.userId ?? 0} isAdmin={isAdminRole(session?.role)}>
+      <AdminDashboardInner {...props} />
+    </ModuleAccessProvider>
+  );
+}
+
+function AdminDashboardInner({ adminName = 'Admin', onLogout }: AdminDashboardProps) {
   const { data, loading, refreshing, error, refresh } = useDashboardStats();
   const actions = useVisibleAdminActions();
   const role = getSession()?.role;
   const superAdmin = isSuperAdmin(role);
   const roleLabel = superAdmin ? 'Super Admin' : isAdminRole(role) ? 'Administrator' : 'Staff';
+  const { data: me, isLoading: meLoading, isError: meError } = useMe();
+  const displayName = me ? `${me.firstName} ${me.lastName}`.trim() || adminName : adminName;
+  const [profileOpen, setProfileOpen] = useState(false);
   const [screen, setScreen] = useState<Screen>('home');
   const activeTab = tabForScreen(screen);
   const { tileW } = useLayout();
   const kpiW = tileW(2, 12);
+
+  const canViewMembers  = useModuleAccess('members');
+  const canViewTrainers = useModuleAccess('trainers');
+  const canViewBranches = useModuleAccess('branches');
+  const canAddMember    = useModuleCan('members', 'create');
+  const canAddTrainer   = useModuleCan('trainers', 'create');
+  const canAddBranch    = useModuleCan('branches', 'create');
 
   const go = useCallback((s: Screen) => setScreen(s), []);
   const goHome = useCallback(() => setScreen('home'), []);
@@ -149,12 +203,24 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
   // ── Sub-page routing — rendered above the persistent bottom nav ──
   const subPage = (() => {
     if (screen === 'module-hub')  return <AdminModuleDevelopmentDashboard onBack={goHome} onNavigate={(k) => go(k as Screen)} stats={data?.stats} />;
-    if (screen === 'members')     return <ViewMembersPage   onBack={goHome} onAddMember={() => go('add-member')} />;
-    if (screen === 'add-member')  return <AddMemberPage     onBack={() => go('members')} />;
-    if (screen === 'trainers')    return <ViewTrainersPage  onBack={goHome} onAddTrainer={() => go('add-trainer')} />;
-    if (screen === 'add-trainer') return <AddTrainerPage    onBack={() => go('trainers')} />;
-    if (screen === 'branches')    return <ViewBranchesPage  onBack={goHome} onAddBranch={() => go('add-branch')} />;
-    if (screen === 'add-branch')  return <AddBranchPage     onBack={() => go('branches')} />;
+    if (screen === 'members') return canViewMembers
+      ? <ViewMembersPage onBack={goHome} onAddMember={canAddMember ? () => go('add-member') : undefined} />
+      : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'add-member') return canAddMember
+      ? <AddMemberPage onBack={() => go('members')} />
+      : <NoModuleAccess onBack={() => go('members')} />;
+    if (screen === 'trainers') return canViewTrainers
+      ? <ViewTrainersPage onBack={goHome} onAddTrainer={canAddTrainer ? () => go('add-trainer') : undefined} />
+      : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'add-trainer') return canAddTrainer
+      ? <AddTrainerPage onBack={() => go('trainers')} />
+      : <NoModuleAccess onBack={() => go('trainers')} />;
+    if (screen === 'branches') return canViewBranches
+      ? <ViewBranchesPage onBack={goHome} onAddBranch={canAddBranch ? () => go('add-branch') : undefined} />
+      : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'add-branch') return canAddBranch
+      ? <AddBranchPage onBack={() => go('branches')} />
+      : <NoModuleAccess onBack={() => go('branches')} />;
     if (screen === 'tenants')     return <ViewTenantsPage   onBack={goHome} onAddTenant={() => go('add-tenant')} />;
     if (screen === 'add-tenant')  return <AddTenantPage     onBack={() => go('tenants')} />;
     if (screen === 'leads')       return <ViewLeadsPage     onBack={goHome} />;
@@ -170,6 +236,7 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
     if (screen === 'attendance')         return <AttendanceSettingsPage onBack={goHome} onOpenLog={() => go('attendance-log')} />;
     if (screen === 'attendance-log')     return <AttendanceLogPage     onBack={() => go('attendance')} />;
     if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} onLogout={onLogout} />;
+    if (screen === 'profile-details')    return <AdminProfileDetailsPage onBack={goHome} roleLabel={roleLabel} />;
     return null;
   })();
 
@@ -181,6 +248,16 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
       </View>
       {/* Bottom nav stays fixed on every admin screen */}
       <BottomTabBar tabs={NAV_ITEMS} active={activeTab} onChange={handleTab} />
+      <ProfileSheet
+        visible={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        profile={me}
+        isLoading={meLoading}
+        isError={meError}
+        roleLabel={roleLabel}
+        onLogout={onLogout}
+        onViewMore={() => { setProfileOpen(false); go('profile-details'); }}
+      />
     </View>
   );
 
@@ -232,9 +309,10 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
         {/* 1. Header — greeting, name, role */}
         <View style={{ paddingTop: SP.lg, marginBottom: 24 }}>
           <DashboardHeader
-            adminName={adminName}
+            adminName={displayName}
+            avatarUrl={me?.avatarUrl ?? undefined}
             roleLabel={roleLabel}
-            onPressAvatar={() => {}}
+            onPressAvatar={() => setProfileOpen(true)}
           />
         </View>
 
@@ -262,7 +340,7 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
             width={kpiW} icon="users" label="Members"
             value={stats.totalMembers.toLocaleString('en-IN')}
             delta={{ label: formatPct(stats.memberGrowthPct), positive: stats.memberGrowthPct >= 0 }}
-            hint="vs last month"
+            hint={`${stats.membersPresent} checked in now`}
             onPress={() => go('members')}
           />
           <KpiTile

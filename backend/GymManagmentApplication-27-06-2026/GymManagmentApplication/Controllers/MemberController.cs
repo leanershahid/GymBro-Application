@@ -49,10 +49,22 @@ public class MemberController(IMemberService service, IValidator<CreateMemberReq
 
     [HttpDelete("{id}")]
     [AuthorizeRoles(RoleNames.Admin)]
+    [RequireModule("members")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(ulong id)
     {
         var deleted = await service.DeleteAsync(id);
         return deleted ? Ok(ApiResponse<object>.Ok((object)null!, "Member archived.")) : NotFound(ApiResponse<object>.Fail($"Member {id} not found."));
+    }
+
+    [HttpPatch("{id}/status")]
+    [AuthorizeRoles(RoleNames.Admin)]
+    [RequireModule("members")]
+    public async Task<ActionResult<ApiResponse<object>>> SetStatus(ulong id, [FromBody] SetStatusRequest request)
+    {
+        var updated = await service.SetStatusAsync(id, request.IsActive);
+        return updated
+            ? Ok(ApiResponse<object>.Ok((object)null!, request.IsActive ? "Member activated." : "Member deactivated."))
+            : NotFound(ApiResponse<object>.Fail($"Member {id} not found."));
     }
 
     [HttpPost("bulk")]

@@ -200,7 +200,9 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
             Role            = roleSlug,
             TenantId        = user.TenantId,
             BranchId        = user.BranchId,
-            IsEmailVerified = user.EmailVerifiedAt.HasValue
+            IsEmailVerified = user.EmailVerifiedAt.HasValue,
+            Phone           = user.Phone,
+            AvatarUrl       = user.AvatarUrl
         };
     }
 

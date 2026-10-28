@@ -89,6 +89,15 @@ public static class DbSeeder
             ("live-coaching", "Live Coaching",     "Live coach discovery and booking", "video"),
             ("stats",         "Stats",             "Daily health metrics and streaks", "bar-chart-2"),
             ("ai-coach",      "AI Coach",          "AI-generated recovery and training tips", "cpu"),
+
+            // Admin-area modules — gate-able per user (including admins themselves) via
+            // RequireModuleAttribute on their controllers. An admin with no explicit row here
+            // defaults to allowed (see IUserModulesService.CanAsync), so adding these keys
+            // never locks out an existing admin; it only takes effect once someone explicitly
+            // restricts a specific user's access.
+            ("members",  "Members",  "Viewing and managing gym members", "users"),
+            ("trainers", "Trainers", "Viewing and managing trainers", "award"),
+            ("branches", "Branches", "Viewing and managing branches", "map-pin"),
         };
 
         foreach (var (key, name, desc, icon) in seedModules)

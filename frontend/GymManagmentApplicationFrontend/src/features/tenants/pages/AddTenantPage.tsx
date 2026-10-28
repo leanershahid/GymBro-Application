@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
 import WizardScaffold from '../../common/components/WizardScaffold';
+import { useToast } from '../../common/components/Toast';
 import { useCreateTenant } from '../api/tenantQueries';
 import { TenantPayload, TenantPlan } from '../types/tenant.types';
 import StepTenantBasicInfo, { TenantBasicInfoErrors } from '../components/StepTenantBasicInfo';
@@ -66,6 +66,7 @@ export default function AddTenantPage({ onBack }: AddTenantPageProps) {
   const [planErrors,   setPlanErrors]   = useState<TenantPlanErrors>({});
 
   const { mutate, isPending } = useCreateTenant();
+  const { show: showToast } = useToast();
   const isLast = step === STEPS.length - 1;
 
   const updateForm = (fields: Partial<TenantPayload>) =>
@@ -91,10 +92,16 @@ export default function AddTenantPage({ onBack }: AddTenantPageProps) {
     setPlanErrors({});
 
     mutate(formData, {
-      onSuccess: (res) =>
-        Alert.alert(res.success ? 'Success 🎉' : 'Error', res.message ?? 'Something went wrong.'),
+      onSuccess: (res) => {
+        if (res.success) {
+          showToast({ type: 'success', message: res.message ?? 'Tenant created.' });
+          onBack?.();
+        } else {
+          showToast({ type: 'error', message: res.message ?? 'Something went wrong.' });
+        }
+      },
       onError: () =>
-        Alert.alert('Error', 'Failed to connect to server.'),
+        showToast({ type: 'error', message: 'Failed to connect to server.' }),
     });
   };
 

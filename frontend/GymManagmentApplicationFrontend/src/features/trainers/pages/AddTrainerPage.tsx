@@ -15,6 +15,7 @@ import StepMiscellaneous from '../components/StepMiscellaneous';
 import { Branch } from '../../branches/types/branch.types';
 import { isValidEmail } from '../../../utils/validation';
 import { describeApiError, fieldErrorsFrom } from '../../../api/apiError';
+import { useToast } from '../../common/components/Toast';
 
 // ─── Steps ────────────────────────────────────────────────────────
 const STEPS = [
@@ -90,6 +91,7 @@ export default function AddTrainerPage({ onBack }: AddTrainerPageProps) {
   const [errors, setErrors]       = useState<BasicInfoErrors>({});
   const [branchError, setBranchError] = useState('');
   const { mutate, isPending }     = useCreateTrainer();
+  const { show: showToast }       = useToast();
 
   const selectedBranchId: number | null = formData.branchId || null;
 
@@ -131,12 +133,23 @@ export default function AddTrainerPage({ onBack }: AddTrainerPageProps) {
     // Blank optional fields go to the API as "not provided" rather than empty strings.
     mutate(stripBlanks(formData), {
       onSuccess: (res) => {
+        if (!res.success) {
+          showToast({ type: 'error', message: res.message ?? 'Something went wrong.' });
+          return;
+        }
         const pwd = (res.data as { temporaryPassword?: string } | undefined)?.temporaryPassword;
-        Alert.alert(
-          res.success ? 'Success' : 'Error',
-          (res.message ?? 'Something went wrong.') +
-            (res.success && pwd ? `\n\nTemporary password: ${pwd}\nShare it with the trainer — it is shown only once.` : ''),
-        );
+        if (pwd) {
+          // A one-time secret needs an explicit acknowledgment, not an auto-dismissing toast —
+          // redirect only once the admin has seen and dismissed it.
+          Alert.alert(
+            'Trainer created',
+            `${res.message ?? 'Trainer created.'}\n\nTemporary password: ${pwd}\nShare it with the trainer — it is shown only once.`,
+            [{ text: 'OK', onPress: () => onBack?.() }],
+          );
+        } else {
+          showToast({ type: 'success', message: res.message ?? 'Trainer created.' });
+          onBack?.();
+        }
       },
       onError: (err) => {
         const { message, errors: list } = describeApiError(err);
@@ -146,7 +159,7 @@ export default function AddTrainerPage({ onBack }: AddTrainerPageProps) {
         });
         if (Object.keys(fieldErrs).length) { setErrors(fieldErrs); setStep(0); }
         if (list.some(l => l.toLowerCase().startsWith('branch'))) setBranchError('Please select a branch');
-        Alert.alert('Could not create trainer', list.length ? `${message}\n\n• ${list.join('\n• ')}` : message);
+        showToast({ type: 'error', message: list.length ? `${message} ${list.join(', ')}` : message });
       },
     });
   };

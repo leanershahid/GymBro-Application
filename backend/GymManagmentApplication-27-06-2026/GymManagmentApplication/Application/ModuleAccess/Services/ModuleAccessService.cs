@@ -69,15 +69,21 @@ public class ModuleAccessService(AppDbContext db, ICurrentUser currentUser) : IM
         var role = await db.Roles.FirstOrDefaultAsync(r => r.TenantId == tenantId && r.Slug == currentUser.Role);
         if (role is null) return [];
 
-        // Built-in admins implicitly have everything.
-        if (currentUser.IsAdmin)
-            return _availableModules.Select(m => new ModuleAccessResponse
-            {
-                TenantId = tenantId, RoleId = role.Id, RoleName = role.Name, Module = m,
-                CanView = true, CanCreate = true, CanEdit = true, CanDelete = true, CanExport = true, IsActive = true
-            }).ToList();
+        var configured = await GetByRoleAsync(tenantId, role.Id);
 
-        return await GetByRoleAsync(tenantId, role.Id);
+        if (!currentUser.IsAdmin)
+            return configured;
+
+        // Admins default to full access on any module with no explicit matrix row — their
+        // access is a privilege dialed down by exception, not granted from zero. This keeps
+        // today's behaviour identical for every admin until someone explicitly restricts a
+        // module for the admin role via the Module Access screen.
+        var byModule = configured.ToDictionary(e => e.Module);
+        return _availableModules.Select(m => byModule.TryGetValue(m, out var existing) ? existing : new ModuleAccessResponse
+        {
+            TenantId = tenantId, RoleId = role.Id, RoleName = role.Name, Module = m,
+            CanView = true, CanCreate = true, CanEdit = true, CanDelete = true, CanExport = true, IsActive = true
+        }).ToList();
     }
 
     public async Task<List<ModuleAccessResponse>> GetByRoleAsync(ulong tenantId, ulong roleId)

@@ -12,6 +12,9 @@ namespace GymManagmentApplication.Controllers;
 [PermissionModule("branches")]
 [Route("api/branches")]
 [AuthorizeRoles(RoleNames.Admin)]
+// Every action here is Admin-only (see the attribute above), so this is safe at class level —
+// it never gates a Trainer/Client caller, only an admin's own per-user "branches" access.
+[RequireModule("branches")]
 public class BranchController(IBranchService service, IValidator<CreateBranchRequest> validator) : ControllerBase
 {
     [HttpGet]
@@ -46,5 +49,13 @@ public class BranchController(IBranchService service, IValidator<CreateBranchReq
     {
         var deleted = await service.DeleteAsync(id);
         return deleted ? Ok(ApiResponse<object>.Ok((object)null!, "Branch deleted.")) : NotFound(ApiResponse<object>.Fail($"Branch {id} not found."));
+    }
+
+    /// <summary>Moves every member/trainer of this branch to another branch — required before deactivating or removing it.</summary>
+    [HttpPost("{id}/transfer")]
+    public async Task<ActionResult<ApiResponse<object>>> Transfer(ulong id, [FromBody] TransferBranchRequest request)
+    {
+        var moved = await service.TransferAsync(id, request.TargetBranchId);
+        return Ok(ApiResponse<object>.Ok((object)moved, $"Moved {moved} member(s)/trainer(s) to the new branch."));
     }
 }

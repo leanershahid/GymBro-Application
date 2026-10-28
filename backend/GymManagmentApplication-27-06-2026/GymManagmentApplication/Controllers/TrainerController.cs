@@ -21,6 +21,7 @@ public class TrainerController(ITrainerService service, IValidator<CreateTrainer
 
     [HttpPost]
     [AuthorizeRoles(RoleNames.Admin)]
+    [RequireModule("trainers")]
     public async Task<ActionResult<ApiResponse<object>>> Create([FromBody] CreateTrainerRequest request)
     {
         var v = await validator.ValidateAsync(request);
@@ -52,6 +53,28 @@ public class TrainerController(ITrainerService service, IValidator<CreateTrainer
     {
         var result = await service.UpdateAsync(id, request);
         return result is null ? NotFound(ApiResponse<object>.Fail($"Trainer {id} not found.")) : Ok(ApiResponse<object>.Ok(result));
+    }
+
+    [HttpPatch("{id}/status")]
+    [AuthorizeRoles(RoleNames.Admin)]
+    [RequireModule("trainers")]
+    public async Task<ActionResult<ApiResponse<object>>> SetStatus(ulong id, [FromBody] SetStatusRequest request)
+    {
+        var updated = await service.SetStatusAsync(id, request.IsActive);
+        return updated
+            ? Ok(ApiResponse<object>.Ok((object)null!, request.IsActive ? "Trainer activated." : "Trainer deactivated. Their clients now need a new trainer."))
+            : NotFound(ApiResponse<object>.Fail($"Trainer {id} not found."));
+    }
+
+    [HttpDelete("{id}")]
+    [AuthorizeRoles(RoleNames.Admin)]
+    [RequireModule("trainers")]
+    public async Task<ActionResult<ApiResponse<object>>> Delete(ulong id)
+    {
+        var deleted = await service.DeleteAsync(id);
+        return deleted
+            ? Ok(ApiResponse<object>.Ok((object)null!, "Trainer removed. Their clients now need a new trainer."))
+            : NotFound(ApiResponse<object>.Fail($"Trainer {id} not found."));
     }
 
     [HttpGet("{id}/clients")]

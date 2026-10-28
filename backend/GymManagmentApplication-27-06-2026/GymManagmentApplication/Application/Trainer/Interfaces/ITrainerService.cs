@@ -11,6 +11,8 @@ public interface ITrainerService
     Task<TrainerResponse?> GetByIdAsync(ulong id);
     Task<TrainerResponse?> GetByUserIdAsync(ulong userId);
     Task<TrainerResponse?> UpdateAsync(ulong id, UpdateTrainerRequest request);
+    Task<bool> SetStatusAsync(ulong id, bool isActive);
+    Task<bool> DeleteAsync(ulong id);
     Task<List<TrainerClientResponse>> GetClientsAsync(ulong id);
     Task<TrainerClientResponse> AssignClientAsync(ulong id, AssignClientRequest request);
     Task<bool> UnassignClientAsync(ulong trainerId, ulong clientId);

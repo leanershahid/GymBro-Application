@@ -35,9 +35,37 @@ public class DashboardService(AppDbContext db, ICurrentUser currentUser) : IDash
         var totalBranches = await db.Branches.CountAsync();
         var activeBranches = await db.Branches.CountAsync(b => b.Status == BranchStatus.Active);
 
-        var trainersOnline = await db.TrainerProfiles.CountAsync(t => t.IsAvailable);
+        // "Online"/"present" means an open attendance row today (checked in, not yet checked out) —
+        // not a manually-set availability flag, which can go stale.
+        var openAttendanceUserIds = await db.Attendances
+            .Where(a => a.CheckOutAt == null && a.CheckInAt >= startOfToday)
+            .Select(a => a.UserId)
+            .Distinct()
+            .ToListAsync();
+
         var totalTrainers = await db.TrainerProfiles.CountAsync();
+        var trainerUserIds = await db.TrainerProfiles.Select(t => t.UserId).ToListAsync();
+        var trainersOnline = trainerUserIds.Intersect(openAttendanceUserIds.Cast<ulong?>()).Count();
+
+        var clientUserIds = await clientUsers.Select(u => u.Id).ToListAsync();
+        var membersPresent = clientUserIds.Intersect(openAttendanceUserIds).Count();
+
         var totalTenants = currentUser.IsSuperAdmin ? await db.Tenants.CountAsync() : 1;
+
+        // Members whose trainer was removed/deactivated (assignment paused) and who haven't
+        // been given a new active trainer since.
+        var pausedClientIds = await db.TrainerClientAssignments
+            .Where(a => a.Status == TrainerAssignmentStatus.Paused)
+            .Select(a => a.ClientId)
+            .Distinct()
+            .ToListAsync();
+        var reassignedClientIds = pausedClientIds.Count == 0
+            ? new List<ulong>()
+            : await db.TrainerClientAssignments
+                .Where(a => a.Status == TrainerAssignmentStatus.Active && pausedClientIds.Contains(a.ClientId))
+                .Select(a => a.ClientId)
+                .ToListAsync();
+        var membersNeedingTrainer = pausedClientIds.Except(reassignedClientIds).Count();
 
         var trendStart = startOfThisMonth.AddMonths(-6);
         var recentPayments = await completedPayments
@@ -100,6 +128,8 @@ public class DashboardService(AppDbContext db, ICurrentUser currentUser) : IDash
                 NewSignupsToday = newSignupsToday,
                 TrainersOnline = trainersOnline,
                 TotalTrainers = totalTrainers,
+                MembersPresent = membersPresent,
+                MembersNeedingTrainer = membersNeedingTrainer,
                 TotalTenants = totalTenants
             },
             RevenueTrend = revenueTrend,

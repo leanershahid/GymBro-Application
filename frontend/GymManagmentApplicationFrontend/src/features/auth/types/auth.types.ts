@@ -17,3 +17,18 @@ export interface AuthData {
 }
 
 export type LoginResponse = ApiResponse<AuthData>;
+
+export interface UserProfile {
+  userId: number;
+  tenantId: number;
+  branchId: number | null;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  isEmailVerified: boolean;
+  phone: string | null;
+  avatarUrl: string | null;
+}
+
+export type MeResponse = ApiResponse<UserProfile>;

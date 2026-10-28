@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { currentTenantId } from '../../../api/session';
-import { Alert } from 'react-native';
 import WizardScaffold from '../../common/components/WizardScaffold';
+import { useToast } from '../../common/components/Toast';
 import { useCreateBranch } from '../api/branchQueries';
 import { BranchPayload } from '../types/branch.types';
 import StepBranchBasicInfo, { BranchBasicInfoErrors } from '../components/StepBranchBasicInfo';
@@ -76,6 +76,7 @@ export default function AddBranchPage({ onBack }: AddBranchPageProps) {
   const [settingsErrors, setSettingsErrors] = useState<BranchSettingsErrors>({});
 
   const { mutate, isPending } = useCreateBranch();
+  const { show: showToast } = useToast();
   const isLast = step === STEPS.length - 1;
 
   const updateForm = (fields: Partial<BranchPayload>) => {
@@ -102,10 +103,16 @@ export default function AddBranchPage({ onBack }: AddBranchPageProps) {
     setSettingsErrors({});
 
     mutate(formData, {
-      onSuccess: (res) =>
-        Alert.alert(res.success ? 'Success 🎉' : 'Error', res.message ?? 'Something went wrong.'),
+      onSuccess: (res) => {
+        if (res.success) {
+          showToast({ type: 'success', message: res.message ?? 'Branch created.' });
+          onBack?.();
+        } else {
+          showToast({ type: 'error', message: res.message ?? 'Something went wrong.' });
+        }
+      },
       onError: () =>
-        Alert.alert('Error', 'Failed to connect to server.'),
+        showToast({ type: 'error', message: 'Failed to connect to server.' }),
     });
   };
 

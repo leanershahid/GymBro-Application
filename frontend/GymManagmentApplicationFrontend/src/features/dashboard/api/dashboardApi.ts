@@ -15,6 +15,8 @@ export interface DashboardStatsRaw {
   newSignupsToday: number;
   trainersOnline: number;
   totalTrainers: number;
+  membersPresent: number;
+  membersNeedingTrainer: number;
   totalTenants: number;
 }
 

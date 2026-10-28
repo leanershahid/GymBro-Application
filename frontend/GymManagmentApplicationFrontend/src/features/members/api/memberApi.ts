@@ -22,3 +22,10 @@ export const deleteMember = async (id: number): Promise<{ success: boolean; mess
   const { data } = await axiosInstance.delete(`${ENDPOINTS.MEMBERS}/${id}`);
   return data;
 };
+
+export const setMemberStatus = async (
+  id: number, isActive: boolean,
+): Promise<{ success: boolean; message: string }> => {
+  const { data } = await axiosInstance.patch(`${ENDPOINTS.MEMBERS}/${id}/status`, { isActive });
+  return data;
+};

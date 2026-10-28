@@ -62,6 +62,18 @@ public class BranchService(IBranchRepository repository, ICurrentUser currentUse
     {
         var branch = await repository.GetByIdAsync(id);
         if (branch is null) return null;
+
+        // Deactivating a branch while it still has members/trainers would strand them —
+        // the admin must transfer them to another branch first (see TransferAsync).
+        if (request.Status.HasValue && request.Status.Value != BranchStatus.Active && branch.Status != request.Status.Value)
+        {
+            var stillAssigned = await db.Users.CountAsync(u => u.BranchId == id && u.DeletedAt == null)
+                               + await db.TrainerProfiles.CountAsync(t => t.BranchId == id);
+            if (stillAssigned > 0)
+                throw new ArgumentException(
+                    $"This branch still has {stillAssigned} member(s)/trainer(s). Transfer them to another branch before deactivating it.");
+        }
+
         if (request.Name is not null) branch.Name = request.Name;
         if (request.Address is not null) branch.Address = request.Address;
         if (request.City is not null) branch.City = request.City;
@@ -110,6 +122,32 @@ public class BranchService(IBranchRepository repository, ICurrentUser currentUse
                 "). Set its status to Inactive instead of deleting it.");
 
         return await repository.DeleteAsync(id);
+    }
+
+    /// <summary>Moves every member and trainer (and their open assignments) from one branch to another.</summary>
+    public async Task<int> TransferAsync(ulong id, ulong targetBranchId)
+    {
+        if (id == targetBranchId)
+            throw new ArgumentException("Choose a different branch to transfer to.");
+
+        var branch = await repository.GetByIdAsync(id)
+            ?? throw new ArgumentException($"Branch {id} not found.");
+        var target = await repository.GetByIdAsync(targetBranchId)
+            ?? throw new ArgumentException($"Target branch {targetBranchId} not found.");
+        if (target.Status != BranchStatus.Active)
+            throw new ArgumentException("The target branch must be active.");
+
+        var users = await db.Users.Where(u => u.BranchId == id && u.DeletedAt == null).ToListAsync();
+        foreach (var u in users) u.BranchId = targetBranchId;
+
+        var trainers = await db.TrainerProfiles.Where(t => t.BranchId == id).ToListAsync();
+        foreach (var t in trainers) t.BranchId = targetBranchId;
+
+        var assignments = await db.TrainerClientAssignments.Where(a => a.BranchId == id).ToListAsync();
+        foreach (var a in assignments) a.BranchId = targetBranchId;
+
+        await db.SaveChangesAsync();
+        return users.Count + trainers.Count;
     }
 
     private static BranchResponse Map(Domain.Entities.Core.Branch b) => new()

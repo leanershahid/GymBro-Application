@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, FlatList, Image } from 'react-native';
+import { View, Text, FlatList, Image, Pressable, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useBranches } from '../api/branchQueries';
+import { useBranches, useSetBranchStatus, useDeleteBranch, useTransferBranch } from '../api/branchQueries';
 import { Branch } from '../types/branch.types';
 import { T, withAlpha, R, SP } from '../../../theme';
 import { useLayout } from '../../../utils/useLayout';
@@ -11,6 +11,10 @@ import SearchBar from '../../common/components/SearchBar';
 import StatusPill, { toneForStatus } from '../../common/components/StatusPill';
 import Skeleton from '../../common/components/Skeleton';
 import EmptyState from '../../dashboard/components/EmptyState';
+import BranchDropdown from '../components/BranchDropdown';
+import BottomSheet from '../../common/components/BottomSheet';
+import { useToast } from '../../common/components/Toast';
+import { useModuleCan } from '../../module-access/context/ModuleAccessContext';
 
 import StatsStrip from '../../common/StatsStrip';
 
@@ -31,10 +35,46 @@ const TINTS = [
 ];
 const tint = (id: number) => TINTS[id % TINTS.length];
 
+function ActionButton({
+  icon, label, tone, onPress,
+}: {
+  icon: React.ComponentProps<typeof Feather>['name'];
+  label: string;
+  tone: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={6}
+      style={({ pressed }) => ({
+        flexDirection: 'row', alignItems: 'center', gap: 5,
+        paddingHorizontal: 10, paddingVertical: 6, borderRadius: R.pill,
+        backgroundColor: pressed ? withAlpha(tone, 0.18) : withAlpha(tone, 0.10),
+        borderWidth: 1, borderColor: withAlpha(tone, 0.28),
+      })}
+    >
+      <Feather name={icon} size={12} color={tone} />
+      <Text style={{ color: tone, fontSize: 11, fontWeight: '700' }}>{label}</Text>
+    </Pressable>
+  );
+}
+
 // ─── Branch card ──────────────────────────────────────────────────
 // There is no branch detail screen yet, so the card is a grouped View rather than a
 // Pressable with a no-op handler.
-function BranchCard({ branch, heroH }: { branch: Branch; heroH: number }) {
+function BranchCard({
+  branch, heroH, onToggleStatus, onRemove, canEdit, canDelete,
+}: {
+  branch: Branch;
+  heroH: number;
+  onToggleStatus: () => void;
+  onRemove: () => void;
+  canEdit: boolean;
+  canDelete: boolean;
+}) {
   const c        = tint(branch.id);
   const hasImage = !!branch.logoUrl && branch.logoUrl !== 'string' && branch.logoUrl.startsWith('http');
 
@@ -202,6 +242,23 @@ function BranchCard({ branch, heroH }: { branch: Branch; heroH: number }) {
             {formatDate(branch.createdAt)}
           </Text>
         </View>
+
+        {/* Actions — hidden entirely when this account has no edit/delete access to branches */}
+        {(canEdit || canDelete) && (
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
+            {canEdit && (
+              <ActionButton
+                icon={branch.status.toLowerCase() === 'active' ? 'pause-circle' : 'play-circle'}
+                label={branch.status.toLowerCase() === 'active' ? 'Deactivate' : 'Activate'}
+                tone={branch.status.toLowerCase() === 'active' ? T.brandGold : T.ok}
+                onPress={onToggleStatus}
+              />
+            )}
+            {canDelete && (
+              <ActionButton icon="trash-2" label="Remove" tone={T.err} onPress={onRemove} />
+            )}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -218,6 +275,97 @@ export default function ViewBranchesPage({ onBack, onAddBranch }: ViewBranchesPa
   const { data: branches = [], isLoading, isError, refetch } = useBranches();
   const { width } = useLayout();
   const heroH = Math.round(Math.min(200, width * 0.5));
+
+  const { mutate: setStatus } = useSetBranchStatus();
+  const { mutate: removeBranch } = useDeleteBranch();
+  const { mutate: transfer, isPending: isTransferring } = useTransferBranch();
+  const { show: showToast } = useToast();
+  const canEditBranches = useModuleCan('branches', 'edit');
+  const canDeleteBranches = useModuleCan('branches', 'delete');
+
+  // When a deactivate/remove is blocked because the branch still has people in it, we fall
+  // back to asking the admin to transfer them to another branch first, then retry.
+  const [pendingTransfer, setPendingTransfer] = React.useState<
+    { branch: Branch; action: 'deactivate' | 'remove' } | null
+  >(null);
+
+  const needsTransfer = (message: string) => /transfer/i.test(message);
+
+  const runDeactivate = (branch: Branch) => {
+    setStatus(
+      { id: branch.id, status: 'Inactive' },
+      {
+        onSuccess: (res) => {
+          if (res.success) { showToast({ type: 'success', message: res.message ?? 'Branch deactivated.' }); return; }
+          if (needsTransfer(res.message ?? '')) setPendingTransfer({ branch, action: 'deactivate' });
+          else showToast({ type: 'error', message: res.message ?? 'Could not deactivate branch.' });
+        },
+        onError: () => showToast({ type: 'error', message: 'Could not deactivate branch.' }),
+      },
+    );
+  };
+
+  const runRemove = (branch: Branch) => {
+    removeBranch(branch.id, {
+      onSuccess: (res) => {
+        if (res.success) { showToast({ type: 'success', message: res.message ?? 'Branch removed.' }); return; }
+        if (needsTransfer(res.message ?? '')) setPendingTransfer({ branch, action: 'remove' });
+        else showToast({ type: 'error', message: res.message ?? 'Could not remove branch.' });
+      },
+      onError: () => showToast({ type: 'error', message: 'Could not remove branch.' }),
+    });
+  };
+
+  const handleToggleStatus = (branch: Branch) => {
+    const isActive = branch.status.toLowerCase() === 'active';
+    if (!isActive) {
+      setStatus(
+        { id: branch.id, status: 'Active' },
+        {
+          onSuccess: (res) => showToast({ type: res.success ? 'success' : 'error', message: res.message ?? 'Done.' }),
+          onError: () => showToast({ type: 'error', message: 'Could not activate branch.' }),
+        },
+      );
+      return;
+    }
+    Alert.alert(
+      'Deactivate branch?',
+      `${branch.name} will stop accepting check-ins and new activity.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Deactivate', style: 'destructive', onPress: () => runDeactivate(branch) },
+      ],
+    );
+  };
+
+  const handleRemove = (branch: Branch) => {
+    Alert.alert(
+      'Remove branch?',
+      `${branch.name} will be permanently deleted. This can't be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => runRemove(branch) },
+      ],
+    );
+  };
+
+  const handleTransferAndRetry = (targetBranch: Branch) => {
+    if (!pendingTransfer) return;
+    const { branch, action } = pendingTransfer;
+    transfer(
+      { id: branch.id, targetBranchId: targetBranch.id },
+      {
+        onSuccess: (res) => {
+          if (!res.success) { showToast({ type: 'error', message: res.message ?? 'Transfer failed.' }); return; }
+          showToast({ type: 'success', message: res.message ?? 'Transferred.' });
+          setPendingTransfer(null);
+          if (action === 'deactivate') runDeactivate(branch);
+          else runRemove(branch);
+        },
+        onError: () => showToast({ type: 'error', message: 'Transfer failed.' }),
+      },
+    );
+  };
 
   const filtered = branches.filter((b) =>
     search.trim() === '' ||
@@ -275,7 +423,16 @@ export default function ViewBranchesPage({ onBack, onAddBranch }: ViewBranchesPa
       <FlatList
         data={isLoading || isError ? [] : filtered}
         keyExtractor={(b) => String(b.id)}
-        renderItem={({ item }) => <BranchCard branch={item} heroH={heroH} />}
+        renderItem={({ item }) => (
+          <BranchCard
+            branch={item}
+            heroH={heroH}
+            onToggleStatus={() => handleToggleStatus(item)}
+            onRemove={() => handleRemove(item)}
+            canEdit={canEditBranches}
+            canDelete={canDeleteBranches}
+          />
+        )}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={
           !isLoading && !isError ? (
@@ -290,6 +447,29 @@ export default function ViewBranchesPage({ onBack, onAddBranch }: ViewBranchesPa
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       />
+
+      {/* Transfer-before-deactivate/remove flow */}
+      <BottomSheet
+        visible={!!pendingTransfer}
+        onClose={() => setPendingTransfer(null)}
+        title="Transfer branch first"
+      >
+        <View style={{ paddingHorizontal: SP.xl, paddingTop: SP.md, paddingBottom: SP.lg }}>
+          <Text style={{ color: T.textSub, fontSize: 13, lineHeight: 19, marginBottom: SP.lg }}>
+            {pendingTransfer
+              ? `${pendingTransfer.branch.name} still has members and/or trainers. Pick another branch to move them to before ${pendingTransfer.action === 'remove' ? 'removing' : 'deactivating'} it.`
+              : ''}
+          </Text>
+          <BranchDropdown
+            label="Transfer to"
+            value={null}
+            onChange={(target) => handleTransferAndRetry(target)}
+          />
+          {isTransferring && (
+            <Text style={{ color: T.textFaint, fontSize: 12, marginTop: SP.sm }}>Transferring…</Text>
+          )}
+        </View>
+      </BottomSheet>
     </Screen>
   );
 }

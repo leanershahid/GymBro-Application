@@ -35,3 +35,8 @@ public class UpdateBranchRequest
     public string? LogoUrl { get; set; }
     public BranchStatus? Status { get; set; }
 }
+
+public class TransferBranchRequest
+{
+    public required ulong TargetBranchId { get; set; }
+}

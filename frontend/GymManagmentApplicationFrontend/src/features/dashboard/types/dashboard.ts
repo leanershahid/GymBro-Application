@@ -13,6 +13,8 @@ export interface DashboardStats {
   newSignupsToday: number;
   trainersOnline: number;
   totalTrainers: number;
+  membersPresent: number;
+  membersNeedingTrainer: number;
   totalTenants: number;
 }
 

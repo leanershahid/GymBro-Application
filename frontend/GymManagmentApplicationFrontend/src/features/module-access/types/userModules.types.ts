@@ -13,10 +13,16 @@ export interface ModuleDefinition {
 export interface UserModuleAccessEntry extends ModuleDefinition {
   moduleId: number;
   isEnabled: boolean;
+  canAdd: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
   grantedAt: string | null;
 }
 
 export interface ModuleToggle {
   key: string;
   isEnabled: boolean;
+  canAdd: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
 }

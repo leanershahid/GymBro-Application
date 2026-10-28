@@ -39,9 +39,11 @@ export const ADMIN_ACTIONS: AdminAction[] = [
 interface ModuleGrant { module: string; canView: boolean; }
 
 /**
- * Actions the signed-in user may open. Admins see everything (Tenants management of other
- * gyms is still super-admin-only on the server); staff and custom roles see only the
- * modules their role was granted "view" on. The server enforces the same rules.
+ * Actions the signed-in user may open. Admins default to seeing everything a module with no
+ * explicit matrix row grants them (their access is a privilege dialed down by exception, not
+ * granted from zero) — but once an admin's role has an explicit row restricting a module, it's
+ * respected just like for staff/custom roles. Tenants management of other gyms stays
+ * super-admin-only. The server enforces the same rules.
  */
 export function useVisibleAdminActions(): AdminAction[] {
   const role = getSession()?.role;
@@ -51,10 +53,13 @@ export function useVisibleAdminActions(): AdminAction[] {
     queryKey: ['module-access', 'me'],
     queryFn: async () => (await axiosInstance.get<ApiResponse<ModuleGrant[]>>('/module-access/me')).data,
     select: r => r.data ?? [],
-    enabled: !admin && !!role,
+    enabled: !!role,
   });
 
-  if (admin) return ADMIN_ACTIONS.filter(a => a.onlyFor !== 'superadmin' || isSuperAdmin(role));
   const viewable = new Set(grants.filter(g => g.canView).map(g => g.module));
-  return ADMIN_ACTIONS.filter(a => !a.onlyFor && a.module && viewable.has(a.module));
+  return ADMIN_ACTIONS.filter(a => {
+    if (a.onlyFor === 'superadmin') return isSuperAdmin(role);
+    if (a.onlyFor === 'admin') return admin;
+    return a.module ? viewable.has(a.module) : false;
+  });
 }

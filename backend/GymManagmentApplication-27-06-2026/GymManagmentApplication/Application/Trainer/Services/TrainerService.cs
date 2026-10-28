@@ -1,6 +1,7 @@
 using System.Text.Json;
 using GymManagmentApplication.Application.Auth;
 using GymManagmentApplication.Application.Auth.Interfaces;
+using GymManagmentApplication.Application.Auth.Services;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Trainer.Interfaces;
 using GymManagmentApplication.Application.Trainer.Requests;
@@ -37,7 +38,13 @@ public class TrainerService(
     public async Task<TrainerResponse> CreateAsync(CreateTrainerRequest request)
     {
         var tenantId = currentUser.ResolveTenantId(request.TenantId);
-        var temporaryPassword = PasswordHasher.GenerateTemporary();
+
+        // Capitalise first letter of first name and build default password: John@123
+        var firstWord = request.DisplayName?.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        var firstName = string.IsNullOrWhiteSpace(firstWord)
+            ? "Trainer"
+            : char.ToUpper(firstWord[0]) + firstWord[1..].ToLower();
+        var temporaryPassword = $"{firstName}@123";
 
         await using var tx = await db.Database.BeginTransactionAsync();
 
@@ -140,6 +147,56 @@ public class TrainerService(
         if (request.IsAvailable.HasValue) trainer.IsAvailable = request.IsAvailable.Value;
         await repository.UpdateAsync(trainer);
         return MapToResponse(trainer);
+    }
+
+    /// <summary>
+    /// Activates/deactivates the trainer's login. Deactivating pauses their active client
+    /// assignments (rather than ending them) so admins can see who needs a new trainer and
+    /// reassign later without losing the assignment history.
+    /// </summary>
+    public async Task<bool> SetStatusAsync(ulong id, bool isActive)
+    {
+        var trainer = await repository.GetByIdAsync(id);
+        if (trainer is null) return false;
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == trainer.UserId && u.DeletedAt == null);
+        if (user is null) return false;
+
+        user.Status = isActive ? UserStatus.Active : UserStatus.Inactive;
+        trainer.IsAvailable = isActive;
+
+        if (!isActive)
+        {
+            var assignments = await db.TrainerClientAssignments
+                .Where(a => a.TrainerId == id && a.Status == TrainerAssignmentStatus.Active)
+                .ToListAsync();
+            foreach (var a in assignments) a.Status = TrainerAssignmentStatus.Paused;
+            AuthService.RevokeRefreshTokens(user.Id);
+        }
+
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>Removes the trainer (soft-delete) and pauses their active client assignments the same way.</summary>
+    public async Task<bool> DeleteAsync(ulong id)
+    {
+        var trainer = await repository.GetByIdAsync(id);
+        if (trainer is null) return false;
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == trainer.UserId && u.DeletedAt == null);
+        if (user is null) return false;
+
+        user.DeletedAt = DateTime.UtcNow;
+        user.Status = UserStatus.Inactive;
+        trainer.IsAvailable = false;
+
+        var assignments = await db.TrainerClientAssignments
+            .Where(a => a.TrainerId == id && a.Status == TrainerAssignmentStatus.Active)
+            .ToListAsync();
+        foreach (var a in assignments) a.Status = TrainerAssignmentStatus.Paused;
+        AuthService.RevokeRefreshTokens(user.Id);
+
+        await db.SaveChangesAsync();
+        return true;
     }
 
     public async Task<List<TrainerClientResponse>> GetClientsAsync(ulong id)

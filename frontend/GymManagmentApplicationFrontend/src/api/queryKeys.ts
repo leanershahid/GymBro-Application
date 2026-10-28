@@ -1,4 +1,5 @@
 export const queryKeys = {
+  auth:       { me: ['auth-me'] as const },
   dashboard:  { overview: ['dashboard', 'overview'] as const },
   health:     {
     today:         (userId: number) => ['health-today', userId] as const,

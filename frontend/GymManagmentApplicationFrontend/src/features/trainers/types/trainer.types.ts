@@ -172,3 +172,22 @@ export interface TrainerSummary {
   notes: string | null;
   createdAt: string;
 }
+
+// ─── Trainer full detail (GET /api/trainers/{id}) ─────────────────
+// Same base fields as TrainerSummary, plus the HR/pay/settings blocks the backend only
+// reveals to admins, staff, and the trainer themselves (see TrainerService.ForCaller).
+export interface TrainerDetail extends TrainerSummary {
+  branchName: string | null;
+  certifications: Certification[] | null;
+  salary: Salary | null;
+  allowances: Allowance[] | null;
+  deductions: Deduction[] | null;
+  paymentDetails: PaymentDetails | null;
+  availability: Availability[] | null;
+  bookingSettings: BookingSettings | null;
+  commissionSettings: CommissionSettings | null;
+  attendanceSettings: AttendanceSettings | null;
+  documents: Document[] | null;
+  emergencyContact: EmergencyContact | null;
+  socialLinks: SocialLinks | null;
+}

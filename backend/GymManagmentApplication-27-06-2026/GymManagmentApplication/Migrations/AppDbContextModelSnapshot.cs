@@ -2555,6 +2555,15 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal>("Id")
                         .HasColumnType("numeric(20,0)");
 
+                    b.Property<bool>("CanAdd")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanDelete")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanEdit")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("GrantedAt")
                         .HasColumnType("timestamp with time zone");
 

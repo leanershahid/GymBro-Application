@@ -18,9 +18,10 @@ import {
 } from 'react-native';
 import { useState, useRef, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useLogin } from '../api/authQueries';
 import { scaleW, scaleH, rs } from '../../../utils/scale';
-import { T, withAlpha } from '../../../theme';
+import { T, withAlpha, Shadow } from '../../../theme';
 
 /** Scaled font size that never drops below the 11px legibility floor. */
 const fs = (px: number) => Math.max(11, rs(px));
@@ -169,6 +170,43 @@ function InputField({
         autoComplete={autoComplete}
       />
       {rightElement}
+    </Animated.View>
+  );
+}
+
+// ─── Error Banner ─────────────────────────────────────────────────────────────
+/** Inline form error: left accent bar + icon, shakes and fades in on each new message. */
+function ErrorBanner({ message }: { message: string }) {
+  const shake = useRef(new Animated.Value(0)).current;
+  const fade = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    fade.setValue(0);
+    shake.setValue(0);
+    Animated.parallel([
+      Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }),
+      Animated.sequence([
+        Animated.timing(shake, { toValue: 1, duration: 55, useNativeDriver: true }),
+        Animated.timing(shake, { toValue: -1, duration: 55, useNativeDriver: true }),
+        Animated.timing(shake, { toValue: 0.6, duration: 55, useNativeDriver: true }),
+        Animated.timing(shake, { toValue: 0, duration: 55, useNativeDriver: true }),
+      ]),
+    ]).start();
+  }, [message]);
+
+  const translateX = shake.interpolate({ inputRange: [-1, 1], outputRange: [-6, 6] });
+
+  return (
+    <Animated.View
+      style={[styles.errorBanner, Shadow.sm, { opacity: fade, transform: [{ translateX }] }]}
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+    >
+      <View style={styles.errorAccent} />
+      <View style={styles.errorIconWrap}>
+        <Ionicons name="alert-circle" size={rs(18)} color={T.err} />
+      </View>
+      <Text style={styles.errorText}>{message}</Text>
     </Animated.View>
   );
 }
@@ -350,12 +388,7 @@ export default function LoginPage({
           <View style={styles.hairline} />
 
           {/* Error banner */}
-          {!!error && (
-            <View style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
-              <View style={styles.errorDot} />
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
+          {!!error && <ErrorBanner message={error} />}
 
           {/* Inputs */}
           <View style={styles.inputsStack}>
@@ -493,27 +526,31 @@ const styles = StyleSheet.create({
 
   errorBanner: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: withAlpha(T.err, 0.08),
-    borderWidth: 1,
-    borderColor: withAlpha(T.err, 0.28),
+    alignItems: 'center',
+    backgroundColor: withAlpha(T.err, 0.12),
     borderRadius: rs(12),
     paddingHorizontal: scaleW(12),
-    paddingVertical: scaleH(8),
+    paddingVertical: scaleH(10),
     marginBottom: scaleH(10),
     gap: scaleW(8),
+    overflow: 'hidden',
   },
-  errorDot: {
-    width: rs(6),
-    height: rs(6),
-    borderRadius: rs(3),
+  errorAccent: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: rs(4),
     backgroundColor: T.err,
-    marginTop: scaleH(4),
+  },
+  errorIconWrap: {
+    marginLeft: scaleW(4),
   },
   errorText: {
     flex: 1,
     fontSize: fs(13),
-    color: T.err,
+    fontWeight: '600',
+    color: T.text,
     lineHeight: rs(18),
   },
 

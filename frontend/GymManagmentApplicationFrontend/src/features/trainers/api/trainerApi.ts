@@ -1,6 +1,6 @@
 import axiosInstance from '../../../api/axios';
 import { ENDPOINTS } from '../../../api/endpoints';
-import { TrainerPayload, ApiResponse, PaginatedData, TrainerSummary } from '../types/trainer.types';
+import { TrainerPayload, ApiResponse, PaginatedData, TrainerSummary, TrainerDetail } from '../types/trainer.types';
 
 export const fetchTrainers = async (
   pageNumber = 1,
@@ -10,6 +10,11 @@ export const fetchTrainers = async (
     ENDPOINTS.TRAINERS,
     { params: { pageNumber, pageSize } },
   );
+  return data;
+};
+
+export const fetchTrainerById = async (id: number): Promise<ApiResponse<TrainerDetail>> => {
+  const { data } = await axiosInstance.get<ApiResponse<TrainerDetail>>(`${ENDPOINTS.TRAINERS}/${id}`);
   return data;
 };
 
@@ -23,5 +28,17 @@ export const updateTrainer = async (
   payload: { isAvailable: boolean },
 ): Promise<ApiResponse<unknown>> => {
   const { data } = await axiosInstance.put<ApiResponse<unknown>>(`${ENDPOINTS.TRAINERS}/${id}`, payload);
+  return data;
+};
+
+export const setTrainerStatus = async (
+  id: number, isActive: boolean,
+): Promise<ApiResponse<unknown>> => {
+  const { data } = await axiosInstance.patch<ApiResponse<unknown>>(`${ENDPOINTS.TRAINERS}/${id}/status`, { isActive });
+  return data;
+};
+
+export const deleteTrainer = async (id: number): Promise<ApiResponse<unknown>> => {
+  const { data } = await axiosInstance.delete<ApiResponse<unknown>>(`${ENDPOINTS.TRAINERS}/${id}`);
   return data;
 };

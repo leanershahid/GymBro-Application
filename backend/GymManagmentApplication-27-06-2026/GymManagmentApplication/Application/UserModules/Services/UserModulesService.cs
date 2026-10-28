@@ -1,6 +1,7 @@
 using GymManagmentApplication.Application.UserModules.Interfaces;
 using GymManagmentApplication.Application.UserModules.Requests;
 using GymManagmentApplication.Application.UserModules.Responses;
+using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -39,6 +40,9 @@ public class UserModulesService(AppDbContext db) : IUserModulesService
                 Description = m.Description,
                 Icon = m.Icon,
                 IsEnabled = a?.IsEnabled ?? false,
+                CanAdd = a?.CanAdd ?? true,
+                CanEdit = a?.CanEdit ?? true,
+                CanDelete = a?.CanDelete ?? true,
                 GrantedAt = a?.GrantedAt
             };
         }).ToList();
@@ -69,6 +73,9 @@ public class UserModulesService(AppDbContext db) : IUserModulesService
             }
 
             row.IsEnabled = toggle.IsEnabled;
+            row.CanAdd = toggle.CanAdd;
+            row.CanEdit = toggle.CanEdit;
+            row.CanDelete = toggle.CanDelete;
             row.GrantedByAdminId = adminId;
             row.GrantedAt = DateTime.UtcNow;
         }
@@ -85,5 +92,36 @@ public class UserModulesService(AppDbContext db) : IUserModulesService
         var access = await db.UserModuleAccesses
             .FirstOrDefaultAsync(a => a.UserId == userId && a.ModuleId == module.Id);
         return access?.IsEnabled ?? false;
+    }
+
+    public async Task<bool> CanAsync(ulong userId, string moduleKey, string action)
+    {
+        var module = await db.Modules.FirstOrDefaultAsync(m => m.Key == moduleKey);
+        if (module is null) return false; // fail closed — unknown module key
+
+        var access = await db.UserModuleAccesses.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(a => a.UserId == userId && a.ModuleId == module.Id);
+
+        if (access is null)
+        {
+            // No explicit record for this user/module. Admins' access is a privilege, dialed
+            // down by exception — they default to allowed. Everyone else must be granted
+            // the module explicitly (existing trainer/client behaviour, unchanged).
+            var roleSlug = await db.Users.IgnoreQueryFilters()
+                .Where(u => u.Id == userId)
+                .Join(db.Roles.IgnoreQueryFilters(), u => u.RoleId, r => r.Id, (u, r) => r.Slug)
+                .FirstOrDefaultAsync();
+            return roleSlug == RoleNames.Admin || roleSlug == RoleNames.SuperAdmin;
+        }
+
+        if (!access.IsEnabled) return false;
+        return action switch
+        {
+            "view"   => true,
+            "create" => access.CanAdd,
+            "edit"   => access.CanEdit,
+            "delete" => access.CanDelete,
+            _        => false
+        };
     }
 }

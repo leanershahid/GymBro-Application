@@ -10,6 +10,10 @@ public class UserModuleAccess
     public ulong UserId { get; set; }
     public ulong ModuleId { get; set; }
     public bool IsEnabled { get; set; }
+    /// <summary>Sub-permissions within the module. Meaningless unless <see cref="IsEnabled"/> is true.</summary>
+    public bool CanAdd { get; set; } = true;
+    public bool CanEdit { get; set; } = true;
+    public bool CanDelete { get; set; } = true;
     public ulong? GrantedByAdminId { get; set; }
     public DateTime GrantedAt { get; set; } = DateTime.UtcNow;
 

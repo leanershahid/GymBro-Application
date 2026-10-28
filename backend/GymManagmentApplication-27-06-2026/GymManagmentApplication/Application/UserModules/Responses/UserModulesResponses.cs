@@ -17,5 +17,8 @@ public class UserModuleAccessResponse
     public string? Description { get; set; }
     public string? Icon { get; set; }
     public bool IsEnabled { get; set; }
+    public bool CanAdd { get; set; }
+    public bool CanEdit { get; set; }
+    public bool CanDelete { get; set; }
     public DateTime? GrantedAt { get; set; }
 }

@@ -38,13 +38,35 @@ public class MemberService(
         // Trainers list only the clients assigned to them.
         var onlyAssignedTo = currentUser.IsTrainer() ? currentUser.UserId : null;
         var (items, total) = await repository.GetAllAsync(request, onlyAssignedTo);
+        var needsReassignment = await NeedsReassignmentSetAsync();
         return new PagedResponse<MemberResponse>
         {
-            Items = items.Select(Map),
+            Items = items.Select(u => MapWithFlags(u, needsReassignment)),
             PageNumber = request.PageNumber,
             PageSize = request.PageSize,
             TotalRecords = total
         };
+    }
+
+    /// <summary>
+    /// Client ids whose trainer relationship was paused by a trainer removal/deactivation
+    /// and who haven't been given a new active trainer since.
+    /// </summary>
+    private async Task<HashSet<ulong>> NeedsReassignmentSetAsync()
+    {
+        var paused = await db.TrainerClientAssignments
+            .Where(a => a.Status == TrainerAssignmentStatus.Paused)
+            .Select(a => a.ClientId)
+            .Distinct()
+            .ToListAsync();
+        if (paused.Count == 0) return [];
+
+        var reassigned = await db.TrainerClientAssignments
+            .Where(a => a.Status == TrainerAssignmentStatus.Active && paused.Contains(a.ClientId))
+            .Select(a => a.ClientId)
+            .ToListAsync();
+
+        return paused.Except(reassigned).ToHashSet();
     }
 
     public async Task<MemberResponse> CreateAsync(CreateMemberRequest request)
@@ -54,8 +76,8 @@ public class MemberService(
             ? "Member"
             : char.ToUpper(request.FirstName[0]) + request.FirstName[1..].ToLower();
 
-        // Random one-time password, returned once so staff can hand it over.
-        var defaultPassword = PasswordHasher.GenerateTemporary();
+        // Default password, returned once so staff can hand it over: John@123
+        var defaultPassword = $"{firstName}@123";
         var tenantId = currentUser.ResolveTenantId(request.TenantId);
 
         // Home branch: explicit, else the chosen trainer's branch.
@@ -104,7 +126,9 @@ public class MemberService(
     public async Task<MemberResponse?> GetByIdAsync(ulong id)
     {
         var user = await GetAccessibleAsync(id);
-        return user is null ? null : Map(user);
+        if (user is null) return null;
+        var needsReassignment = await NeedsReassignmentSetAsync();
+        return MapWithFlags(user, needsReassignment);
     }
 
     public async Task<MemberResponse?> UpdateAsync(ulong id, UpdateMemberRequest request)
@@ -138,6 +162,18 @@ public class MemberService(
         var deleted = await repository.SoftDeleteAsync(id);
         if (deleted) AuthService.RevokeRefreshTokens(id); // signed-in sessions end at next request
         return deleted;
+    }
+
+    public async Task<bool> SetStatusAsync(ulong id, bool isActive)
+    {
+        var user = await GetAccessibleAsync(id);
+        if (user is null) return false;
+        if (id == currentUser.UserId)
+            throw new ArgumentException("You cannot deactivate your own account.");
+        user.Status = isActive ? UserStatus.Active : UserStatus.Inactive;
+        await repository.UpdateAsync(user);
+        if (!isActive) AuthService.RevokeRefreshTokens(id);
+        return true;
     }
 
     public async Task<List<MemberResponse>> BulkImportAsync(BulkImportMemberRequest request)
@@ -294,6 +330,13 @@ public class MemberService(
 
         await db.SaveChangesAsync();
         return true;
+    }
+
+    private static MemberResponse MapWithFlags(User u, HashSet<ulong> needsReassignment)
+    {
+        var r = Map(u);
+        r.NeedsNewTrainer = needsReassignment.Contains(u.Id);
+        return r;
     }
 
     private static MemberResponse Map(User u) => new()

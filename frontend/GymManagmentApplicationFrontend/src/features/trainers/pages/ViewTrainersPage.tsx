@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useTrainers } from '../api/trainerQueries';
+import { useTrainers, useSetTrainerStatus, useDeleteTrainer } from '../api/trainerQueries';
 import { TrainerSummary } from '../types/trainer.types';
 import { T, withAlpha, R, SP } from '../../../theme';
 import Screen from '../../common/components/Screen';
@@ -12,7 +12,9 @@ import PaginationFooter from '../../common/components/PaginationFooter';
 import EmptyState from '../../dashboard/components/EmptyState';
 import StatsStrip from '../../common/StatsStrip';
 import Skeleton from '../../common/components/Skeleton';
-import ManageUserAccessPage from '../../module-access/pages/ManageUserAccessPage';
+import TrainerDetailPage from './TrainerDetailPage';
+import { useToast } from '../../common/components/Toast';
+import { useModuleCan } from '../../module-access/context/ModuleAccessContext';
 
 const TINTS = [
   { bg: withAlpha(T.sky, 0.08),  accent: T.sky },
@@ -22,8 +24,44 @@ const TINTS = [
 ];
 const tint = (id: number) => TINTS[id % TINTS.length];
 
+function ActionButton({
+  icon, label, tone, onPress,
+}: {
+  icon: React.ComponentProps<typeof Feather>['name'];
+  label: string;
+  tone: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={6}
+      style={({ pressed }) => ({
+        flexDirection: 'row', alignItems: 'center', gap: 5,
+        paddingHorizontal: 10, paddingVertical: 6, borderRadius: R.pill,
+        backgroundColor: pressed ? withAlpha(tone, 0.18) : withAlpha(tone, 0.10),
+        borderWidth: 1, borderColor: withAlpha(tone, 0.28),
+      })}
+    >
+      <Feather name={icon} size={12} color={tone} />
+      <Text style={{ color: tone, fontSize: 11, fontWeight: '700' }}>{label}</Text>
+    </Pressable>
+  );
+}
+
 // ─── Trainer card ─────────────────────────────────────────────────
-function TrainerCard({ trainer, onPress }: { trainer: TrainerSummary; onPress: () => void }) {
+function TrainerCard({
+  trainer, onPress, onToggleStatus, onRemove, canEdit, canDelete,
+}: {
+  trainer: TrainerSummary;
+  onPress: () => void;
+  onToggleStatus: () => void;
+  onRemove: () => void;
+  canEdit: boolean;
+  canDelete: boolean;
+}) {
   const c        = tint(trainer.id);
   const initials = trainer.displayName
     .split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
@@ -35,7 +73,7 @@ function TrainerCard({ trainer, onPress }: { trainer: TrainerSummary; onPress: (
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${trainer.displayName}, ${trainer.isAvailable ? 'available' : 'unavailable'}`}
-      accessibilityHint="Opens access management for this trainer"
+      accessibilityHint="Opens this trainer's details"
       style={({ pressed }) => ({
         marginBottom: 14,
         borderRadius: R.xl,
@@ -151,6 +189,23 @@ function TrainerCard({ trainer, onPress }: { trainer: TrainerSummary; onPress: (
             </View>
           )}
         </View>
+
+        {/* Actions — hidden entirely when this account has no edit/delete access to trainers */}
+        {(canEdit || canDelete) && (
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
+            {canEdit && (
+              <ActionButton
+                icon={trainer.isAvailable ? 'user-x' : 'user-check'}
+                label={trainer.isAvailable ? 'Deactivate' : 'Activate'}
+                tone={trainer.isAvailable ? T.brandGold : T.ok}
+                onPress={onToggleStatus}
+              />
+            )}
+            {canDelete && (
+              <ActionButton icon="trash-2" label="Remove" tone={T.err} onPress={onRemove} />
+            )}
+          </View>
+        )}
       </View>
     </Pressable>
   );
@@ -167,19 +222,65 @@ const PAGE_SIZE = 20;
 export default function ViewTrainersPage({ onBack, onAddTrainer }: ViewTrainersPageProps) {
   const [search, setSearch]   = useState('');
   const [page, setPage]       = useState(1);
-  const [manageAccessFor, setManageAccessFor] = useState<TrainerSummary | null>(null);
+  const [selectedTrainer, setSelectedTrainer] = useState<TrainerSummary | null>(null);
 
   const { data: paged, isLoading, isError, isFetching, refetch } = useTrainers(page, PAGE_SIZE);
+  const { mutate: setStatus } = useSetTrainerStatus();
+  const { mutate: removeTrainer } = useDeleteTrainer();
+  const { show: showToast } = useToast();
+  const canEditTrainers = useModuleCan('trainers', 'edit');
+  const canDeleteTrainers = useModuleCan('trainers', 'delete');
 
-  if (manageAccessFor) {
+  if (selectedTrainer) {
     return (
-      <ManageUserAccessPage
-        userId={manageAccessFor.userId}
-        userName={manageAccessFor.displayName}
-        onBack={() => setManageAccessFor(null)}
+      <TrainerDetailPage
+        trainer={selectedTrainer}
+        onBack={() => setSelectedTrainer(null)}
       />
     );
   }
+
+  const handleToggleStatus = (trainer: TrainerSummary) => {
+    const isActive = trainer.isAvailable;
+    Alert.alert(
+      isActive ? 'Deactivate trainer?' : 'Activate trainer?',
+      isActive
+        ? `${trainer.displayName} will no longer be able to sign in, and their assigned members will be flagged as needing a new trainer.`
+        : `${trainer.displayName} will be able to sign in again.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: isActive ? 'Deactivate' : 'Activate',
+          style: isActive ? 'destructive' : 'default',
+          onPress: () => setStatus(
+            { id: trainer.id, isActive: !isActive },
+            {
+              onSuccess: (res) => showToast({ type: res.success ? 'success' : 'error', message: res.message ?? 'Done.' }),
+              onError: () => showToast({ type: 'error', message: 'Could not update status.' }),
+            },
+          ),
+        },
+      ],
+    );
+  };
+
+  const handleRemove = (trainer: TrainerSummary) => {
+    Alert.alert(
+      'Remove trainer?',
+      `${trainer.displayName} will be archived and can no longer sign in. Their assigned members will be flagged as needing a new trainer. This can't be undone from here.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => removeTrainer(trainer.id, {
+            onSuccess: (res) => showToast({ type: res.success ? 'success' : 'error', message: res.message ?? 'Done.' }),
+            onError: () => showToast({ type: 'error', message: 'Could not remove trainer.' }),
+          }),
+        },
+      ],
+    );
+  };
 
   const items        = paged?.items        ?? [];
   const totalRecords = paged?.totalRecords;
@@ -247,7 +348,16 @@ export default function ViewTrainersPage({ onBack, onAddTrainer }: ViewTrainersP
       <FlatList
         data={isLoading || isError ? [] : filtered}
         keyExtractor={(t) => String(t.id)}
-        renderItem={({ item }) => <TrainerCard trainer={item} onPress={() => setManageAccessFor(item)} />}
+        renderItem={({ item }) => (
+          <TrainerCard
+            trainer={item}
+            onPress={() => setSelectedTrainer(item)}
+            onToggleStatus={() => handleToggleStatus(item)}
+            onRemove={() => handleRemove(item)}
+            canEdit={canEditTrainers}
+            canDelete={canDeleteTrainers}
+          />
+        )}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={
           !isLoading && !isError ? (

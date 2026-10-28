@@ -17,6 +17,7 @@ import PrimaryButton from '../../common/components/PrimaryButton';
 import { Field } from '../../trainers/components/FormFields';
 import { DateField } from '../../trainers/components/DatePicker';
 import { describeApiError, fieldErrorsFrom } from '../../../api/apiError';
+import { useToast } from '../../common/components/Toast';
 
 const GENDERS: { label: string; value: MemberGender }[] = [
   { label: 'Male',   value: 'male'   },
@@ -37,6 +38,7 @@ export default function AddMemberPage({ onBack }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { mutate, isPending } = useCreateMember();
+  const { show: showToast } = useToast();
   const insets = useSafeAreaInsets();
 
   const update = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
@@ -75,15 +77,25 @@ export default function AddMemberPage({ onBack }: Props) {
 
     mutate(payload, {
       onSuccess: (res) => {
-        if (res.success) {
-          const assigned = res.data?.trainerId
-            ? `\n${trainerName ?? 'The selected trainer'} has been assigned.`
-            : '';
-          const pwd = (res.data as { defaultPassword?: string } | undefined)?.defaultPassword;
-          const password = pwd ? `\n\nTemporary password: ${pwd}\nShare it with the member — it is shown only once.` : '';
-          Alert.alert('Success 🎉', (res.message ?? 'Member created.') + assigned + password);
+        if (!res.success) {
+          showToast({ type: 'error', message: res.message ?? 'Something went wrong.' });
+          return;
+        }
+        const assigned = res.data?.trainerId
+          ? ` ${trainerName ?? 'The selected trainer'} has been assigned.`
+          : '';
+        const pwd = (res.data as { defaultPassword?: string } | undefined)?.defaultPassword;
+        if (pwd) {
+          // A one-time secret needs an explicit acknowledgment, not an auto-dismissing toast —
+          // redirect only once the admin has seen and dismissed it.
+          Alert.alert(
+            'Member created',
+            `${res.message ?? 'Member created.'}${assigned}\n\nTemporary password: ${pwd}\nShare it with the member — it is shown only once.`,
+            [{ text: 'OK', onPress: () => onBack?.() }],
+          );
         } else {
-          Alert.alert('Could not create member', res.message ?? 'Something went wrong.');
+          showToast({ type: 'success', message: (res.message ?? 'Member created.') + assigned });
+          onBack?.();
         }
       },
       onError: (err) => {
@@ -93,7 +105,7 @@ export default function AddMemberPage({ onBack }: Props) {
           'first name': 'firstName', 'last name': 'lastName', 'email': 'email',
           'phone': 'phone', 'dob': 'dob', 'date of birth': 'dob', 'branch id': 'branchId',
         }));
-        Alert.alert('Could not create member', list.length ? `${message}\n\n• ${list.join('\n• ')}` : message);
+        showToast({ type: 'error', message: list.length ? `${message} ${list.join(', ')}` : message });
       },
     });
   };

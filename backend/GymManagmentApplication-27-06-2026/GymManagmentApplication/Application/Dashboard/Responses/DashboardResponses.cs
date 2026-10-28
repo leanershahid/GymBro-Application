@@ -9,8 +9,13 @@ public class DashboardStatsResponse
     public int ActiveBranches { get; set; }
     public int TotalBranches { get; set; }
     public int NewSignupsToday { get; set; }
+    /// <summary>Trainers currently checked in (open attendance row today) — not just marked "available".</summary>
     public int TrainersOnline { get; set; }
     public int TotalTrainers { get; set; }
+    /// <summary>Members currently checked in (open attendance row today).</summary>
+    public int MembersPresent { get; set; }
+    /// <summary>Members whose trainer was removed/deactivated and who have no replacement yet.</summary>
+    public int MembersNeedingTrainer { get; set; }
     /// <summary>Gyms visible to the caller: all for a super admin, 1 for a gym admin.</summary>
     public int TotalTenants { get; set; }
 }

@@ -32,10 +32,11 @@ export default function CheckInCard() {
     return () => clearInterval(id);
   }, [status?.openVisit]);
 
-  if (isLoading || !status || (!status.locationEnabled && !status.openVisit)) return null;
+  if (isLoading || !status) return null;
 
   const open = status.openVisit;
   const busy = locating || checkIn.isPending || checkOut.isPending;
+  const locationOff = !status.locationEnabled && !open;
 
   const doCheckIn = async () => {
     setMessage(null);
@@ -83,7 +84,11 @@ export default function CheckInCard() {
             {open ? `Checked in at ${open.branchName ?? 'the gym'}` : 'At the gym?'}
           </Text>
           <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 12, marginTop: 2 }}>
-            {open ? sinceLabel(open.checkInAt) : `Check in with your location · ${status.visitsThisMonth} visit${status.visitsThisMonth === 1 ? '' : 's'} this month`}
+            {open
+              ? sinceLabel(open.checkInAt)
+              : locationOff
+                ? 'Location check-in isn\'t set up yet'
+                : `Check in with your location · ${status.visitsThisMonth} visit${status.visitsThisMonth === 1 ? '' : 's'} this month`}
           </Text>
         </View>
       </View>
@@ -100,7 +105,9 @@ export default function CheckInCard() {
           icon="map-pin"
           onPress={doCheckIn}
           loading={busy}
-          accessibilityHint="Uses your current location to record attendance at the nearest branch"
+          accessibilityHint={locationOff
+            ? 'Ask your gym admin to turn on location check-in first'
+            : 'Uses your current location to record attendance at the nearest branch'}
         />
       )}
     </View>

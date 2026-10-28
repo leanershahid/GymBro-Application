@@ -20,6 +20,9 @@ public class MemberResponse
     public ulong? BranchId { get; set; }
     public string? BranchName { get; set; }
 
+    /// <summary>True when this member's trainer was removed/deactivated and no replacement has been assigned yet.</summary>
+    public bool NeedsNewTrainer { get; set; }
+
     /// <summary>Only populated on the creation response so the admin can share the initial password.</summary>
     public string? DefaultPassword { get; set; }
 }
