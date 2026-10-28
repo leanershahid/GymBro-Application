@@ -5,20 +5,18 @@ import { useActiveChallenges } from '../api/memberAppQueries';
 import { useTrainers } from '../../trainers/api/trainerQueries';
 import { useModuleAccess } from '../../module-access/context/ModuleAccessContext';
 import EmptyState from '../../dashboard/components/EmptyState';
-import LiveCoachCard from '../components/LiveCoachCard';
+import CoachCard from '../components/CoachCard';
 import ChallengeCard from '../components/ChallengeCard';
 import Screen from '../../common/components/Screen';
-
-const IMG_WORKOUT = require('../../../assets/dashboard/workout-1.jpg');
-const IMG_COACH1  = require('../../../assets/dashboard/coach-1.jpg');
-const IMG_COACH2  = require('../../../assets/dashboard/coach-2.jpg');
-const COACH_IMAGES = [IMG_COACH1, IMG_COACH2, IMG_WORKOUT];
+import Skeleton from '../../common/components/Skeleton';
 
 interface Props { userId: number; onOpenWorkout?: (id: number) => void; }
 
 export default function CommunityScreen({ userId }: Props) {
-  const { data: challenges } = useActiveChallenges(userId);
-  const { data: trainerPage } = useTrainers(1, 10);
+  const challengesQ = useActiveChallenges(userId);
+  const trainersQ   = useTrainers(1, 10);
+  const challenges  = challengesQ.data;
+  const trainerPage = trainersQ.data;
   const trainers = trainerPage?.items ?? [];
 
   const canLiveCoaching = useModuleAccess('live-coaching');
@@ -35,18 +33,22 @@ export default function CommunityScreen({ userId }: Props) {
       <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
         {canLiveCoaching && (
           <>
-            <Text style={{ color: T.text, fontSize: 16, fontWeight: '700', marginBottom: 14 }}>Live coaches</Text>
-            {trainers.length === 0 ? (
+            <Text style={{ color: T.text, fontSize: 16, fontWeight: '700', marginBottom: 14 }}>Coaches</Text>
+            {trainersQ.isLoading ? (
+              <View style={{ marginBottom: 28 }}><Skeleton rows={1} height={170} borderRadius={16} gap={0} /></View>
+            ) : trainersQ.isError ? (
+              <EmptyState icon="wifi-off" tone="error" title="Couldn't load coaches" action={{ label: 'Retry', onPress: () => trainersQ.refetch() }} />
+            ) : trainers.length === 0 ? (
               <EmptyState icon="award" title="No coaches available" />
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, marginBottom: 28 }}>
-                {trainers.map((t, i) => (
-                  <LiveCoachCard
+                {trainers.map(t => (
+                  <CoachCard
                     key={t.id}
                     name={t.displayName}
-                    specialty={t.specializations?.[0] ?? 'Personal Training'}
-                    rating={t.rating ?? 4.5}
-                    image={COACH_IMAGES[i % COACH_IMAGES.length]}
+                    specialty={t.specializations?.find(sp => !!sp?.trim()) ?? null}
+                    rating={t.rating}
+                    imageUrl={t.profileImage}
                   />
                 ))}
               </ScrollView>
@@ -57,7 +59,11 @@ export default function CommunityScreen({ userId }: Props) {
         {canChallenges && (
           <>
             <Text style={{ color: T.text, fontSize: 16, fontWeight: '700', marginBottom: 14 }}>Active challenges</Text>
-            {!challenges || challenges.length === 0 ? (
+            {challengesQ.isLoading ? (
+              <Skeleton rows={2} height={84} borderRadius={18} gap={12} />
+            ) : challengesQ.isError ? (
+              <EmptyState icon="wifi-off" tone="error" title="Couldn't load challenges" action={{ label: 'Retry', onPress: () => challengesQ.refetch() }} />
+            ) : !challenges || challenges.length === 0 ? (
               <EmptyState icon="award" title="No active challenges" subtitle="Check back soon for new community challenges." />
             ) : (
               <View style={{ gap: 12 }}>

@@ -104,3 +104,9 @@ export interface ActiveChallenge {
   isJoined: boolean;
 }
 
+
+// ─── Assigned trainer (subset of GET /trainers/{id}) ───────────────
+export interface AssignedTrainer {
+  id: number;
+  displayName: string;
+}

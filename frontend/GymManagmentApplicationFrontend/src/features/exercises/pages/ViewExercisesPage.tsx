@@ -81,7 +81,7 @@ export default function ViewExercisesPage({ onBack, onAddExercise }: Props) {
 
   const items      = paged?.items ?? [];
   const totalPages = paged?.totalPages ?? 1;
-  const totalRecs  = paged?.totalRecords ?? 0;
+  const totalRecs  = paged?.totalRecords;
 
   const filtered = search.trim()
     ? items.filter(e => e.name.toLowerCase().includes(search.toLowerCase()))
@@ -109,7 +109,7 @@ export default function ViewExercisesPage({ onBack, onAddExercise }: Props) {
         {!isLoading && !isError && (
           <View style={{ marginBottom: SP.lg }}>
             <StatsStrip items={[
-              { icon: 'database', label: 'Total', value: String(totalRecs),           accent: T.brand },
+              { icon: 'database', label: 'Total', value: totalRecs == null ? '—' : totalRecs.toLocaleString('en-IN'),           accent: T.brand },
               { icon: 'eye',      label: 'Shown', value: String(filtered.length),     accent: T.sky },
               { icon: 'layers',   label: 'Page',  value: `${page}/${totalPages}`,     accent: T.violet },
             ]} />

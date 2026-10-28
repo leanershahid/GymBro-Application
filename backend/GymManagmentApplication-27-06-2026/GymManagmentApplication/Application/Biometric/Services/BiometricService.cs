@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Biometric.Services;
 
-public class BiometricService(AppDbContext db, ICurrentUser currentUser) : IBiometricService
+public class BiometricService(AppDbContext db, ICurrentUser currentUser, GymManagmentApplication.Application.Attendance.IAttendanceService attendance) : IBiometricService
 {
     public async Task<BiometricEnrollResponse> EnrollFaceAsync(EnrollFaceRequest request)
     {
@@ -154,6 +154,11 @@ public class BiometricService(AppDbContext db, ICurrentUser currentUser) : IBiom
             CreatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
+
+        // A granted scan is also the member's attendance, when the gym has that method enabled.
+        if (granted && userId is { } uid)
+            await attendance.RecordBiometricAsync(uid, device.BranchId,
+                method == AccessMethod.Face ? AttendanceMethod.Face : AttendanceMethod.Biometric, device.Name);
     }
 
     private static string Hash(string input) =>

@@ -8,6 +8,7 @@ import { useCreateMember } from '../api/memberQueries';
 import { MemberPayload, MemberGender } from '../types/member.types';
 import { isValidEmail } from '../../../utils/validation';
 import BranchDropdown from '../../branches/components/BranchDropdown';
+import TrainerDropdown from '../../trainers/components/TrainerDropdown';
 import { currentTenantId, getSession } from '../../../api/session';
 import { T, withAlpha, SP } from '../../../theme';
 import Screen from '../../common/components/Screen';
@@ -29,6 +30,7 @@ export default function AddMemberPage({ onBack }: Props) {
     phone: '', dob: '', notes: '',
     trainerId: '', branchId: getSession()?.branchId ? String(getSession()!.branchId) : '',
   });
+  const [trainerName, setTrainerName] = useState<string | null>(null);
   const [gender, setGender] = useState<MemberGender | undefined>(undefined);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -70,7 +72,7 @@ export default function AddMemberPage({ onBack }: Props) {
       onSuccess: (res) => {
         if (res.success) {
           const assigned = res.data?.trainerId
-            ? `\nTrainer #${res.data.trainerId} assigned automatically.`
+            ? `\n${trainerName ?? 'The selected trainer'} has been assigned.`
             : '';
           const pwd = (res.data as { defaultPassword?: string } | undefined)?.defaultPassword;
           const password = pwd ? `\n\nTemporary password: ${pwd}\nShare it with the member — it is shown only once.` : '';
@@ -137,16 +139,14 @@ export default function AddMemberPage({ onBack }: Props) {
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: withAlpha(T.brand, 0.07), borderWidth: 1, borderColor: withAlpha(T.brand, 0.20), borderRadius: 14, padding: 12, marginBottom: 16, gap: 10 }}>
             <Feather name="info" size={15} color={T.brand} style={{ marginTop: 1 }} />
             <Text style={{ flex: 1, color: T.textSub, fontSize: 12, lineHeight: 18 }}>
-              Pick the member's home branch. Optionally enter a Trainer ID to assign them right after creation — the branch then defaults to the trainer's.
+              Pick the member's home branch. Optionally pick a trainer to assign them right after creation — the branch then defaults to the trainer's.
             </Text>
           </View>
 
-          <Field
-            label="Trainer ID (optional)"
-            value={form.trainerId}
-            onChangeText={v => update('trainerId', v.replace(/\D/g, ''))}
-            placeholder="e.g. 5"
-            keyboardType="numeric"
+          <TrainerDropdown
+            label="Trainer (optional)"
+            value={form.trainerId ? Number(form.trainerId) : null}
+            onChange={t => { update('trainerId', t ? String(t.id) : ''); setTrainerName(t?.displayName ?? null); }}
           />
 
           <BranchDropdown

@@ -66,7 +66,7 @@ export default function ViewWorkoutsPage({ onBack, onAddWorkout }: Props) {
   const { data: paged, isLoading, isError, refetch } = useWorkouts(page, 20);
   const items      = paged?.items ?? [];
   const totalPages = paged?.totalPages ?? 1;
-  const totalRecs  = paged?.totalRecords ?? 0;
+  const totalRecs  = paged?.totalRecords;
 
   return (
     <Screen>
@@ -80,9 +80,9 @@ export default function ViewWorkoutsPage({ onBack, onAddWorkout }: Props) {
       {!isLoading && !isError && (
         <View style={{ paddingHorizontal: SP.xl, paddingBottom: SP.lg }}>
           <StatsStrip items={[
-            { icon: 'activity', label: 'Total', value: String(totalRecs),      accent: T.brand },
+            { icon: 'activity', label: 'Total', value: totalRecs == null ? '—' : totalRecs.toLocaleString('en-IN'),      accent: T.brand },
             { icon: 'layers',   label: 'Page',  value: `${page}/${totalPages}`, accent: T.sky },
-            { icon: 'eye',      label: 'Shown', value: String(items.length),   accent: T.violet },
+            { icon: 'eye',      label: 'On this page', value: String(items.length), accent: T.violet },
           ]} />
         </View>
       )}

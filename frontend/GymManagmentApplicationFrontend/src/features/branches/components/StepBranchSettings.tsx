@@ -4,6 +4,7 @@ import { ScrollView, Text } from 'react-native';
 import { BranchPayload } from '../types/branch.types';
 import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
 import { T } from '../../../theme';
+import TenantDropdown from '../../tenants/components/TenantDropdown';
 
 export type BranchSettingsErrors = {
   timezone?: string;
@@ -63,12 +64,10 @@ export default function StepBranchSettings({ data, onChange, errors = {} }: Prop
       {isSuperAdmin(getSession()?.role) && (
         <>
           <Section title="Gym" />
-          <Field
-            label="Tenant ID"
-            value={data.tenantId ? String(data.tenantId) : ''}
-            onChangeText={(v) => onChange({ tenantId: Number(v) || 0 })}
-            keyboardType="numeric"
-            placeholder="Defaults to your own gym"
+          <TenantDropdown
+            label="Gym"
+            value={data.tenantId || null}
+            onChange={(t) => onChange({ tenantId: t.id })}
             error={errors.tenantId}
           />
         </>

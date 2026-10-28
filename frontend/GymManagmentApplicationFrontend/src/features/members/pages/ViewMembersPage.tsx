@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useMembers } from '../api/memberQueries';
+import { useTrainers } from '../../trainers/api/trainerQueries';
 import { Member } from '../types/member.types';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
@@ -19,7 +20,7 @@ const tint  = (id: number) => TINTS[id % TINTS.length];
 
 const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
-function MemberCard({ member, onPress }: { member: Member; onPress: () => void }) {
+function MemberCard({ member, trainerName, onPress }: { member: Member; trainerName?: string; onPress: () => void }) {
   const accent   = tint(member.id);
   const initials = `${member.firstName[0] ?? ''}${member.lastName[0] ?? ''}`.toUpperCase();
   const fullName = `${member.firstName} ${member.lastName}`;
@@ -65,11 +66,11 @@ function MemberCard({ member, onPress }: { member: Member; onPress: () => void }
       {/* Right */}
       <View style={{ alignItems: 'flex-end', gap: 6 }}>
         <StatusPill label={capitalize(member.status)} tone={toneForStatus(member.status)} dot />
-        {/* Show trainer badge if assigned */}
-        {!!member.trainerId && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: withAlpha(T.sky, 0.10), borderWidth: 1, borderColor: withAlpha(T.sky, 0.25), borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+        {/* Show the assigned trainer's name (hidden until it's known) */}
+        {!!member.trainerId && !!trainerName && (
+          <View accessibilityLabel={`Trainer ${trainerName}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: 140, backgroundColor: withAlpha(T.sky, 0.10), borderWidth: 1, borderColor: withAlpha(T.sky, 0.25), borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
             <Feather name="award" size={11} color={T.sky} />
-            <Text style={{ color: T.sky, fontSize: 11, fontWeight: '700' }} numberOfLines={1}>T#{member.trainerId}</Text>
+            <Text style={{ color: T.sky, fontSize: 11, fontWeight: '700', flexShrink: 1 }} numberOfLines={1}>{trainerName}</Text>
           </View>
         )}
         <Text className="text-faint text-[11px]" numberOfLines={1}>
@@ -90,7 +91,12 @@ export default function ViewMembersPage({ onBack, onAddMember }: Props) {
   const { data: paged, isLoading, isError, isFetching, refetch } = useMembers(search, page, 20);
   const items      = paged?.items        ?? [];
   const totalPages = paged?.totalPages   ?? 1;
-  const totalRecs  = paged?.totalRecords ?? 0;
+  const totalRecs  = paged?.totalRecords;
+  const { data: trainerPage } = useTrainers(1, 100);
+  const trainerNames = useMemo(
+    () => new Map((trainerPage?.items ?? []).map(t => [t.id, t.displayName])),
+    [trainerPage],
+  );
 
   if (manageAccessFor) {
     return (
@@ -116,9 +122,8 @@ export default function ViewMembersPage({ onBack, onAddMember }: Props) {
         {!isLoading && !isError && (
           <View style={{ marginBottom: SP.lg }}>
             <StatsStrip items={[
-              { icon: 'users',        label: 'Total',  value: String(totalRecs),                                                          accent: T.brand },
-              { icon: 'check-circle', label: 'Active', value: String(items.filter(m => m.status.toLowerCase() === 'active').length),     accent: T.sky },
-              { icon: 'eye',          label: 'Shown',  value: String(items.length),                                                       accent: T.violet },
+              { icon: 'users', label: search.trim() ? 'Matching' : 'Total', value: totalRecs == null ? '—' : totalRecs.toLocaleString('en-IN'), accent: T.brand },
+              { icon: 'eye',   label: 'On this page', value: String(items.length), accent: T.violet },
             ]} />
           </View>
         )}
@@ -142,7 +147,13 @@ export default function ViewMembersPage({ onBack, onAddMember }: Props) {
       <FlatList
         data={isLoading || isError ? [] : items}
         keyExtractor={(m) => String(m.id)}
-        renderItem={({ item }) => <MemberCard member={item} onPress={() => setManageAccessFor(item)} />}
+        renderItem={({ item }) => (
+          <MemberCard
+            member={item}
+            trainerName={item.trainerId ? trainerNames.get(item.trainerId) : undefined}
+            onPress={() => setManageAccessFor(item)}
+          />
+        )}
         ListHeaderComponent={
           isLoading ? <Skeleton height={74} /> :
           isError ? (

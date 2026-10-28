@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { currentTenantId } from '../../../api/session';
 import {
   View, Text, ScrollView, Pressable,
@@ -8,7 +8,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import {
   useModuleKeys, useModuleAccess, useModuleMatrix,
-  useUpsertModuleAccess, useDeleteModuleAccess, useDeleteRoleAccess,
+  useUpsertModuleAccess, useDeleteModuleAccess, useDeleteRoleAccess, useRoles,
 } from '../api/moduleAccessQueries';
 import { ModuleAccessEntry, ModuleAccessPayload } from '../types/moduleAccess.types';
 import { T, withAlpha } from '../../../theme';
@@ -38,12 +38,6 @@ const FLAG_COLOR: Record<Flag, string> = {
   canExport: T.violet,
 };
 
-// Roles from the known API response
-const DEFAULT_ROLES = [
-  { id: 1, name: 'admin'   },
-  { id: 2, name: 'trainer' },
-  { id: 3, name: 'client'  },
-];
 
 // ─── Permission row ───────────────────────────────────────────────
 function PermissionRow({
@@ -138,8 +132,19 @@ export default function ModuleAccessPage({ onBack }: Props) {
   const roleColW = isWide ? 140 : 128;
 
   const [viewTab,        setViewTab]        = useState<ViewTab>('byRole');
-  const [selectedRoleId, setSelectedRoleId] = useState(1);
+  const [pickedRoleId,   setSelectedRoleId] = useState<number | null>(null);
   const [savingModule,   setSavingModule]   = useState<string | null>(null);
+
+  // Roles come from GET /api/roles. Ids are numeric strings; the super-admin role is platform-level, not tenant-configurable.
+  const { data: rawRoles = [], isLoading: rolesLoading, isError: rolesError, refetch: refetchRoles } = useRoles();
+  const roles = useMemo(
+    () => rawRoles
+      .filter(r => r.slug?.toLowerCase() !== 'superadmin')
+      .map(r => ({ id: Number(r.id), name: r.name }))
+      .filter(r => Number.isFinite(r.id) && r.id > 0),
+    [rawRoles],
+  );
+  const selectedRoleId = pickedRoleId ?? roles[0]?.id ?? 0;
 
   const { data: moduleKeys = [], isLoading: keysLoading } = useModuleKeys();
   const { data: entries = [],    isLoading: entriesLoading, refetch: refetchEntries } =
@@ -220,7 +225,22 @@ export default function ModuleAccessPage({ onBack }: Props) {
     );
   }, [selectedRoleId, delRole]);
 
-  const selectedRole = DEFAULT_ROLES.find(r => r.id === selectedRoleId);
+  const selectedRole = roles.find(r => r.id === selectedRoleId);
+
+  if (rolesLoading || rolesError || roles.length === 0) {
+    return (
+      <Screen>
+        <ScreenHeader eyebrow="Admin" title="Module Access" onBack={onBack} />
+        {rolesLoading ? (
+          <LoadingState label="Loading roles" />
+        ) : rolesError ? (
+          <EmptyState icon="wifi-off" tone="error" title="Failed to load roles" action={{ label: 'Retry', onPress: () => refetchRoles() }} />
+        ) : (
+          <EmptyState icon="users" title="No roles found" subtitle="Create roles before configuring module access." />
+        )}
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -242,7 +262,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
             horizontal showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: 8 }}
           >
-            {DEFAULT_ROLES.map(r => {
+            {roles.map(r => {
               const active = r.id === selectedRoleId;
               return (
                 <Pressable
@@ -399,7 +419,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
                     <Text style={{ width: isWide ? 160 : 120, color: T.textSub, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 }}>
                       Module
                     </Text>
-                    {DEFAULT_ROLES.map(r => (
+                    {roles.map(r => (
                       <View key={r.id} style={{ width: roleColW, alignItems: 'center' }}>
                         <Text style={{ color: T.brand, fontSize: 11, fontWeight: '700', textTransform: 'capitalize' }}>
                           {r.name}
@@ -425,7 +445,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
                       </View>
 
                       {/* Per-role cells */}
-                      {DEFAULT_ROLES.map(r => {
+                      {roles.map(r => {
                         const re = roleEntries.find(x => x.roleId === r.id);
                         return (
                           <View key={r.id} accessibilityLabel={re ? undefined : `${r.name}: no access`} style={{ width: roleColW, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 }}>

@@ -6,7 +6,7 @@ import {
 
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useMyProfile, useMyTimeline, useUpdateProfile } from '../api/memberAppQueries';
+import { useMyProfile, useMyTimeline, useUpdateProfile, useAssignedTrainer } from '../api/memberAppQueries';
 import { T, withAlpha } from '../../../theme';
 import Screen from '../../common/components/Screen';
 import SegmentedTabs from '../../common/components/SegmentedTabs';
@@ -44,7 +44,9 @@ function AvatarPicker({ uri, initials, onPick }: { uri?: string | null; initials
         />
       ) : (
         <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: withAlpha(T.brand, 0.12), borderWidth: 2, borderColor: T.brand, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: T.brand, fontSize: 28, fontWeight: '800' }}>{initials}</Text>
+          {initials
+            ? <Text style={{ color: T.brand, fontSize: 28, fontWeight: '800' }}>{initials}</Text>
+            : <Feather name="user" size={32} color={T.brand} />}
         </View>
       )}
       {/* camera badge */}
@@ -82,6 +84,7 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
   const { data: profile, isLoading } = useMyProfile(userId);
   const { data: timeline = [] }      = useMyTimeline(userId);
   const { mutate: update, isPending } = useUpdateProfile(userId);
+  const { data: trainer }            = useAssignedTrainer(profile?.trainerId);
 
   const [firstName, setFirstName] = useState('');
   const [lastName,  setLastName]  = useState('');
@@ -111,7 +114,10 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
 
   if (isLoading) return <LoadingState fullScreen label="Loading profile" />;
 
-  const initials = `${profile?.firstName?.[0] ?? ''}${profile?.lastName?.[0] ?? ''}`.toUpperCase() || 'M';
+  const initials = `${profile?.firstName?.[0] ?? ''}${profile?.lastName?.[0] ?? ''}`.toUpperCase();
+  // Chips show real names only — hidden when the name isn't available.
+  const trainerName = trainer?.displayName?.trim() || null;
+  const branchName  = profile?.branchId ? profile.branchName?.trim() || null : null;
 
   return (
     <Screen>
@@ -132,23 +138,25 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
           <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 13, marginTop: 4 }}>{profile?.email}</Text>
 
           {/* Status badge */}
+          {!!profile?.status && (
           <View style={{ marginTop: 10, alignSelf: 'center' }}>
-            <StatusPill label={profile?.status ?? 'Member'} tone={profile?.status === 'Active' ? 'brand' : 'neutral'} />
+            <StatusPill label={profile.status} tone={profile.status === 'Active' ? 'brand' : 'neutral'} />
           </View>
+          )}
 
           {/* Trainer / Branch badges */}
-          {(!!profile?.trainerId || !!profile?.branchId) && (
+          {(!!trainerName || !!branchName) && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 10 }}>
-              {!!profile?.trainerId && (
-                <View style={{ backgroundColor: withAlpha(T.sky, 0.10), borderWidth: 1, borderColor: withAlpha(T.sky, 0.25), borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              {!!trainerName && (
+                <View accessible accessibilityLabel={`Trainer: ${trainerName}`} style={{ backgroundColor: withAlpha(T.sky, 0.10), borderWidth: 1, borderColor: withAlpha(T.sky, 0.25), borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                   <Feather name="award" size={12} color={T.sky} />
-                  <Text style={{ color: T.sky, fontSize: 11, fontWeight: '700' }}>Trainer #{profile.trainerId}</Text>
+                  <Text style={{ color: T.sky, fontSize: 11, fontWeight: '700' }}>{trainerName}</Text>
                 </View>
               )}
-              {!!profile?.branchId && (
-                <View style={{ backgroundColor: withAlpha(T.violet, 0.10), borderWidth: 1, borderColor: withAlpha(T.violet, 0.25), borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              {!!branchName && (
+                <View accessible accessibilityLabel={`Branch: ${branchName}`} style={{ backgroundColor: withAlpha(T.violet, 0.10), borderWidth: 1, borderColor: withAlpha(T.violet, 0.25), borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                   <Feather name="map-pin" size={12} color={T.violet} />
-                  <Text style={{ color: T.violet, fontSize: 11, fontWeight: '700' }}>{profile.branchName ?? `Branch #${profile.branchId}`}</Text>
+                  <Text style={{ color: T.violet, fontSize: 11, fontWeight: '700' }}>{branchName}</Text>
                 </View>
               )}
             </View>

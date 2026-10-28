@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  View, Text, ScrollView, Pressable, TextInput,
+  View, Text, ScrollView, TextInput,
   Platform, Alert, KeyboardAvoidingView,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import {
-  useMyClients, useClientProfile, useClientTimeline,
-  useClientNotes, useAddClientNote,
+  useMyClients, useClientProfile, useClientProfiles, useClientTimeline,
+  useClientNotes, useAddClientNote, useTrainerProfile,
 } from '../api/trainerAppQueries';
-import { ClientAssignment } from '../types/trainer-app.types';
+import ClientPreviewRow from '../components/ClientPreviewRow';
 import { T, R, withAlpha } from '../../../theme';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
@@ -20,11 +20,10 @@ import Skeleton from '../../common/components/Skeleton';
 import StatusPill from '../../common/components/StatusPill';
 import EmptyState from '../../dashboard/components/EmptyState';
 
-const COLORS = [T.brand, T.sky, T.violet, T.brandGold, T.err];
-
 // ─── Client detail ─────────────────────────────────────────────────
 function ClientDetail({ trainerId, clientId, onBack }: { trainerId: number; clientId: number; onBack: () => void }) {
   const { data: profile, isLoading } = useClientProfile(clientId);
+  const { data: assignedTrainer }    = useTrainerProfile(profile?.trainerId ?? 0);
   const { data: timeline = [] }      = useClientTimeline(clientId);
   const { data: notes = [], refetch: refetchNotes } = useClientNotes(clientId);
   const { mutate: addNote, isPending: adding } = useAddClientNote();
@@ -42,7 +41,8 @@ function ClientDetail({ trainerId, clientId, onBack }: { trainerId: number; clie
 
   if (isLoading) return <LoadingState fullScreen label="Loading client" />;
 
-  const initials = `${profile?.firstName?.[0] ?? ''}${profile?.lastName?.[0] ?? ''}`.toUpperCase() || `#${clientId}`;
+  const initials = `${profile?.firstName?.[0] ?? ''}${profile?.lastName?.[0] ?? ''}`.toUpperCase() || '?';
+  const fullName = profile ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() : '';
 
   return (
     <Screen>
@@ -51,7 +51,7 @@ function ClientDetail({ trainerId, clientId, onBack }: { trainerId: number; clie
       {/* Nav */}
       <ScreenHeader
         eyebrow="Client"
-        title={profile ? `${profile.firstName} ${profile.lastName}` : `Client #${clientId}`}
+        title={fullName || profile?.email || 'Client details'}
         onBack={onBack}
       />
 
@@ -85,8 +85,8 @@ function ClientDetail({ trainerId, clientId, onBack }: { trainerId: number; clie
               { label: 'Phone',   value: profile.phone ?? '—' },
               { label: 'Gender',  value: profile.gender ?? '—' },
               { label: 'DOB',     value: profile.dob ?? '—' },
-              { label: 'Trainer', value: profile.trainerId ? `#${profile.trainerId}` : '—' },
-              { label: 'Branch',  value: profile.branchId  ? `#${profile.branchId}`  : '—' },
+              { label: 'Trainer', value: assignedTrainer?.displayName || '—' },
+              { label: 'Branch',  value: profile.branchName || '—' },
             ].map(row => (
               <View key={row.label} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: T.bgInput, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: T.bgInputActive }}>
                 <Text style={{ color: T.textSub, fontSize: 12, width: 80 }}>{row.label}</Text>
@@ -160,18 +160,34 @@ function ClientDetail({ trainerId, clientId, onBack }: { trainerId: number; clie
 }
 
 // ─── Clients list ──────────────────────────────────────────────────
-interface Props { trainerId: number; onBack?: () => void; }
+interface Props {
+  trainerId: number;
+  /** Open straight into this client's detail (e.g. tapped from the Today screen). */
+  initialClientId?: number;
+  onBack?: () => void;
+}
 
-export default function ClientsScreen({ trainerId, onBack }: Props) {
-  const [selectedClient, setSelectedClient] = useState<number | null>(null);
+export default function ClientsScreen({ trainerId, initialClientId, onBack }: Props) {
+  const [selectedClient, setSelectedClient] = useState<number | null>(initialClientId ?? null);
   const [search, setSearch] = useState('');
   const { data: clients = [], isLoading, isError, refetch } = useMyClients(trainerId);
+  const profileQueries = useClientProfiles(clients.map(c => c.clientId));
+
+  // Search matches the client's real name or email (only profiles that have loaded can match).
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return clients;
+    return clients.filter((_, i) => {
+      const p = profileQueries[i]?.data;
+      if (!p) return false;
+      return `${p.firstName ?? ''} ${p.lastName ?? ''}`.toLowerCase().includes(q)
+        || (p.email ?? '').toLowerCase().includes(q);
+    });
+  }, [clients, profileQueries, search]);
 
   if (selectedClient !== null) {
     return <ClientDetail trainerId={trainerId} clientId={selectedClient} onBack={() => setSelectedClient(null)} />;
   }
-
-  const filtered = search.trim() ? clients.filter(c => String(c.clientId).includes(search)) : clients;
 
   return (
     <Screen>
@@ -190,7 +206,7 @@ export default function ClientsScreen({ trainerId, onBack }: Props) {
           </View>
         )}
 
-        <SearchBar value={search} onChangeText={setSearch} placeholder="Search by client ID…" label="Search clients by ID" />
+        <SearchBar value={search} onChangeText={setSearch} placeholder="Search by name or email…" label="Search clients by name or email" />
       </View>
 
       <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
@@ -201,35 +217,13 @@ export default function ClientsScreen({ trainerId, onBack }: Props) {
         {!isLoading && !isError && filtered.length === 0 && (
           <EmptyState icon="users" title={search ? 'No results' : 'No clients assigned yet'} />
         )}
-        {!isLoading && !isError && filtered.map((c, i) => {
-          const col = COLORS[i % COLORS.length];
-          return (
-            <Pressable key={c.assignmentId} onPress={() => setSelectedClient(c.clientId)}
-              accessibilityRole="button"
-              accessibilityLabel={`Client #${c.clientId}, ${c.status}`}
-              accessibilityHint="Opens client details"
-              style={({ pressed }) => ({
-                flexDirection: 'row', alignItems: 'center',
-                backgroundColor: pressed ? T.bgInputActive : T.bgInput,
-                borderRadius: 18, padding: 14, marginBottom: 10,
-                borderWidth: 1, borderColor: pressed ? withAlpha(T.brand, 0.20) : T.bgInputActive,
-              })}>
-              <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: withAlpha(col, 0.09), borderWidth: 1.5, borderColor: withAlpha(col, 0.31), alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-                <Text numberOfLines={1} style={{ color: col, fontSize: 14, fontWeight: '800' }}>#{c.clientId}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text numberOfLines={1} style={{ color: T.text, fontSize: 14, fontWeight: '700' }}>Client #{c.clientId}</Text>
-                <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 11, marginTop: 2 }}>
-                  Assigned {new Date(c.assignedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                </Text>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                <StatusPill label={c.status} tone={c.status === 'Active' ? 'brand' : 'neutral'} />
-                <Feather name="chevron-right" size={14} color={T.textFaint} />
-              </View>
-            </Pressable>
-          );
-        })}
+        {!isLoading && !isError && (
+          <View style={{ gap: 10 }}>
+            {filtered.map((c, i) => (
+              <ClientPreviewRow key={c.assignmentId} client={c} index={i} onPress={() => setSelectedClient(c.clientId)} />
+            ))}
+          </View>
+        )}
       </ScrollView>
     </Screen>
   );

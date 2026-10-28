@@ -93,15 +93,6 @@ function TrainerAppContent({ trainerId, onLogout }: Props) {
     }
   };
 
-  // Full-screen sub-routes (no tab bar)
-  if (screen.id === 'client') {
-    return (
-      <ClientsScreen
-        trainerId={trainerId}
-        onBack={() => { setScreen({ id: 'clients' }); setActiveTab('clients'); }}
-      />
-    );
-  }
   if (screen.id === 'builder' && !canWorkouts) {
     setScreen({ id: 'home' });
     setActiveTab('home');
@@ -116,6 +107,13 @@ function TrainerAppContent({ trainerId, onLogout }: Props) {
         )}
         {screen.id === 'clients' && (
           <ClientsScreen trainerId={trainerId} />
+        )}
+        {screen.id === 'client' && (
+          <ClientsScreen
+            trainerId={trainerId}
+            initialClientId={screen.clientId}
+            onBack={() => goTo('clients')}
+          />
         )}
         {screen.id === 'builder' && (
           <ProgramBuilderScreen trainerId={trainerId} />

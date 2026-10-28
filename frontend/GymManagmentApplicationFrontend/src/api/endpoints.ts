@@ -16,6 +16,15 @@ export const ENDPOINTS = {
   CHALLENGES: '/challenges',
   challengeStatus: (id: number) => `/challenges/${id}/status`,
 
+  // Attendance
+  ATTENDANCE:          '/attendance',
+  ATTENDANCE_SETTINGS: '/attendance/settings',
+  ATTENDANCE_ME:       '/attendance/me',
+  ATTENDANCE_STATUS:   '/attendance/me/status',
+  ATTENDANCE_CHECK_IN: '/attendance/check-in',
+  ATTENDANCE_CHECK_OUT:'/attendance/check-out',
+  branchGeofence: (branchId: number) => `/attendance/branches/${branchId}/geofence`,
+
   // AI Coach
   AI_COACH_SETTINGS: '/ai-coach/settings',
 

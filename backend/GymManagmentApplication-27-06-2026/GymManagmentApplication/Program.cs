@@ -217,6 +217,7 @@ builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<IChallengesService, ChallengesService>();
 builder.Services.AddScoped<IUserModulesService, UserModulesService>();
 builder.Services.AddScoped<IAiCoachSettingsService, AiCoachSettingsService>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Attendance.IAttendanceService, GymManagmentApplication.Application.Attendance.AttendanceService>();
 
 // Infrastructure Repositories
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();

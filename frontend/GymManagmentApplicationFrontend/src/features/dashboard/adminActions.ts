@@ -33,6 +33,7 @@ export const ADMIN_ACTIONS: AdminAction[] = [
   { label: 'Stats',         icon: 'bar-chart-2', screen: 'stats-admin',         onlyFor: 'admin' },
   { label: 'Live Coaching', icon: 'video',       screen: 'live-coaching-admin', onlyFor: 'admin' },
   { label: 'AI Coach',      icon: 'cpu',         screen: 'ai-coach-admin',      module: 'ai-insights' },
+  { label: 'Attendance',    icon: 'map-pin',     screen: 'attendance',          module: 'attendance' },
 ];
 
 interface ModuleGrant { module: string; canView: boolean; }

@@ -7,6 +7,9 @@ public class PlanListRequest
 {
     public ulong? TenantId { get; set; }
     public WorkoutGoal? Goal { get; set; }
+    /// <summary>Set by the service (never from the request): only plans assigned to this member.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public ulong? AssignedToUserId { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 20;
 }

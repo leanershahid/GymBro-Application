@@ -17,6 +17,10 @@ public class Branch : BaseEntity
     public string? Zip { get; set; }
     public decimal? Lat { get; set; }
     public decimal? Lng { get; set; }
+    /// <summary>Members/trainers may check in from the app when within the radius of Lat/Lng.</summary>
+    public bool LocationCheckInEnabled { get; set; }
+    /// <summary>Check-in radius in metres around Lat/Lng; null = the gym's default radius.</summary>
+    public int? GeofenceRadiusM { get; set; }
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string Timezone { get; set; } = "UTC";

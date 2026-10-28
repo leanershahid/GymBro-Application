@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, useWindowDimensions } from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { T, R } from '../../../theme';
+import { View, ScrollView } from 'react-native';
+import { SP } from '../../../theme';
+import { useLayout } from '../../../utils/useLayout';
 import {
   useMyProfile, useMyWorkouts, useMyPlans,
   useHealthToday, useActiveChallenges,
@@ -9,20 +9,29 @@ import {
 import { useTrainers } from '../../trainers/api/trainerQueries';
 import { useModuleAccess } from '../../module-access/context/ModuleAccessContext';
 import EmptyState from '../../dashboard/components/EmptyState';
-import SummaryRing from '../components/SummaryRing';
-import MetricBar from '../components/MetricBar';
-import StreakCard from '../components/StreakCard';
-import StatChip from '../components/StatChip';
-import FeaturedWorkoutCard from '../components/FeaturedWorkoutCard';
-import AICoachCard from '../components/AICoachCard';
-import LiveCoachCard from '../components/LiveCoachCard';
-import ChallengeCard from '../components/ChallengeCard';
 import Screen from '../../common/components/Screen';
+import Skeleton from '../../common/components/Skeleton';
+import PhotoHero from '../../common/components/dashboard/PhotoHero';
+import CheckInCard from '../../attendance/components/CheckInCard';
+import ActionList, { ActionItem } from '../../common/components/dashboard/ActionList';
+import HomeGreeting from '../components/HomeGreeting';
+import ActivityRingsCard from '../components/ActivityRingsCard';
+import WorkoutPhotoCard from '../components/WorkoutPhotoCard';
+import HomeSectionHeader from '../components/HomeSectionHeader';
+import ChallengeCard from '../components/ChallengeCard';
+import CoachCard from '../components/CoachCard';
 
-const IMG_WORKOUT = require('../../../assets/dashboard/workout-1.jpg');
-const IMG_COACH1  = require('../../../assets/dashboard/coach-1.jpg');
-const IMG_COACH2  = require('../../../assets/dashboard/coach-2.jpg');
-const COACH_IMAGES = [IMG_COACH1, IMG_COACH2, IMG_WORKOUT];
+const IMG_HERO = require('../../../assets/dashboard/hero-athlete.jpg');
+const WORKOUT_IMAGES = [
+  require('../../../assets/dashboard/workout-1.jpg'),
+  require('../../../assets/dashboard/workout-2.jpg'),
+  require('../../../assets/dashboard/workout-3.jpg'),
+  require('../../../assets/dashboard/workout-4.jpg'),
+  require('../../../assets/dashboard/workout-5.jpg'),
+  require('../../../assets/dashboard/workout-6.jpg'),
+];
+
+const SECTION_GAP = SP.xxl; // 28
 
 interface Props {
   userId: number;
@@ -30,14 +39,7 @@ interface Props {
 }
 
 export default function HomeScreen({ userId, onNavigate }: Props) {
-  const { data: profile } = useMyProfile(userId);
-  const { data: workoutPage, isLoading: wLoading } = useMyWorkouts(userId, 1);
-  const { data: planPage } = useMyPlans(1);
-  const { data: health } = useHealthToday(userId);
-  const { data: challenges } = useActiveChallenges(userId);
-  const { data: trainerPage } = useTrainers(1, 3);
-  const { height: winH } = useWindowDimensions();
-  const heroH = Math.min(260, Math.round(winH * 0.32));
+  const { hPad, contentW } = useLayout();
 
   const canWorkouts     = useModuleAccess('workouts');
   const canStats        = useModuleAccess('stats');
@@ -46,167 +48,243 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
   const canLiveCoaching = useModuleAccess('live-coaching');
   const canPlans        = useModuleAccess('plans');
 
-  const workouts  = workoutPage?.items  ?? [];
-  const plans     = planPage?.items     ?? [];
-  const trainers  = trainerPage?.items  ?? [];
-  const firstName = profile?.firstName  ?? 'Athlete';
-  const featured  = workouts[0];
+  const { data: profile } = useMyProfile(userId);
+  const workoutsQ   = useMyWorkouts(userId, 1);
+  const { data: planPage } = useMyPlans(1);
+  const healthQ     = useHealthToday(userId);
+  const challengesQ = useActiveChallenges(userId);
+  const trainersQ   = useTrainers(1, 3);
 
-  const hour  = new Date().getHours();
-  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const health     = healthQ.data;
+  const workouts   = workoutsQ.data?.items ?? [];
+  const plans      = planPage?.items ?? [];
+  const challenges = challengesQ.data ?? [];
+  const trainers   = trainersQ.data?.items ?? [];
+  const firstName  = profile?.firstName?.trim() || null;
+  const today      = workouts[0];
+  const openWorkout = (id: number) => onNavigate(`workout-${id}`);
 
-  const rings = health?.rings;
-  const overallPct = rings
-    ? Math.round(
-        (Math.min(100, (rings.move.current / Math.max(1, rings.move.goal)) * 100)
-          + Math.min(100, (rings.train.current / Math.max(1, rings.train.goal)) * 100)
-          + Math.min(100, (rings.stand.current / Math.max(1, rings.stand.goal)) * 100)) / 3,
-      )
-    : 0;
+  // ── Hero: today's workout, or a motivational card ─────────────
+  const heroH = Math.max(220, Math.min(280, Math.round(contentW * 0.72)));
+  let hero: React.ReactNode;
+  if (canWorkouts && workoutsQ.isLoading) {
+    hero = <Skeleton rows={1} height={heroH} borderRadius={20} gap={0} />;
+  } else if (canWorkouts && workoutsQ.isError) {
+    hero = (
+      <EmptyState
+        icon="wifi-off" tone="error" title="Couldn't load today's workout"
+        action={{ label: 'Retry', onPress: () => workoutsQ.refetch() }}
+      />
+    );
+  } else if (canWorkouts && today) {
+    hero = (
+      <PhotoHero
+        image={IMG_HERO}
+        height={heroH}
+        eyebrow="Today's workout"
+        title={today.name}
+        value={today.durationMin != null ? `${today.durationMin} min` : undefined}
+        valueCaption={[today.difficulty, `${today.exercises?.length ?? 0} exercises`].filter(Boolean).join(' · ')}
+        cta={{ label: 'Start', icon: 'play', onPress: () => openWorkout(today.id) }}
+      />
+    );
+  } else {
+    const streak = canStats ? health?.streakDays ?? 0 : 0;
+    hero = (
+      <PhotoHero
+        image={IMG_HERO}
+        height={heroH}
+        eyebrow={canWorkouts ? 'No session scheduled' : 'Today'}
+        title={canWorkouts ? 'Ask your coach for today’s plan — or pick your own.' : 'Every rep counts. Show up today.'}
+        value={streak > 0 ? `${streak} days` : undefined}
+        valueCaption={streak > 0 ? 'Current streak — keep it alive' : undefined}
+        cta={canWorkouts ? { label: 'Browse', icon: 'search', onPress: () => onNavigate('train') } : undefined}
+      />
+    );
+  }
+
+  // ── Up next (action-first) ────────────────────────────────────
+  const joined    = challenges.filter(c => c.isJoined).sort((a, b) => b.progressPct - a.progressPct);
+  const activeCh  = joined[0];
+  const newCh     = challenges.find(c => !c.isJoined);
+  const plan      = plans.find(p => p.isActive) ?? plans[0];
+
+  const actions: ActionItem[] = [];
+  if (canChallenges && activeCh) {
+    const pct = Math.round(Math.max(0, Math.min(100, activeCh.progressPct)));
+    actions.push({
+      key: `ch-${activeCh.id}`, icon: 'award', tone: 'brand',
+      title: activeCh.title,
+      subtitle: `Keep going · ${pct}% complete`,
+      badge: `${pct}%`,
+      onPress: () => onNavigate('community'),
+    });
+  }
+  if (canChallenges && newCh) {
+    actions.push({
+      key: `join-${newCh.id}`, icon: 'plus-circle', tone: 'warn',
+      title: newCh.title,
+      subtitle: [`Join ${newCh.participantCount.toLocaleString()} members`, newCh.prizeLabel && `Win ${newCh.prizeLabel.toLowerCase()}`].filter(Boolean).join(' · '),
+      badge: 'Join',
+      onPress: () => onNavigate('community'),
+    });
+  }
+  if (canAiCoach && health?.coachTip) {
+    actions.push({
+      key: 'coach', icon: 'cpu', tone: 'info',
+      title: 'AI coach tip',
+      subtitle: health.coachTip,
+      badge: health.stats.energyPct != null ? `${health.stats.energyPct}% ready` : undefined,
+      onPress: canWorkouts ? () => onNavigate('train') : undefined,
+    });
+  }
+  if (canPlans && plan) {
+    actions.push({
+      key: `plan-${plan.id}`, icon: 'calendar', tone: 'brand',
+      title: plan.name,
+      subtitle: [`${plan.durationWeeks}-week plan`, plan.difficulty].filter(Boolean).join(' · '),
+      badge: plan.isActive ? 'Active' : undefined,
+      onPress: () => onNavigate('plans'),
+    });
+  }
+  const actionsLoading = actions.length === 0
+    && ((canChallenges && challengesQ.isLoading) || ((canAiCoach || canStats) && healthQ.isLoading));
+
+  // Joined challenges not already surfaced in "Up next".
+  const moreChallenges = joined.slice(1);
+  const moreWorkouts   = workouts.slice(1, 7);
+  const railCardW      = Math.round(Math.min(220, Math.max(150, contentW * 0.56)));
 
   return (
     <Screen>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: hPad, paddingTop: SP.md, paddingBottom: 110 }}
+      >
+        {/* 1 · Greeting + streak */}
+        <HomeGreeting
+          firstName={firstName}
+          lastName={profile?.lastName}
+          streakDays={canStats && health ? health.streakDays : null}
+          onOpenProfile={() => onNavigate('profile')}
+        />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 110 }}>
+        {/* Location check-in (only when the gym has it switched on at a branch) */}
+        <View style={{ marginTop: SP.xl }}><CheckInCard /></View>
 
-        {/* ── Header ── */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <Pressable onPress={() => onNavigate('profile')} style={{ flexDirection: 'row', alignItems: 'center' }} accessibilityRole="button" accessibilityLabel="Open profile">
-            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: T.brandDim, borderWidth: 1.5, borderColor: T.brand, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: T.brand, fontSize: 15, fontWeight: '800' }}>{firstName[0]?.toUpperCase() ?? 'M'}</Text>
-              <View style={{ position: 'absolute', bottom: -1, right: -1, width: 11, height: 11, borderRadius: 6, backgroundColor: T.brand, borderWidth: 2, borderColor: T.bg }} />
-            </View>
-            <View style={{ marginLeft: 12 }}>
-              <Text style={{ color: T.textSub, fontSize: 12, fontWeight: '500' }}>{greet}</Text>
-              <Text style={{ color: T.text, fontSize: 16, fontWeight: '800', marginTop: 1 }}>{firstName}</Text>
-            </View>
-          </Pressable>
+        {/* 2 · Today's workout hero */}
+        <View style={{ marginTop: SP.xl }}>{hero}</View>
 
-          <Pressable onPress={() => onNavigate('notifications')} hitSlop={12} accessibilityRole="button" accessibilityLabel="Notifications"
-            style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line, alignItems: 'center', justifyContent: 'center' }}>
-            <Feather name="bell" size={18} color={T.text} />
-            <View style={{ position: 'absolute', top: 8, right: 9, width: 8, height: 8, borderRadius: 4, backgroundColor: T.brandGold, borderWidth: 1.5, borderColor: T.bg }} />
-          </Pressable>
-        </View>
-
-        {/* ── Daily summary card + streak (stats module) ── */}
+        {/* 3 · Activity rings + vitals (stats module) */}
         {canStats && (
-          <>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: T.bgInput, borderRadius: R.xl, padding: 16, borderWidth: 1, borderColor: T.line, marginBottom: 16 }}>
-              <SummaryRing pct={overallPct} sublabel="Daily" />
-              <View style={{ flex: 1, marginLeft: 18 }}>
-                <MetricBar label="Move" current={rings?.move.current ?? 0} goal={rings?.move.goal ?? 8000} unit="steps" color={T.brand} />
-                <MetricBar label="Train" current={rings?.train.current ?? 0} goal={rings?.train.goal ?? 60} unit="min" color={T.brandGold} />
-                <MetricBar label="Stand" current={rings?.stand.current ?? 0} goal={rings?.stand.goal ?? 12} unit="hr" color={T.sky} />
-              </View>
-            </View>
-
-            <View style={{ marginBottom: 24 }}>
-              <StreakCard days={health?.streakDays ?? 0} />
-            </View>
-          </>
+          <View style={{ marginTop: SECTION_GAP }}>
+            <ActivityRingsCard
+              health={health}
+              width={contentW}
+              loading={healthQ.isLoading}
+              error={healthQ.isError}
+              onRetry={() => healthQ.refetch()}
+              onPress={() => onNavigate('stats')}
+            />
+          </View>
         )}
 
-        {/* ── Today's session (workouts module) ── */}
-        {canWorkouts && (
-          <>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <Text style={{ color: T.text, fontSize: 18, fontWeight: '700' }}>Today's session</Text>
-              {canPlans && (
-                <Pressable onPress={() => onNavigate('plans')} hitSlop={12} accessibilityRole="button" accessibilityLabel="View plan">
-                  <Text style={{ color: T.brand, fontSize: 13, fontWeight: '700' }}>View plan ›</Text>
-                </Pressable>
-              )}
-            </View>
+        {/* 4 · Up next */}
+        {(actions.length > 0 || actionsLoading) && (
+          <View style={{ marginTop: SECTION_GAP }}>
+            <HomeSectionHeader title="Up next" />
+            {actionsLoading
+              ? <Skeleton rows={3} height={60} borderRadius={16} gap={8} />
+              : <ActionList items={actions} />}
+          </View>
+        )}
 
-            <View style={{ marginBottom: 24 }}>
-              {wLoading ? (
-                <View style={{ height: heroH, borderRadius: R.xl, backgroundColor: T.bgInput }} />
-              ) : featured ? (
-                <FeaturedWorkoutCard
-                  category={featured.goal ?? 'Training'}
-                  title={featured.name}
-                  exercisesCount={featured.exercises?.length ?? 0}
-                  durationMin={featured.durationMin ?? 45}
-                  image={IMG_WORKOUT}
-                  onPress={() => onNavigate(`workout-${featured.id}`)}
-                  onExpand={() => onNavigate(`workout-${featured.id}`)}
+        {/* 5 · More workouts rail */}
+        {canWorkouts && moreWorkouts.length > 0 && (
+          <View style={{ marginTop: SECTION_GAP }}>
+            <HomeSectionHeader
+              title="More workouts"
+              action={{ label: 'See all', accessibilityLabel: 'See all workouts', onPress: () => onNavigate('train') }}
+            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginHorizontal: -hPad }}
+              contentContainerStyle={{ paddingHorizontal: hPad, gap: SP.md }}
+            >
+              {moreWorkouts.map((w, i) => (
+                <WorkoutPhotoCard
+                  key={w.id}
+                  title={w.name}
+                  durationMin={w.durationMin}
+                  difficulty={w.difficulty}
+                  exercisesCount={w.exercises?.length ?? 0}
+                  image={WORKOUT_IMAGES[i % WORKOUT_IMAGES.length]}
+                  width={railCardW}
+                  onPress={() => openWorkout(w.id)}
                 />
-              ) : (
-                <EmptyState icon="activity" title="No session scheduled" subtitle="Ask your trainer to assign a workout to get started." />
-              )}
-            </View>
-          </>
-        )}
-
-        {/* ── Quick stats (stats module) ── */}
-        {canStats && (
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
-            <StatChip icon="heart" value={health?.stats.bpm != null ? `${health.stats.bpm}` : '--'} label="BPM" color={T.rose} />
-            <StatChip icon="droplet" value={health?.stats.waterLiters != null ? `${health.stats.waterLiters}L` : '--'} label="Water" color={T.sky} />
-            <StatChip icon="moon" value={health?.stats.sleepHours != null ? `${health.stats.sleepHours}h` : '--'} label="Sleep" color={T.violet} />
-            <StatChip icon="zap" value={health?.stats.energyPct != null ? `${health.stats.energyPct}%` : '--'} label="Energy" color={T.brandGold} />
+              ))}
+            </ScrollView>
           </View>
         )}
 
-        {/* ── AI Coach (ai-coach module) ── */}
-        {canAiCoach && (
-          <View style={{ marginBottom: 28 }}>
-            <AICoachCard recoveryScore={health?.stats.energyPct ?? null} tip={health?.coachTip} onPress={() => canWorkouts && onNavigate('train')} />
+        {/* 6a · Other joined challenges (the top one is already in Up next) */}
+        {canChallenges && moreChallenges.length > 0 && (
+          <View style={{ marginTop: SECTION_GAP }}>
+            <HomeSectionHeader
+              title="Your challenges"
+              action={{ label: 'All', accessibilityLabel: 'See all challenges', onPress: () => onNavigate('community') }}
+            />
+            <View style={{ gap: SP.md }}>
+              {moreChallenges.map(c => (
+                <ChallengeCard
+                  key={c.id}
+                  title={c.title}
+                  participantCount={c.participantCount}
+                  prizeLabel={c.prizeLabel}
+                  progressPct={c.progressPct}
+                />
+              ))}
+            </View>
+          </View>
+        )}
+        {canChallenges && challengesQ.isError && (
+          <View style={{ marginTop: SECTION_GAP }}>
+            <EmptyState
+              icon="award" tone="error" title="Couldn't load challenges"
+              action={{ label: 'Retry', onPress: () => challengesQ.refetch() }}
+            />
           </View>
         )}
 
-        {/* ── Live coaches (live-coaching module) ── */}
-        {canLiveCoaching && (
-          <View style={{ marginBottom: 28 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <Text style={{ color: T.text, fontSize: 18, fontWeight: '700' }}>Live coaches</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: T.brand }} />
-                <Text style={{ color: T.textSub, fontSize: 12 }}>{trainers.length} online</Text>
-              </View>
-            </View>
-            {trainers.length === 0 ? (
-              <EmptyState icon="award" title="No coaches available" />
+        {/* 6b · Coaches (live-coaching module; shown only when the gym has trainers).
+            There is no presence API, so nothing here claims a coach is online/live. */}
+        {canLiveCoaching && (trainersQ.isLoading || trainers.length > 0) && (
+          <View style={{ marginTop: SECTION_GAP }}>
+            <HomeSectionHeader title="Your gym's coaches" />
+            {trainersQ.isLoading ? (
+              <Skeleton rows={1} height={170} borderRadius={16} gap={0} />
             ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-                {trainers.map((t, i) => (
-                  <LiveCoachCard
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginHorizontal: -hPad }}
+                contentContainerStyle={{ paddingHorizontal: hPad, gap: SP.md }}
+              >
+                {trainers.map(t => (
+                  <CoachCard
                     key={t.id}
                     name={t.displayName}
-                    specialty={t.specializations?.[0] ?? 'Personal Training'}
-                    rating={t.rating ?? 4.5}
-                    image={COACH_IMAGES[i % COACH_IMAGES.length]}
-                    onPress={() => canWorkouts && onNavigate('train')}
+                    specialty={t.specializations?.find(sp => !!sp?.trim()) ?? null}
+                    rating={t.rating}
+                    imageUrl={t.profileImage}
+                    onPress={canWorkouts ? () => onNavigate('train') : undefined}
                   />
                 ))}
               </ScrollView>
             )}
           </View>
         )}
-
-        {/* ── Active challenges (challenges module) ── */}
-        {canChallenges && (
-          <View>
-            <Text style={{ color: T.text, fontSize: 18, fontWeight: '700', marginBottom: 14 }}>Active challenges</Text>
-            {!challenges || challenges.length === 0 ? (
-              <EmptyState icon="award" title="No active challenges" subtitle="Check back soon for new community challenges." />
-            ) : (
-              <View style={{ gap: 12 }}>
-                {challenges.map(c => (
-                  <ChallengeCard
-                    key={c.id}
-                    title={c.title}
-                    participantCount={c.participantCount}
-                    prizeLabel={c.prizeLabel}
-                    progressPct={c.progressPct}
-                  />
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
       </ScrollView>
     </Screen>
   );

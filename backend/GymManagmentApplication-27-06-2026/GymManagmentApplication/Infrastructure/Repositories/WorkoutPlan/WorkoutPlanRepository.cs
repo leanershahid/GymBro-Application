@@ -16,6 +16,8 @@ public class WorkoutPlanRepository(AppDbContext db) : IWorkoutPlanRepository
             q = q.Where(p => p.TenantId == request.TenantId.Value);
         if (request.Goal.HasValue)
             q = q.Where(p => p.Goal == request.Goal.Value);
+        if (request.AssignedToUserId is { } memberId)
+            q = q.Where(p => db.WorkoutPlanAssignments.Any(a => a.PlanId == p.Id && a.ClientId == memberId));
 
         var total = await q.CountAsync();
         var items = await q

@@ -5,11 +5,11 @@ import { Feather } from '@expo/vector-icons';
 import { T } from '../../../theme';
 
 interface StreakCardProps {
-  days: number;
-  growthPct?: number;
+  /** Null when there's no data — shown as "—". */
+  days: number | null;
 }
 
-export default function StreakCard({ days, growthPct }: StreakCardProps) {
+export default function StreakCard({ days }: StreakCardProps) {
   return (
     <View
       style={{
@@ -30,16 +30,9 @@ export default function StreakCard({ days, growthPct }: StreakCardProps) {
           <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 }}>
             Streak
           </Text>
-          <Text style={{ color: T.text, fontSize: 18, fontWeight: '800', marginTop: 2 }}>{days} days</Text>
+          <Text style={{ color: T.text, fontSize: 18, fontWeight: '800', marginTop: 2 }}>{days == null ? '—' : `${days} ${days === 1 ? 'day' : 'days'}`}</Text>
         </View>
       </View>
-
-      {growthPct !== undefined && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Feather name="trending-up" size={14} color={T.brand} />
-          <Text style={{ color: T.brand, fontSize: 13, fontWeight: '700' }}>+{growthPct}%</Text>
-        </View>
-      )}
     </View>
   );
 }

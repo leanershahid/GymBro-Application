@@ -94,7 +94,7 @@ function BranchCard({ branch, heroH }: { branch: Branch; heroH: number }) {
             flexShrink: 1, marginRight: 8,
           }}>
             <Text numberOfLines={1} style={{ color: T.text, fontSize: 11, fontWeight: '600', letterSpacing: 0.6 }}>
-              {branch.code || 'N/A'}
+              {branch.code || '—'}
             </Text>
           </View>
 

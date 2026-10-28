@@ -15,7 +15,7 @@ interface AreaChartProps {
 }
 
 /**
- * Same svg-geometry exception as Revenuesparkline/DonutRing — the path is
+ * Same svg-geometry exception as DonutRing — the path is
  * computed from data + container width, so this uses inline props not NativeWind.
  */
 export default function AreaChart({ data, width, height = 88, yLabels, xLabels }: AreaChartProps) {

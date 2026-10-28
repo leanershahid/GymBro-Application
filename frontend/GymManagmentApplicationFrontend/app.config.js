@@ -34,6 +34,16 @@ export default {
       },
     },
     owner: 'shahidleaners-organization',
-    plugins: ['expo-font'],
+    plugins: [
+      'expo-font',
+      [
+        'expo-location',
+        {
+          // Shown by iOS/Android the first time the app asks for location.
+          locationWhenInUsePermission:
+            'GymBro uses your location to check you in when you arrive at your gym, and to save a branch location.',
+        },
+      ],
+    ],
   },
 };

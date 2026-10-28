@@ -125,15 +125,23 @@ export default function WorkoutDetailScreen({ workoutId, userId, onBack }: Props
                 <BackButton onPress={onBack} variant="overlay" />
               </View>
 
-              {/* Floating timer pill — sits at bottom of hero */}
+              {/* Floating timer pill — sits at bottom of hero; only real values, hidden when both are null */}
+              {(workout.durationMin != null || !!workout.difficulty) && (
               <View style={{ position: 'absolute', bottom: 16, alignSelf: 'center', backgroundColor: T.overlay, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: withAlpha(T.text, 0.18) }}>
-                <Feather name="clock" size={14} color={T.brand} />
-                <Text style={{ color: T.text, fontSize: 13, fontWeight: '600' }}>
-                  {workout.durationMin ? `~${workout.durationMin} min` : 'Custom duration'}
-                </Text>
-                <View style={{ width: 1, height: 12, backgroundColor: withAlpha(T.text, 0.25) }} />
-                <StatusPill label={workout.difficulty ?? 'Beginner'} tone={difficultyTone(workout.difficulty ?? 'beginner')} />
+                {workout.durationMin != null && (
+                  <>
+                    <Feather name="clock" size={14} color={T.brand} />
+                    <Text style={{ color: T.text, fontSize: 13, fontWeight: '600' }}>~{workout.durationMin} min</Text>
+                  </>
+                )}
+                {workout.durationMin != null && !!workout.difficulty && (
+                  <View style={{ width: 1, height: 12, backgroundColor: withAlpha(T.text, 0.25) }} />
+                )}
+                {!!workout.difficulty && (
+                  <StatusPill label={workout.difficulty} tone={difficultyTone(workout.difficulty)} />
+                )}
               </View>
+              )}
             </View>
           </ImageBackground>
         </View>
