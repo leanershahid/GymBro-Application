@@ -34,15 +34,18 @@ export const ADMIN_ACTIONS: AdminAction[] = [
   { label: 'Attendance',    icon: 'map-pin',     screen: 'attendance',          module: 'attendance' },
 ];
 
+/** Modules that always stay visible to the Admin/SuperAdmin role, regardless of the matrix —
+ * these are the screens that configure module access itself, so hiding them from admins would
+ * leave no way back in if the admin role's own row is ever restricted here by mistake. Staff/
+ * custom roles still can't be delegated these (see ModuleAccessService._adminOnlyModules). */
+const ADMIN_ALWAYS_VISIBLE = new Set(['roles', 'access']);
+
 /**
  * Actions the signed-in user may open. Every tile is gated by the per-role Module Access matrix
- * via its `module` key, including Roles/Access/Stats/Live Coaching (previously hardcoded to
- * admin-only) — any role, including admin, defaults to seeing everything a module with no
- * explicit matrix row grants (their access is a privilege dialed down by exception, not granted
- * from zero), but once a role's row restricts a module, it's respected uniformly. "roles" and
- * "access" can never be delegated to a staff/custom role server-side (see
- * ModuleAccessService._adminOnlyModules) — only admin/superadmin can ever see those tiles in
- * practice. The server enforces the same rules for every module.
+ * via its `module` key — any role, including admin, defaults to seeing everything a module with
+ * no explicit matrix row grants (their access is a privilege dialed down by exception, not
+ * granted from zero), but once a role's row restricts a module, it's respected. The exception is
+ * Roles/Access, which always stay visible to admin/superadmin (see ADMIN_ALWAYS_VISIBLE above).
  */
 export function useVisibleAdminActions(): AdminAction[] {
   const role = getSession()?.role;
@@ -53,6 +56,7 @@ export function useVisibleAdminActions(): AdminAction[] {
   return ADMIN_ACTIONS.filter(a => {
     if (a.onlyFor === 'superadmin') return isSuperAdmin(role);
     if (a.onlyFor === 'admin') return admin;
+    if (admin && a.module && ADMIN_ALWAYS_VISIBLE.has(a.module)) return true;
     return a.module ? viewable.has(a.module) : false;
   });
 }
