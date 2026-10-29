@@ -14,7 +14,7 @@ import EmptyState from '../../dashboard/components/EmptyState';
 import StatsStrip from '../../common/StatsStrip';
 import ManageUserAccessPage from '../../module-access/pages/ManageUserAccessPage';
 import { useToast } from '../../common/components/Toast';
-import { useModuleCan } from '../../module-access/context/ModuleAccessContext';
+import { useRoleModuleAccess } from '../../module-access/hooks/useRoleModuleAccess';
 import { T, withAlpha, SP, R } from '../../../theme';
 
 const TINTS = [T.brand, T.sky, T.violet, T.brandGold, T.err];
@@ -172,8 +172,9 @@ export default function ViewMembersPage({ onBack, onAddMember }: Props) {
   const { mutate: setStatus } = useSetMemberStatus();
   const { mutate: removeMember } = useDeleteMember();
   const { show: showToast } = useToast();
-  const canEditMembers = useModuleCan('members', 'edit');
-  const canDeleteMembers = useModuleCan('members', 'delete');
+  const membersAccess = useRoleModuleAccess('members');
+  const canEditMembers = membersAccess.canEdit;
+  const canDeleteMembers = membersAccess.canDelete;
 
   const handleToggleStatus = (member: Member) => {
     const isActive = member.status.toLowerCase() === 'active';

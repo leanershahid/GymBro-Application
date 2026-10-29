@@ -33,6 +33,16 @@ public interface IModuleAccessService
     /// </summary>
     Task<bool> IsAllowedAsync(ulong tenantId, string roleSlug, string module, string action);
 
+    /// <summary>
+    /// Enforcement check for the Admin/SuperAdmin role itself (used by
+    /// <see cref="GymManagmentApplication.Filters.RequireModuleAttribute"/>): does this role hold
+    /// <paramref name="action"/> on <paramref name="module"/>? Unlike <see cref="IsAllowedAsync"/>
+    /// (which exists to gate what can be *delegated* to custom roles and always denies
+    /// tenants/roles/settings), an admin with no explicit matrix row for a module defaults to
+    /// allowed — their access is a privilege dialed down by exception, not granted from zero.
+    /// </summary>
+    Task<bool> IsAllowedForRoleAsync(ulong tenantId, string roleSlug, string module, string action);
+
     /// <summary>The signed-in user's own module grants (for building their navigation).</summary>
     Task<List<ModuleAccessResponse>> GetMyAccessAsync();
 

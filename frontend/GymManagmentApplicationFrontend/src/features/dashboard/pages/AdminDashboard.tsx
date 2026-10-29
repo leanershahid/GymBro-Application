@@ -26,8 +26,8 @@ import { DashboardData }      from '../types/dashboard';
 import AdminModuleDevelopmentDashboard from './AdminModuleDevelopmentDashboard';
 import MoreActionsPage        from './MoreActionsPage';
 import { useVisibleAdminActions } from '../adminActions';
-import { getSession, isAdminRole, isSuperAdmin } from '../../../api/session';
-import { ModuleAccessProvider, useModuleAccess, useModuleCan } from '../../module-access/context/ModuleAccessContext';
+import { getSession, isSuperAdmin, isAdminRole } from '../../../api/session';
+import { useRoleModuleAccess } from '../../module-access/hooks/useRoleModuleAccess';
 
 // ─── Feature pages ────────────────────────────────────────────────
 import ViewMembersPage   from '../../members/pages/ViewMembersPage';
@@ -159,20 +159,7 @@ const NAV_ITEMS: { icon: FeatherIconName; label: string; key: string }[] = [
 
 interface AdminDashboardProps { adminName?: string; onLogout?: () => void; }
 
-export default function AdminDashboard(props: AdminDashboardProps) {
-  const session = getSession();
-  // Staff/custom roles are governed entirely by the per-role Module Access matrix (a separate
-  // screen/table this provider knows nothing about) — only admin/superadmin go through this
-  // per-user check, mirroring the backend's RequireModuleAttribute.
-  const admin = isAdminRole(session?.role);
-  return (
-    <ModuleAccessProvider userId={session?.userId ?? 0} isAdmin={admin} enforced={admin}>
-      <AdminDashboardInner {...props} />
-    </ModuleAccessProvider>
-  );
-}
-
-function AdminDashboardInner({ adminName = 'Admin', onLogout }: AdminDashboardProps) {
+export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminDashboardProps) {
   const { data, loading, refreshing, error, refresh } = useDashboardStats();
   const actions = useVisibleAdminActions();
   const role = getSession()?.role;
@@ -186,16 +173,25 @@ function AdminDashboardInner({ adminName = 'Admin', onLogout }: AdminDashboardPr
   const { tileW } = useLayout();
   const kpiW = tileW(2, 12);
 
-  const canViewMembers  = useModuleAccess('members');
-  const canViewTrainers = useModuleAccess('trainers');
-  const canViewBranches = useModuleAccess('branches');
-  const canAddMember    = useModuleCan('members', 'create');
-  const canAddTrainer   = useModuleCan('trainers', 'create');
-  const canAddBranch    = useModuleCan('branches', 'create');
-  const canViewTenants  = useModuleAccess('tenants');
-  const canAddTenant    = useModuleCan('tenants', 'create');
-  const canViewAttendance = useModuleAccess('attendance');
-  const canViewLeads    = useModuleAccess('leads');
+  // Every module's view/create flags come from the per-role Module Access matrix — the same
+  // "Role Access" screen the admin uses to configure custom roles — so it works dynamically
+  // for every role, including the signed-in admin's own.
+  const members  = useRoleModuleAccess('members');
+  const trainers = useRoleModuleAccess('trainers');
+  const branches = useRoleModuleAccess('branches');
+  const tenants  = useRoleModuleAccess('tenants');
+  const attendance = useRoleModuleAccess('attendance');
+  const leads    = useRoleModuleAccess('leads');
+  const canViewMembers  = members.canView;
+  const canViewTrainers = trainers.canView;
+  const canViewBranches = branches.canView;
+  const canAddMember    = members.canCreate;
+  const canAddTrainer   = trainers.canCreate;
+  const canAddBranch    = branches.canCreate;
+  const canViewTenants  = tenants.canView;
+  const canAddTenant    = tenants.canCreate;
+  const canViewAttendance = attendance.canView;
+  const canViewLeads    = leads.canView;
 
   const go = useCallback((s: Screen) => setScreen(s), []);
   const goHome = useCallback(() => setScreen('home'), []);

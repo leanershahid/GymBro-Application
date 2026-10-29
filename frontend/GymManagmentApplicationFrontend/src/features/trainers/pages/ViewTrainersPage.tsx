@@ -14,7 +14,7 @@ import StatsStrip from '../../common/StatsStrip';
 import Skeleton from '../../common/components/Skeleton';
 import TrainerDetailPage from './TrainerDetailPage';
 import { useToast } from '../../common/components/Toast';
-import { useModuleCan } from '../../module-access/context/ModuleAccessContext';
+import { useRoleModuleAccess } from '../../module-access/hooks/useRoleModuleAccess';
 
 const TINTS = [
   { bg: withAlpha(T.sky, 0.08),  accent: T.sky },
@@ -228,8 +228,9 @@ export default function ViewTrainersPage({ onBack, onAddTrainer }: ViewTrainersP
   const { mutate: setStatus } = useSetTrainerStatus();
   const { mutate: removeTrainer } = useDeleteTrainer();
   const { show: showToast } = useToast();
-  const canEditTrainers = useModuleCan('trainers', 'edit');
-  const canDeleteTrainers = useModuleCan('trainers', 'delete');
+  const trainersAccess = useRoleModuleAccess('trainers');
+  const canEditTrainers = trainersAccess.canEdit;
+  const canDeleteTrainers = trainersAccess.canDelete;
 
   if (selectedTrainer) {
     return (

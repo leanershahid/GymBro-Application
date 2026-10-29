@@ -14,7 +14,7 @@ import EmptyState from '../../dashboard/components/EmptyState';
 import BranchDropdown from '../components/BranchDropdown';
 import BottomSheet from '../../common/components/BottomSheet';
 import { useToast } from '../../common/components/Toast';
-import { useModuleCan } from '../../module-access/context/ModuleAccessContext';
+import { useRoleModuleAccess } from '../../module-access/hooks/useRoleModuleAccess';
 
 import StatsStrip from '../../common/StatsStrip';
 
@@ -280,8 +280,9 @@ export default function ViewBranchesPage({ onBack, onAddBranch }: ViewBranchesPa
   const { mutate: removeBranch } = useDeleteBranch();
   const { mutate: transfer, isPending: isTransferring } = useTransferBranch();
   const { show: showToast } = useToast();
-  const canEditBranches = useModuleCan('branches', 'edit');
-  const canDeleteBranches = useModuleCan('branches', 'delete');
+  const branchesAccess = useRoleModuleAccess('branches');
+  const canEditBranches = branchesAccess.canEdit;
+  const canDeleteBranches = branchesAccess.canDelete;
 
   // When a deactivate/remove is blocked because the branch still has people in it, we fall
   // back to asking the admin to transfer them to another branch first, then retry.

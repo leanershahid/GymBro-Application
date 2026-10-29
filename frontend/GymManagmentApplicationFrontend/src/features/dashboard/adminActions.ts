@@ -1,9 +1,7 @@
 import React from 'react';
 import { Feather } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
-import axiosInstance from '../../api/axios';
-import { ApiResponse } from '../../api/types';
 import { getSession, isAdminRole, isSuperAdmin } from '../../api/session';
+import { useMyModuleGrants } from '../module-access/hooks/useRoleModuleAccess';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -22,7 +20,7 @@ export const ADMIN_ACTIONS: AdminAction[] = [
   { label: 'Members',   icon: 'users',       screen: 'members',   module: 'members' },
   { label: 'Trainers',  icon: 'award',       screen: 'trainers',  module: 'trainers' },
   { label: 'Branches',  icon: 'map-pin',     screen: 'branches',  module: 'branches' },
-  { label: 'Tenants',   icon: 'briefcase',   screen: 'tenants',   onlyFor: 'admin' },
+  { label: 'Tenants',   icon: 'briefcase',   screen: 'tenants',   module: 'tenants' },
   { label: 'Leads',     icon: 'target',      screen: 'leads',     module: 'leads' },
   { label: 'Exercises', icon: 'zap',         screen: 'exercises', module: 'exercises' },
   { label: 'Workouts',  icon: 'activity',    screen: 'workouts',  module: 'workouts' },
@@ -36,25 +34,19 @@ export const ADMIN_ACTIONS: AdminAction[] = [
   { label: 'Attendance',    icon: 'map-pin',     screen: 'attendance',          module: 'attendance' },
 ];
 
-interface ModuleGrant { module: string; canView: boolean; }
-
 /**
- * Actions the signed-in user may open. Admins default to seeing everything a module with no
- * explicit matrix row grants them (their access is a privilege dialed down by exception, not
- * granted from zero) — but once an admin's role has an explicit row restricting a module, it's
- * respected just like for staff/custom roles. Tenants management of other gyms stays
- * super-admin-only. The server enforces the same rules.
+ * Actions the signed-in user may open. Every role — including admin — is gated by the per-role
+ * Module Access matrix for anything with a `module` key: admins default to seeing everything a
+ * module with no explicit matrix row grants them (their access is a privilege dialed down by
+ * exception, not granted from zero), but once a role's row restricts a module, it's respected
+ * the same way for everyone. `onlyFor` is reserved for the handful of screens that configure
+ * this very system (Roles, Access) — those must stay admin-only or a role could edit its own way
+ * into more access. The server enforces the same rules.
  */
 export function useVisibleAdminActions(): AdminAction[] {
   const role = getSession()?.role;
   const admin = isAdminRole(role);
-
-  const { data: grants = [] } = useQuery({
-    queryKey: ['module-access', 'me'],
-    queryFn: async () => (await axiosInstance.get<ApiResponse<ModuleGrant[]>>('/module-access/me')).data,
-    select: r => r.data ?? [],
-    enabled: !!role,
-  });
+  const { data: grants = [] } = useMyModuleGrants();
 
   const viewable = new Set(grants.filter(g => g.canView).map(g => g.module));
   return ADMIN_ACTIONS.filter(a => {

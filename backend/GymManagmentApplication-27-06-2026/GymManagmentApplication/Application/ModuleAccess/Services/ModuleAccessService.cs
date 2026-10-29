@@ -1,6 +1,7 @@
 using GymManagmentApplication.Application.ModuleAccess.Interfaces;
 using GymManagmentApplication.Application.ModuleAccess.Requests;
 using GymManagmentApplication.Application.ModuleAccess.Responses;
+using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -61,6 +62,29 @@ public class ModuleAccessService(AppDbContext db, ICurrentUser currentUser) : IM
         // Fine-grained role permissions ("module.action") also grant access.
         return await db.RolePermissions
             .AnyAsync(rp => rp.RoleId == role.Id && rp.Permission.Module == module && rp.Permission.Action == action);
+    }
+
+    public async Task<bool> IsAllowedForRoleAsync(ulong tenantId, string roleSlug, string module, string action)
+    {
+        var role = await db.Roles.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(r => r.TenantId == tenantId && r.Slug == roleSlug);
+        if (role is null) return false;
+
+        var entry = await db.ModuleAccesses.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(m => m.TenantId == tenantId && m.RoleId == role.Id && m.Module == module && m.IsActive);
+
+        if (entry is null)
+            return roleSlug == RoleNames.Admin || roleSlug == RoleNames.SuperAdmin;
+
+        return action switch
+        {
+            "view"   => entry.CanView,
+            "create" => entry.CanCreate,
+            "edit"   => entry.CanEdit,
+            "delete" => entry.CanDelete,
+            "export" => entry.CanExport,
+            _        => false
+        };
     }
 
     public async Task<List<ModuleAccessResponse>> GetMyAccessAsync()
