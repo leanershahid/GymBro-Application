@@ -22,6 +22,7 @@ export const ADMIN_ACTIONS: AdminAction[] = [
   { label: 'Branches',  icon: 'map-pin',     screen: 'branches',  module: 'branches' },
   { label: 'Tenants',   icon: 'briefcase',   screen: 'tenants',   module: 'tenants' },
   { label: 'Leads',     icon: 'target',      screen: 'leads',     module: 'leads' },
+  { label: 'Billing',   icon: 'credit-card', screen: 'billing',   module: 'billing' },
   { label: 'Exercises', icon: 'zap',         screen: 'exercises', module: 'exercises' },
   { label: 'Workouts',  icon: 'activity',    screen: 'workouts',  module: 'workouts' },
   { label: 'Plans',     icon: 'book-open',   screen: 'plans',     module: 'plans' },

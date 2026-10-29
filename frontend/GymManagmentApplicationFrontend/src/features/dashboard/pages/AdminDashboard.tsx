@@ -60,6 +60,9 @@ import AddWorkoutPage    from '../../workouts/pages/AddWorkoutPage';
 import AddPlanPage       from '../../workouts/pages/AddPlanPage';
 import AddLeadPage       from '../../leads/pages/AddLeadPage';
 import RolesPage         from '../../module-access/pages/RolesPage';
+import BillingHomePage   from '../../billing/pages/BillingHomePage';
+import NewInvoicePage    from '../../billing/pages/NewInvoicePage';
+import NewMembershipPage from '../../billing/pages/NewMembershipPage';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 type Screen =
@@ -73,6 +76,7 @@ type Screen =
   | 'workouts'  | 'add-workout'
   | 'plans'     | 'add-plan'
   | 'roles'
+  | 'billing' | 'new-invoice' | 'new-membership'
   | 'module-access'
   | 'user-access'
   | 'challenges-admin'
@@ -204,6 +208,7 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
   const workouts  = useRoleModuleAccess('workouts');
   const plans     = useRoleModuleAccess('plans');
   const roles     = useRoleModuleAccess('roles');
+  const billingAccess = useRoleModuleAccess('billing');
   const canViewMembers  = members.canView;
   const canViewTrainers = trainers.canView;
   const canViewBranches = branches.canView;
@@ -235,7 +240,8 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
       : <NoModuleAccess onBack={goHome} />;
     if (screen === 'member-detail') return canViewMembers
       ? <MemberDetailPage memberId={selectedId} onBack={() => go('members')} canEdit={members.canEdit}
-          onEdit={members.canEdit ? () => go('edit-member') : undefined} />
+          onEdit={members.canEdit ? () => go('edit-member') : undefined}
+          onNewMembership={billingAccess.canCreate ? () => go('new-membership') : undefined} />
       : <NoModuleAccess onBack={() => go('members')} />;
     if (screen === 'edit-member') return members.canEdit
       ? <EditMemberPage memberId={selectedId} onBack={() => go('member-detail')} onSaved={() => go('member-detail')} />
@@ -294,6 +300,16 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
     if (screen === 'add-plan') return plans.canCreate
       ? <AddPlanPage onBack={() => go('plans')} />
       : <NoModuleAccess onBack={() => go('plans')} />;
+    if (screen === 'billing') return billingAccess.canView
+      ? <BillingHomePage onBack={goHome} onOpenMember={canViewMembers ? (id) => open('member-detail', id) : undefined}
+          onNewInvoice={billingAccess.canCreate ? () => go('new-invoice') : undefined} />
+      : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'new-invoice') return billingAccess.canCreate
+      ? <NewInvoicePage onBack={() => go('billing')} />
+      : <NoModuleAccess onBack={() => go('billing')} />;
+    if (screen === 'new-membership') return billingAccess.canCreate
+      ? <NewMembershipPage memberId={selectedId} onBack={() => go('member-detail')} />
+      : <NoModuleAccess onBack={() => go('member-detail')} />;
     if (screen === 'roles') return roles.canView
       ? <RolesPage onBack={goHome} onOpenRoleAccess={(id) => open('module-access', id)} />
       : <NoModuleAccess onBack={goHome} />;

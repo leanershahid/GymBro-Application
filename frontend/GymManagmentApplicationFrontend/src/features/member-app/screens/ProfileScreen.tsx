@@ -88,9 +88,9 @@ function TimelineRow({ event }: { event: { eventType: string; description: strin
   );
 }
 
-interface Props { userId: number; onLogout: () => void; }
+interface Props { userId: number; onLogout: () => void; onOpenBilling?: () => void; }
 
-export default function ProfileScreen({ userId, onLogout }: Props) {
+export default function ProfileScreen({ userId, onLogout, onOpenBilling }: Props) {
   const { data: profile, isLoading } = useMyProfile(userId);
   const { data: timeline = [] }      = useMyTimeline(userId);
   const { mutate: update, isPending } = useUpdateProfile(userId);
@@ -235,11 +235,20 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
               </View>
             )}
 
+            {onOpenBilling && (
+              <PrimaryButton
+                label="Membership & payments"
+                icon="credit-card"
+                variant="secondary"
+                style={{ marginTop: 24 }}
+                onPress={onOpenBilling}
+              />
+            )}
             <PrimaryButton
               label="Change password"
               icon="lock"
               variant="secondary"
-              style={{ marginTop: 24 }}
+              style={{ marginTop: onOpenBilling ? 12 : 24 }}
               onPress={() => setPwOpen(true)}
             />
             <ChangePasswordSheet visible={pwOpen} onClose={() => setPwOpen(false)} onChanged={onLogout} />

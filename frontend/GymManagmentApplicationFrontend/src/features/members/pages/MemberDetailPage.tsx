@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import MemberBillingSection from '../../billing/components/MemberBillingSection';
 import {
   View, Text, ScrollView, Pressable, Image, TextInput, Alert, Linking, RefreshControl,
 } from 'react-native';
@@ -27,7 +28,7 @@ type FeatherIcon = React.ComponentProps<typeof Feather>['name'];
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'overview', label: 'Overview' },
-  { key: 'plans',    label: 'Plans' },
+  { key: 'plans',    label: 'Billing' },
   { key: 'visits',   label: 'Visits' },
   { key: 'notes',    label: 'Notes' },
   { key: 'docs',     label: 'Docs' },
@@ -226,44 +227,6 @@ function OverviewTab({ m, canEdit, onAssign, onRemoveTrainer, onManageAccess }: 
   );
 }
 
-function PlansTab({ memberId }: { memberId: number }) {
-  const q = useMemberSubscriptions(memberId);
-  const items = q.data?.items ?? [];
-  return (
-    <>
-      <TabState
-        loading={q.isLoading} error={q.isError ? q.error : null} empty={!items.length}
-        emptyIcon="credit-card" emptyTitle="No memberships found" loadingLabel="Loading memberships"
-        emptySubtitle="This member has no recent membership records." onRetry={() => q.refetch()}
-      />
-      {!!q.data && !!items.length && <ScanNote scanned={q.data.scanned} total={q.data.total} what="memberships" />}
-      {items.map(s => (
-        <View key={s.id} style={{
-          backgroundColor: T.bgInput, borderRadius: R.lg, borderWidth: 1, borderColor: T.line,
-          padding: SP.lg, marginBottom: SP.md,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.sm }}>
-            <Text style={{ flex: 1, color: T.text, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{s.planName}</Text>
-            <StatusPill label={s.status} tone={toneForStatus(s.status)} dot />
-          </View>
-          <Text style={{ color: T.brand, fontSize: 14, fontWeight: '700', marginTop: 6 }}>{fmtMoney(s.price, s.currency)}</Text>
-          <Text style={{ color: T.textSub, fontSize: 12, marginTop: 6 }}>
-            {fmtDate(s.startDate)} → {s.endDate ? fmtDate(s.endDate) : 'Open-ended'}
-          </Text>
-          {!!s.nextRenewalDate && (
-            <Text style={{ color: T.textFaint, fontSize: 12, marginTop: 2 }}>Renews {fmtDate(s.nextRenewalDate)}</Text>
-          )}
-          {!!s.frozenFrom && (
-            <Text style={{ color: T.brandGold, fontSize: 12, marginTop: 2 }}>
-              Frozen {fmtDate(s.frozenFrom)} – {fmtDate(s.frozenUntil)}
-            </Text>
-          )}
-        </View>
-      ))}
-    </>
-  );
-}
-
 function VisitsTab({ memberId }: { memberId: number }) {
   const q = useMemberAttendance(memberId);
   const items = q.data?.items ?? [];
@@ -438,9 +401,11 @@ interface Props {
   onBack: () => void;
   onEdit?: () => void;
   canEdit?: boolean;
+  /** Opens the "new membership" flow for this member (billing access only). */
+  onNewMembership?: () => void;
 }
 
-export default function MemberDetailPage({ memberId, onBack, onEdit, canEdit = false }: Props) {
+export default function MemberDetailPage({ memberId, onBack, onEdit, canEdit = false, onNewMembership }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
   const [assignOpen, setAssignOpen] = useState(false);
   const [manageAccess, setManageAccess] = useState(false);
@@ -564,7 +529,9 @@ export default function MemberDetailPage({ memberId, onBack, onEdit, canEdit = f
             onManageAccess={() => setManageAccess(true)}
           />
         )}
-        {tab === 'plans'  && <PlansTab memberId={member.id} />}
+        {tab === 'plans'  && (
+          <MemberBillingSection memberId={member.id} memberName={`${member.firstName} ${member.lastName}`.trim()} onNewMembership={onNewMembership} />
+        )}
         {tab === 'visits' && <VisitsTab memberId={member.id} />}
         {tab === 'notes'  && <NotesTab memberId={member.id} />}
         {tab === 'docs'   && <DocsTab memberId={member.id} canEdit={canEdit} />}

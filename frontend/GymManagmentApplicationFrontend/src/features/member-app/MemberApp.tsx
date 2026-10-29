@@ -12,6 +12,7 @@ import WorkoutDetailScreen from './screens/WorkoutDetailScreen';
 import CommunityScreen     from './screens/CommunityScreen';
 import StatsScreen         from './screens/StatsScreen';
 import ProgressScreen      from './screens/ProgressScreen';
+import MyBillingScreen     from '../member-billing/screens/MyBillingScreen';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -23,6 +24,7 @@ type Screen =
   | { id: 'profile'   }
   | { id: 'train'     }
   | { id: 'plans'     }
+  | { id: 'billing'   }
   | { id: 'workout'; workoutId: number };
 
 // moduleKey undefined => always visible, not gated (Home / Profile)
@@ -75,8 +77,8 @@ function MemberAppContent({ userId, onLogout }: Props) {
       setScreen({ id: 'workout', workoutId: wid });
       return;
     }
-    if (target === 'train' || target === 'plans') {
-      setScreen({ id: target as 'train' | 'plans' });
+    if (target === 'train' || target === 'plans' || target === 'billing') {
+      setScreen({ id: target as 'train' | 'plans' | 'billing' });
       return;
     }
     // Only real tabs; unknown targets are ignored
@@ -101,6 +103,9 @@ function MemberAppContent({ userId, onLogout }: Props) {
         {screen.id === 'plans' && (
           <PlansScreen onBack={() => goTo('home')} />
         )}
+        {screen.id === 'billing' && (
+          <MyBillingScreen userId={userId} onBack={() => goTo('home')} />
+        )}
         {screen.id === 'home' && (
           <HomeScreen userId={userId} onNavigate={navigateFrom} />
         )}
@@ -114,7 +119,7 @@ function MemberAppContent({ userId, onLogout }: Props) {
           <ProgressScreen userId={userId} />
         )}
         {screen.id === 'profile' && (
-          <ProfileScreen userId={userId} onLogout={onLogout} />
+          <ProfileScreen userId={userId} onLogout={onLogout} onOpenBilling={() => setScreen({ id: 'billing' })} />
         )}
       </View>
 
