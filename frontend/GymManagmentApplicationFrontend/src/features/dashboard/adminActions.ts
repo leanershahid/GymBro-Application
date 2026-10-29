@@ -25,23 +25,24 @@ export const ADMIN_ACTIONS: AdminAction[] = [
   { label: 'Exercises', icon: 'zap',         screen: 'exercises', module: 'exercises' },
   { label: 'Workouts',  icon: 'activity',    screen: 'workouts',  module: 'workouts' },
   { label: 'Plans',     icon: 'book-open',   screen: 'plans',     module: 'plans' },
-  { label: 'Roles',     icon: 'shield',      screen: 'module-access', onlyFor: 'admin' },
-  { label: 'Access',    icon: 'lock',        screen: 'user-access',   onlyFor: 'admin' },
+  { label: 'Roles',     icon: 'shield',      screen: 'module-access', module: 'roles' },
+  { label: 'Access',    icon: 'lock',        screen: 'user-access',   module: 'access' },
   { label: 'Challenges',    icon: 'award',       screen: 'challenges-admin',    module: 'gamification' },
-  { label: 'Stats',         icon: 'bar-chart-2', screen: 'stats-admin',         onlyFor: 'admin' },
-  { label: 'Live Coaching', icon: 'video',       screen: 'live-coaching-admin', onlyFor: 'admin' },
+  { label: 'Stats',         icon: 'bar-chart-2', screen: 'stats-admin',         module: 'stats' },
+  { label: 'Live Coaching', icon: 'video',       screen: 'live-coaching-admin', module: 'live-coaching' },
   { label: 'AI Coach',      icon: 'cpu',         screen: 'ai-coach-admin',      module: 'ai-insights' },
   { label: 'Attendance',    icon: 'map-pin',     screen: 'attendance',          module: 'attendance' },
 ];
 
 /**
- * Actions the signed-in user may open. Every role — including admin — is gated by the per-role
- * Module Access matrix for anything with a `module` key: admins default to seeing everything a
- * module with no explicit matrix row grants them (their access is a privilege dialed down by
- * exception, not granted from zero), but once a role's row restricts a module, it's respected
- * the same way for everyone. `onlyFor` is reserved for the handful of screens that configure
- * this very system (Roles, Access) — those must stay admin-only or a role could edit its own way
- * into more access. The server enforces the same rules.
+ * Actions the signed-in user may open. Every tile is gated by the per-role Module Access matrix
+ * via its `module` key, including Roles/Access/Stats/Live Coaching (previously hardcoded to
+ * admin-only) — any role, including admin, defaults to seeing everything a module with no
+ * explicit matrix row grants (their access is a privilege dialed down by exception, not granted
+ * from zero), but once a role's row restricts a module, it's respected uniformly. "roles" and
+ * "access" can never be delegated to a staff/custom role server-side (see
+ * ModuleAccessService._adminOnlyModules) — only admin/superadmin can ever see those tiles in
+ * practice. The server enforces the same rules for every module.
  */
 export function useVisibleAdminActions(): AdminAction[] {
   const role = getSession()?.role;

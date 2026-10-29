@@ -17,9 +17,9 @@ public class ModuleAccessService(AppDbContext db, ICurrentUser currentUser) : IM
     [
         "members", "trainers", "leads", "onboarding", "corporate",
         "exercises", "workouts", "plans", "workout-automation",
-        "branches", "tenants", "roles",
+        "branches", "tenants", "roles", "access",
         "billing", "payments", "invoices", "subscriptions",
-        "classes", "attendance", "pt-sessions",
+        "classes", "attendance", "pt-sessions", "live-coaching", "stats",
         "analytics", "reports",
         "notifications", "campaigns",
         "automations", "webhooks",
@@ -34,7 +34,7 @@ public class ModuleAccessService(AppDbContext db, ICurrentUser currentUser) : IM
     /// Modules that can never be delegated to staff/custom roles through the matrix — granting
     /// them would let a non-admin create gyms or hand themselves the admin role.
     /// </summary>
-    private static readonly HashSet<string> _adminOnlyModules = ["tenants", "roles", "settings"];
+    private static readonly HashSet<string> _adminOnlyModules = ["tenants", "roles", "access", "settings"];
 
     public List<string> GetAvailableModules() => _availableModules;
 
