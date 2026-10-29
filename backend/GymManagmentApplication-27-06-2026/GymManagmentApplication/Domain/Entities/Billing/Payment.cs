@@ -14,6 +14,12 @@ public class Payment
     public PaymentMethod Method { get; set; }
     public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
     public string? GatewayRef { get; set; }
+    /// <summary>Receipt / UPI transaction / cheque number entered at the desk.</summary>
+    public string? Reference { get; set; }
+    public decimal RefundedAmount { get; set; }
+    public string? Notes { get; set; }
+    /// <summary>Staff member who recorded it (null for online payments).</summary>
+    public ulong? RecordedBy { get; set; }
     public JsonDocument? GatewayResponse { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

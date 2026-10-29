@@ -477,6 +477,9 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal>("Id")
                         .HasColumnType("numeric(20,0)");
 
+                    b.Property<decimal>("AmountPaid")
+                        .HasColumnType("numeric");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -494,6 +497,9 @@ namespace GymManagmentApplication.Migrations
                     b.Property<string>("InvoiceNo")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("Items")
+                        .HasColumnType("jsonb");
 
                     b.Property<decimal?>("MembershipId")
                         .HasColumnType("numeric(20,0)");
@@ -530,9 +536,12 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
-
                     b.HasIndex("UserId");
+
+                    b.HasIndex("TenantId", "InvoiceNo")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "UserId");
 
                     b.ToTable("Invoices");
                 });
@@ -568,6 +577,18 @@ namespace GymManagmentApplication.Migrations
                     b.Property<int>("Method")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("RecordedBy")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<string>("Reference")
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("RefundedAmount")
+                        .HasColumnType("numeric");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -580,7 +601,7 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasIndex("InvoiceId");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId", "CreatedAt");
 
                     b.ToTable("Payments");
                 });
@@ -2769,7 +2790,7 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "Status");
 
                     b.ToTable("GymMemberships");
                 });

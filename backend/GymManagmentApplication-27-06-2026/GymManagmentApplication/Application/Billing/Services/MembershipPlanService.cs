@@ -28,14 +28,14 @@ public class MembershipPlanService(AppDbContext db, ICurrentUser currentUser) : 
         await db.EnsureBranchAsync(request.BranchId, request.TenantId);
         var plan = new MembershipPlan
         {
-            Id = await NextIdAsync(),
             TenantId = request.TenantId,
             BranchId = request.BranchId is > 0 ? request.BranchId : null,
             Name = request.Name,
             Description = request.Description,
             Price = request.Price,
-            Currency = request.Currency,
-            BillingCycle = Enum.TryParse<BillingCycle>(request.BillingCycle, true, out var bc) ? bc : BillingCycle.Monthly,
+            // Plans are always priced in the gym's own currency.
+            Currency = await db.Tenants.Where(t => t.Id == request.TenantId).Select(t => t.Currency).FirstOrDefaultAsync() ?? "INR",
+            BillingCycle = ParseCycle(request.BillingCycle),
             Features = request.Features != null
                 ? JsonDocument.Parse(JsonSerializer.Serialize(request.Features))
                 : null,
@@ -59,9 +59,7 @@ public class MembershipPlanService(AppDbContext db, ICurrentUser currentUser) : 
         if (request.Name is not null) plan.Name = request.Name;
         if (request.Description is not null) plan.Description = request.Description;
         if (request.Price.HasValue) plan.Price = request.Price.Value;
-        if (request.BillingCycle is not null &&
-            Enum.TryParse<BillingCycle>(request.BillingCycle, true, out var bc))
-            plan.BillingCycle = bc;
+        if (request.BillingCycle is not null) plan.BillingCycle = ParseCycle(request.BillingCycle);
         if (request.IsActive.HasValue) plan.IsActive = request.IsActive.Value;
         plan.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
@@ -121,4 +119,18 @@ public class MembershipPlanService(AppDbContext db, ICurrentUser currentUser) : 
 
     private async Task<ulong> NextIdAsync() =>
         (await db.MembershipPlans.IgnoreQueryFilters().MaxAsync(p => (ulong?)p.Id) ?? 0) + 1;
+
+    /// <summary>"monthly", "quarterly", "half-yearly", "annual"/"yearly", "weekly", "daily", "one-time".</summary>
+    public static BillingCycle ParseCycle(string? value) =>
+        (value ?? "monthly").Trim().ToLowerInvariant().Replace("-", "").Replace("_", "").Replace(" ", "") switch
+        {
+            "annual" or "annually" or "yearly" or "year" => BillingCycle.Yearly,
+            "halfyearly" or "halfyear" or "semiannual" => BillingCycle.HalfYearly,
+            "quarterly" or "quarter" => BillingCycle.Quarterly,
+            "weekly" or "week" => BillingCycle.Weekly,
+            "daily" or "day" => BillingCycle.Daily,
+            "onetime" or "once" => BillingCycle.OneTime,
+            "monthly" or "month" => BillingCycle.Monthly,
+            _ => throw new ArgumentException("Billing cycle must be daily, weekly, monthly, quarterly, half-yearly, annual or one-time."),
+        };
 }

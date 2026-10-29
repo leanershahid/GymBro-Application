@@ -270,6 +270,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>().HasIndex(u => u.Uuid).IsUnique();
         modelBuilder.Entity<UserSession>().HasIndex(s => s.TokenHash).IsUnique();
         modelBuilder.Entity<AuthCode>().HasIndex(c => new { c.UserId, c.Purpose });
+        modelBuilder.Entity<Invoice>().HasIndex(i => new { i.TenantId, i.InvoiceNo }).IsUnique();
+        modelBuilder.Entity<Invoice>().HasIndex(i => new { i.TenantId, i.UserId });
+        modelBuilder.Entity<Payment>().HasIndex(p => new { p.TenantId, p.CreatedAt });
+        modelBuilder.Entity<GymMembership>().HasIndex(m => new { m.UserId, m.Status });
         modelBuilder.Entity<AuthCode>().HasOne(c => c.User).WithMany().HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Tenant>().HasIndex(t => t.Slug).IsUnique();
         // Per-gym uniqueness: two gyms may each have a "squat" exercise or a "MAIN" branch.

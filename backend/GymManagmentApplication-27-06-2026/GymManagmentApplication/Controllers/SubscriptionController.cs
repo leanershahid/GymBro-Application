@@ -39,9 +39,10 @@ public class SubscriptionController(ISubscriptionService service) : ControllerBa
     }
 
     [HttpPut("{id:long}/renew")]
-    public async Task<ActionResult<ApiResponse<object>>> Renew(ulong id)
+    public async Task<ActionResult<ApiResponse<object>>> Renew(ulong id,
+        [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] RenewSubscriptionRequest? request)
     {
-        var result = await service.RenewAsync(id);
+        var result = await service.RenewAsync(id, request);
         return result is null ? NotFound(ApiResponse<object>.Fail($"Subscription {id} not found."))
             : Ok(ApiResponse<object>.Ok(result, "Subscription renewed."));
     }

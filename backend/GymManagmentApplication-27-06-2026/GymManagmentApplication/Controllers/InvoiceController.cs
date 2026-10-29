@@ -53,9 +53,10 @@ public class InvoiceController(IInvoiceService service) : ControllerBase
     }
 
     [HttpPut("{id:long}/mark-paid")]
-    public async Task<ActionResult<ApiResponse<object>>> MarkPaid(ulong id)
+    public async Task<ActionResult<ApiResponse<object>>> MarkPaid(ulong id,
+        [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] MarkInvoicePaidRequest? request)
     {
-        var result = await service.MarkPaidAsync(id);
+        var result = await service.MarkPaidAsync(id, request);
         return result is null ? NotFound(ApiResponse<object>.Fail($"Invoice {id} not found."))
             : Ok(ApiResponse<object>.Ok(result, "Invoice marked as paid."));
     }

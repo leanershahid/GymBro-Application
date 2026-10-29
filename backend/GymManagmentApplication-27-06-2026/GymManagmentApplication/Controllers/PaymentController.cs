@@ -15,7 +15,7 @@ public class PaymentController(IPaymentService service) : ControllerBase
 {
     [HttpPost("charge")]
     public async Task<ActionResult<ApiResponse<object>>> Charge([FromBody] ChargeRequest request)
-        => Ok(ApiResponse<object>.Ok(await service.ChargeAsync(request), "Payment processed."));
+        => Ok(ApiResponse<object>.Ok(await service.ChargeAsync(request), "Payment recorded."));
 
     [HttpGet("{id:long}")]
     public async Task<ActionResult<ApiResponse<object>>> GetById(ulong id)
@@ -63,6 +63,23 @@ public class PaymentController(IPaymentService service) : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> CreateIntent(
         [FromBody] CreatePaymentIntentRequest request)
         => Ok(ApiResponse<object>.Ok(await service.CreateIntentAsync(request)));
+
+    [HttpPost("verify")]
+    public async Task<ActionResult<ApiResponse<object>>> Verify([FromBody] VerifyOnlinePaymentRequest request)
+        => Ok(ApiResponse<object>.Ok(await service.VerifyOnlineAsync(request), "Payment verified."));
+
+    /// <summary>This gym's Razorpay connection (the secret is never returned).</summary>
+    [HttpGet("gateway")]
+    public async Task<ActionResult<ApiResponse<object>>> GetGateway()
+        => Ok(ApiResponse<object>.Ok(await service.GetGatewayAsync()));
+
+    [HttpPut("gateway")]
+    public async Task<ActionResult<ApiResponse<object>>> SaveGateway([FromBody] SaveGatewayRequest request)
+        => Ok(ApiResponse<object>.Ok(await service.SaveGatewayAsync(request), "Online payments settings saved."));
+
+    [HttpDelete("gateway")]
+    public async Task<ActionResult<ApiResponse<object>>> RemoveGateway()
+        => Ok(ApiResponse<object>.Ok(await service.RemoveGatewayAsync(), "Online payments turned off."));
 
     [HttpPost("reminders")]
     public async Task<ActionResult<ApiResponse<object>>> SendReminder(

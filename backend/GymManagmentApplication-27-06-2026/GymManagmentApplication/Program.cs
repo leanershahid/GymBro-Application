@@ -246,7 +246,12 @@ builder.Services.AddScoped<IWorkoutAutomationService, WorkoutAutomationService>(
 builder.Services.AddScoped<IModuleAccessService, ModuleAccessService>();
 builder.Services.AddScoped<IMembershipPlanService, MembershipPlanService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
-builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<PaymentService>();
+builder.Services.AddScoped<IPaymentService>(sp => sp.GetRequiredService<PaymentService>());
+builder.Services.AddScoped<BillingCore>();
+builder.Services.AddScoped<IMyBillingService, MyBillingService>();
+builder.Services.AddScoped<GymManagmentApplication.Infrastructure.Payments.RazorpayClient>();
+builder.Services.AddSingleton<GymManagmentApplication.Infrastructure.Security.ISecretProtector, GymManagmentApplication.Infrastructure.Security.SecretProtector>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IPricingService, PricingService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();

@@ -12,7 +12,7 @@ using GymManagmentApplication.Application.Common;
 
 namespace GymManagmentApplication.Application.SSO.Services;
 
-public class SsoService(AppDbContext db, IAuthService authService, ICurrentUser currentUser) : ISsoService
+public class SsoService(AppDbContext db, IAuthService authService, ICurrentUser currentUser, GymManagmentApplication.Infrastructure.Security.ISecretProtector secrets) : ISsoService
 {
     public Task<SsoInitResponse> InitAsync(SsoInitRequest request)
     {
@@ -63,7 +63,7 @@ public class SsoService(AppDbContext db, IAuthService authService, ICurrentUser 
             {
                 TenantId = tenantId, Provider = id,
                 ClientId = request.ClientId,
-                ClientSecretEnc = request.ClientSecret,
+                ClientSecretEnc = string.IsNullOrEmpty(request.ClientSecret) ? null : secrets.Protect(request.ClientSecret),
                 IsActive = request.IsEnabled
             };
             db.SsoProviders.Add(provider);
@@ -71,7 +71,7 @@ public class SsoService(AppDbContext db, IAuthService authService, ICurrentUser 
         else
         {
             provider.ClientId       = request.ClientId;
-            provider.ClientSecretEnc = request.ClientSecret;
+            if (!string.IsNullOrEmpty(request.ClientSecret)) provider.ClientSecretEnc = secrets.Protect(request.ClientSecret); // stored encrypted
             provider.IsActive       = request.IsEnabled;
         }
 
