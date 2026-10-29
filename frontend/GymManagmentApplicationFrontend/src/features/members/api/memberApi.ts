@@ -3,7 +3,6 @@ import { ENDPOINTS } from '../../../api/endpoints';
 import { ApiResponse, PaginatedData } from '../../../api/types';
 import { uploadFile, PickedFile } from '../../../api/upload';
 import { currentTenantId } from '../../../api/session';
-import { fetchTrainers } from '../../trainers/api/trainerApi';
 import {
   MemberPayload, MemberCreateResponse, MemberListResponse, MemberDetail, UpdateMemberPayload,
   MemberNote, MemberDocument, MemberSubscription, MemberAttendanceRecord, AssignedTrainer, ScannedList,
@@ -90,50 +89,38 @@ export const uploadMemberDocument = (id: number, file: PickedFile, documentType?
     file,
   );
 
-// ─── Memberships / attendance (no per-member filter on the API) ──
-// GET /subscriptions and GET /attendance only filter by tenant (and date/branch), so we read
-// the newest page (100 records) and keep this member's rows. Older history may be missing.
+// ─── Memberships / attendance (filtered server-side by member) ──
 
 export const fetchMemberSubscriptions = async (memberId: number): Promise<ScannedList<MemberSubscription>> => {
   const { data } = await axiosInstance.get<ApiResponse<PaginatedData<MemberSubscription>>>(MEMBER_EP.subscriptions, {
-    params: { tenantId: currentTenantId() || undefined, pageNumber: 1, pageSize: MAX_PAGE },
+    params: { tenantId: currentTenantId() || undefined, memberId, pageNumber: 1, pageSize: MAX_PAGE },
   });
   const page = data.data;
-  return {
-    items:   (page?.items ?? []).filter(s => s.memberId === memberId),
-    scanned: page?.items.length ?? 0,
-    total:   page?.totalRecords ?? 0,
-  };
+  return { items: page?.items ?? [], scanned: page?.totalRecords ?? 0, total: page?.totalRecords ?? 0 };
 };
 
 export const fetchMemberAttendance = async (memberId: number): Promise<ScannedList<MemberAttendanceRecord>> => {
   const { data } = await axiosInstance.get<ApiResponse<PaginatedData<MemberAttendanceRecord>>>(MEMBER_EP.attendance, {
-    params: { pageNumber: 1, pageSize: MAX_PAGE },
+    params: { userId: memberId, pageNumber: 1, pageSize: MAX_PAGE },
   });
   const page = data.data;
-  return {
-    items:   (page?.items ?? []).filter(a => a.userId === memberId),
-    scanned: page?.items.length ?? 0,
-    total:   page?.totalRecords ?? 0,
-  };
+  // scanned < total only when the member has more visits than one page shows.
+  return { items: page?.items ?? [], scanned: page?.items.length ?? 0, total: page?.totalRecords ?? 0 };
 };
 
 // ─── Trainer assignment ──────────────────────────────────────────
-// The member payload doesn't say who their trainer is, so check each trainer's active clients.
-// Trainers the caller may not inspect (403) are skipped.
+// GET /members/{id} carries the member's active trainer id; one active trainer per member.
 
 export const fetchMemberTrainers = async (memberId: number): Promise<AssignedTrainer[]> => {
-  const trainers = (await fetchTrainers(1, MAX_PAGE)).data?.items ?? [];
-  const results = await Promise.allSettled(trainers.map(async t => {
-    const { data } = await axiosInstance.get<ApiResponse<{ clientId: number; assignedAt: string }[]>>(
-      MEMBER_EP.trainerClients(t.id),
-    );
-    const hit = (data.data ?? []).find(c => c.clientId === memberId);
-    return hit ? { trainerId: t.id, displayName: t.displayName, assignedAt: hit.assignedAt } : null;
-  }));
-  return results
-    .flatMap(r => (r.status === 'fulfilled' && r.value ? [r.value] : []))
-    .sort((a, b) => b.assignedAt.localeCompare(a.assignedAt));
+  const { data: member } = await axiosInstance.get<ApiResponse<{ trainerId?: number | null }>>(`${ENDPOINTS.MEMBERS}/${memberId}`);
+  const trainerId = member.data?.trainerId;
+  if (!trainerId) return [];
+  try {
+    const { data } = await axiosInstance.get<ApiResponse<{ id: number; displayName: string }>>(`${ENDPOINTS.TRAINERS}/${trainerId}`);
+    return [{ trainerId, displayName: data.data?.displayName ?? `Trainer #${trainerId}`, assignedAt: '' }];
+  } catch {
+    return [{ trainerId, displayName: `Trainer #${trainerId}`, assignedAt: '' }];
+  }
 };
 
 export const assignTrainer = async (trainerId: number, clientId: number): Promise<ApiResponse<unknown>> => {

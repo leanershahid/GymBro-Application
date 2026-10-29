@@ -17,8 +17,9 @@ public class SubscriptionController(ISubscriptionService service) : ControllerBa
     public async Task<ActionResult<ApiResponse<object>>> GetAll(
         [FromQuery] ulong tenantId,
         [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 20)
-        => Ok(ApiResponse<object>.Ok(await service.GetAllAsync(tenantId, pageNumber, pageSize)));
+        [FromQuery] int pageSize = 20,
+        [FromQuery] ulong? memberId = null)
+        => Ok(ApiResponse<object>.Ok(await service.GetAllAsync(tenantId, pageNumber, pageSize, memberId)));
 
     [HttpPost]
     public async Task<ActionResult<ApiResponse<object>>> Create(

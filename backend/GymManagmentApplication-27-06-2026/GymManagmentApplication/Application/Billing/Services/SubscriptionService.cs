@@ -22,12 +22,13 @@ public class SubscriptionService(AppDbContext db, ICurrentUser currentUser) : IS
         _                        => 30
     };
 
-    public async Task<PagedResponse<SubscriptionResponse>> GetAllAsync(ulong tenantId, int page, int size)
+    public async Task<PagedResponse<SubscriptionResponse>> GetAllAsync(ulong tenantId, int page, int size, ulong? memberId = null)
     {
         tenantId = currentUser.ResolveTenantId(tenantId);
         (page, size) = Paging.Clamp(page, size);
         var query = db.GymMemberships.Include(m => m.Plan)
             .Where(m => m.TenantId == tenantId);
+        if (memberId is { } mid) query = query.Where(m => m.UserId == mid);
         var total = await query.CountAsync();
         var items = await query.OrderByDescending(m => m.Id).Page(page, size).ToListAsync();
         return new PagedResponse<SubscriptionResponse>

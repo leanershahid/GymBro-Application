@@ -18,7 +18,7 @@ public interface IAttendanceService
     Task<CheckInResultResponse> CheckInByLocationAsync(LocationCheckRequest request);
     Task<AttendanceRecordResponse?> CheckOutAsync(LocationCheckRequest? request);
     Task<List<AttendanceRecordResponse>> GetMyHistoryAsync(int days);
-    Task<PagedResponse<AttendanceRecordResponse>> GetAllAsync(DateOnly? date, ulong? branchId, int page, int size);
+    Task<PagedResponse<AttendanceRecordResponse>> GetAllAsync(DateOnly? date, ulong? branchId, int page, int size, ulong? userId = null);
     /// <summary>Records a biometric (face/fingerprint) entry as attendance when that method is enabled.</summary>
     Task RecordBiometricAsync(ulong userId, ulong branchId, AttendanceMethod method, string? device);
 }
@@ -219,7 +219,7 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
         return rows.Select(Map).ToList();
     }
 
-    public async Task<PagedResponse<AttendanceRecordResponse>> GetAllAsync(DateOnly? date, ulong? branchId, int page, int size)
+    public async Task<PagedResponse<AttendanceRecordResponse>> GetAllAsync(DateOnly? date, ulong? branchId, int page, int size, ulong? userId = null)
     {
         page = Math.Max(1, page);
         size = Math.Clamp(size, 1, 100);
@@ -231,6 +231,7 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
             q = q.Where(a => a.CheckInAt >= from && a.CheckInAt < from.AddDays(1));
         }
         if (branchId is { } b) q = q.Where(a => a.BranchId == b);
+        if (userId is { } u) q = q.Where(a => a.UserId == u);
 
         var total = await q.CountAsync();
         var rows = await q.OrderByDescending(a => a.CheckInAt).Page(page, size).ToListAsync();

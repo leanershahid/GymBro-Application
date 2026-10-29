@@ -136,11 +136,9 @@ export const useMemberTrainers = (id: number, enabled = true) =>
 export const useAssignTrainer = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ memberId, trainerId, replace = [] }: { memberId: number; trainerId: number; replace?: number[] }) => {
-      const res = await assignTrainer(trainerId, memberId);
-      for (const old of replace) if (old !== trainerId) await unassignTrainer(old, memberId);
-      return res;
-    },
+    // The API keeps one active trainer per member, so assigning replaces the previous one.
+    mutationFn: ({ memberId, trainerId }: { memberId: number; trainerId: number; replace?: number[] }) =>
+      assignTrainer(trainerId, memberId),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: queryKeys.members.all });
       qc.invalidateQueries({ queryKey: queryKeys.trainers.all });

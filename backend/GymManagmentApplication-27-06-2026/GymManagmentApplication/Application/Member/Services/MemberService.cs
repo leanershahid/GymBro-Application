@@ -40,9 +40,10 @@ public class MemberService(
         var onlyAssignedTo = currentUser.IsTrainer() ? currentUser.UserId : null;
         var (items, total) = await repository.GetAllAsync(request, onlyAssignedTo);
         var needsReassignment = await NeedsReassignmentSetAsync();
+        var trainers = await ActiveTrainerMapAsync(items.Select(u => u.Id));
         return new PagedResponse<MemberResponse>
         {
-            Items = items.Select(u => MapWithFlags(u, needsReassignment)),
+            Items = items.Select(u => WithTrainer(MapWithFlags(u, needsReassignment), trainers)),
             PageNumber = request.PageNumber,
             PageSize = request.PageSize,
             TotalRecords = total
@@ -130,7 +131,26 @@ public class MemberService(
         var user = await GetAccessibleAsync(id);
         if (user is null) return null;
         var needsReassignment = await NeedsReassignmentSetAsync();
-        return MapWithFlags(user, needsReassignment);
+        return WithTrainer(MapWithFlags(user, needsReassignment), await ActiveTrainerMapAsync([user.Id]));
+    }
+
+    /// <summary>Member id → their active trainer's profile id.</summary>
+    private async Task<Dictionary<ulong, ulong>> ActiveTrainerMapAsync(IEnumerable<ulong> memberIds)
+    {
+        var ids = memberIds.ToList();
+        if (ids.Count == 0) return [];
+        var rows = await db.TrainerClientAssignments
+            .Where(a => ids.Contains(a.ClientId) && a.Status == TrainerAssignmentStatus.Active)
+            .OrderByDescending(a => a.Id)
+            .Select(a => new { a.ClientId, a.TrainerId })
+            .ToListAsync();
+        return rows.GroupBy(r => r.ClientId).ToDictionary(g => g.Key, g => g.First().TrainerId);
+    }
+
+    private static MemberResponse WithTrainer(MemberResponse r, Dictionary<ulong, ulong> trainers)
+    {
+        if (trainers.TryGetValue(r.Id, out var t)) r.TrainerId = t;
+        return r;
     }
 
     public async Task<MemberResponse?> UpdateAsync(ulong id, UpdateMemberRequest request)

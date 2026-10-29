@@ -17,7 +17,7 @@ public interface IMembershipPlanService
 
 public interface ISubscriptionService
 {
-    Task<PagedResponse<SubscriptionResponse>> GetAllAsync(ulong tenantId, int page, int size);
+    Task<PagedResponse<SubscriptionResponse>> GetAllAsync(ulong tenantId, int page, int size, ulong? memberId = null);
     Task<SubscriptionResponse> CreateAsync(CreateSubscriptionRequest request);
     Task<SubscriptionResponse?> GetByIdAsync(ulong id);
     Task<SubscriptionResponse?> RenewAsync(ulong id);

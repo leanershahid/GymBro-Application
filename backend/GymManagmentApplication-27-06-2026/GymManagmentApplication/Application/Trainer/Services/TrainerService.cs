@@ -235,6 +235,13 @@ public class TrainerService(
                 a.TrainerId == id && a.ClientId == client.Id && a.Status == TrainerAssignmentStatus.Active))
             throw new ArgumentException("This member is already assigned to the trainer.");
 
+        // A member has one active trainer: assigning a new one ends the previous assignment.
+        var previous = await db.TrainerClientAssignments
+            .Where(a => a.ClientId == client.Id && a.TrainerId != id &&
+                        (a.Status == TrainerAssignmentStatus.Active || a.Status == TrainerAssignmentStatus.Paused))
+            .ToListAsync();
+        foreach (var p in previous) p.Status = TrainerAssignmentStatus.Inactive;
+
         // A member's home branch follows their trainer assignment if not set yet.
         client.BranchId ??= branchId;
 
