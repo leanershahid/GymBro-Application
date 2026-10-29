@@ -27,8 +27,15 @@ public class ForgotPasswordRequest
 
 public class ResetPasswordRequest
 {
-    public string Token { get; set; } = default!;
+    public string Email { get; set; } = default!;
+    /// <summary>The 6-digit code emailed by forgot-password.</summary>
+    public string Code { get; set; } = default!;
     public string NewPassword { get; set; } = default!;
+}
+
+public class LogoutRequest
+{
+    public string? RefreshToken { get; set; }
 }
 
 public class ChangePasswordRequest

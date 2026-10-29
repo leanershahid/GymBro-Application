@@ -160,7 +160,7 @@ public class MemberService(
         if (id == currentUser.UserId)
             throw new ArgumentException("You cannot archive your own account.");
         var deleted = await repository.SoftDeleteAsync(id);
-        if (deleted) AuthService.RevokeRefreshTokens(id); // signed-in sessions end at next request
+        if (deleted) await AuthSessions.RevokeAllAsync(db, id); // signed-in sessions end at next request
         return deleted;
     }
 
@@ -172,7 +172,7 @@ public class MemberService(
             throw new ArgumentException("You cannot deactivate your own account.");
         user.Status = isActive ? UserStatus.Active : UserStatus.Inactive;
         await repository.UpdateAsync(user);
-        if (!isActive) AuthService.RevokeRefreshTokens(id);
+        if (!isActive) await AuthSessions.RevokeAllAsync(db, id);
         return true;
     }
 

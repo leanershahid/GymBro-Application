@@ -1,3 +1,4 @@
+using GymManagmentApplication.Application.Auth;
 using GymManagmentApplication.Application.Auth.Services;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Roles.Interfaces;
@@ -172,8 +173,8 @@ public class RolesService(AppDbContext db, ICurrentUser currentUser) : IRolesSer
         await EnsureNotSuperAdminTargetAsync(user);
         user.RoleId    = roleId;
         user.UpdatedAt = DateTime.UtcNow;
-        AuthService.RevokeRefreshTokens(user.Id); // the old role must not be refreshable
         await db.SaveChangesAsync();
+        await AuthSessions.RevokeAllAsync(db, user.Id); // the old role must not be refreshable
         return true;
     }
 
@@ -191,8 +192,8 @@ public class RolesService(AppDbContext db, ICurrentUser currentUser) : IRolesSer
             ?? throw new InvalidOperationException("This gym has no client role.");
         user.RoleId    = clientRole.Id;
         user.UpdatedAt = DateTime.UtcNow;
-        AuthService.RevokeRefreshTokens(user.Id); // the old role must not be refreshable
         await db.SaveChangesAsync();
+        await AuthSessions.RevokeAllAsync(db, user.Id); // the old role must not be refreshable
         return true;
     }
 

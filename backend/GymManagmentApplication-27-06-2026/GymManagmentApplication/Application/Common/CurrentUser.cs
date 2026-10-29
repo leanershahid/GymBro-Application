@@ -39,6 +39,7 @@ public static class CustomClaims
 {
     public const string TenantId = "tenant_id";
     public const string BranchId = "branch_id";
+    public const string TokenVersion = "tv";
 }
 
 public class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser

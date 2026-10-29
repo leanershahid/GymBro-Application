@@ -170,10 +170,10 @@ public class TrainerService(
                 .Where(a => a.TrainerId == id && a.Status == TrainerAssignmentStatus.Active)
                 .ToListAsync();
             foreach (var a in assignments) a.Status = TrainerAssignmentStatus.Paused;
-            AuthService.RevokeRefreshTokens(user.Id);
         }
 
         await db.SaveChangesAsync();
+        if (!isActive) await AuthSessions.RevokeAllAsync(db, user.Id);
         return true;
     }
 
@@ -193,9 +193,9 @@ public class TrainerService(
             .Where(a => a.TrainerId == id && a.Status == TrainerAssignmentStatus.Active)
             .ToListAsync();
         foreach (var a in assignments) a.Status = TrainerAssignmentStatus.Paused;
-        AuthService.RevokeRefreshTokens(user.Id);
 
         await db.SaveChangesAsync();
+        await AuthSessions.RevokeAllAsync(db, user.Id);
         return true;
     }
 

@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, RefreshControl } from 'react-native';
+import { View, ScrollView, RefreshControl, Alert } from 'react-native';
+import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
 import { Feather } from '@expo/vector-icons';
 import { T, SP, R } from '../../../theme';
 import { useLayout } from '../../../utils/useLayout';
@@ -168,6 +169,11 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
   const { data: me, isLoading: meLoading, isError: meError } = useMe();
   const displayName = me ? `${me.firstName} ${me.lastName}`.trim() || adminName : adminName;
   const [profileOpen, setProfileOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
+  const confirmLogout = onLogout && (() => Alert.alert('Log out', 'Are you sure you want to log out?', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Log out', style: 'destructive', onPress: onLogout },
+  ]));
   const [screen, setScreen] = useState<Screen>('home');
   const activeTab = tabForScreen(screen);
   const { tileW } = useLayout();
@@ -247,7 +253,7 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
       ? <AttendanceSettingsPage onBack={goHome} onOpenLog={() => go('attendance-log')} />
       : <NoModuleAccess onBack={goHome} />;
     if (screen === 'attendance-log')     return <AttendanceLogPage     onBack={() => go('attendance')} />;
-    if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} onLogout={onLogout} />;
+    if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} onLogout={confirmLogout} />;
     if (screen === 'profile-details')    return <AdminProfileDetailsPage onBack={goHome} roleLabel={roleLabel} />;
     return null;
   })();
@@ -267,9 +273,11 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
         isLoading={meLoading}
         isError={meError}
         roleLabel={roleLabel}
-        onLogout={onLogout}
+        onLogout={confirmLogout}
         onViewMore={() => { setProfileOpen(false); go('profile-details'); }}
+        onChangePassword={() => { setProfileOpen(false); setPwOpen(true); }}
       />
+      <ChangePasswordSheet visible={pwOpen} onClose={() => setPwOpen(false)} onChanged={() => onLogout?.()} />
     </View>
   );
 

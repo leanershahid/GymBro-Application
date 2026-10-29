@@ -17,6 +17,7 @@ import LoadingState from '../../common/components/LoadingState';
 import StatusPill from '../../common/components/StatusPill';
 import EmptyState from '../../dashboard/components/EmptyState';
 import { Field, SwitchRow } from '../../trainers/components/FormFields';
+import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -34,6 +35,7 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
   const [editing,   setEditing]   = useState(false);
   const [bio,       setBio]       = useState('');
   const [phone,     setPhone]     = useState('');
+  const [pwOpen, setPwOpen] = useState(false);
   const [available, setAvailable] = useState(true);
   const [slots,     setSlots]     = useState<ScheduleSlot[]>([]);
 
@@ -177,12 +179,21 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
               </View>
             )}
 
+            <PrimaryButton
+              label="Change password"
+              icon="lock"
+              variant="secondary"
+              style={{ marginTop: 24 }}
+              onPress={() => setPwOpen(true)}
+            />
+            <ChangePasswordSheet visible={pwOpen} onClose={() => setPwOpen(false)} onChanged={onLogout} />
+
             {/* Logout */}
             <PrimaryButton
               label="Sign Out"
               icon="log-out"
               variant="danger"
-              style={{ marginTop: 16 }}
+              style={{ marginTop: 12 }}
               onPress={() => Alert.alert('Sign out', 'Are you sure?', [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Sign out', style: 'destructive', onPress: onLogout },

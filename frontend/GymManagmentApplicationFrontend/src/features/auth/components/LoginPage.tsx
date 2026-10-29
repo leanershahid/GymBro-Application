@@ -19,7 +19,7 @@ import {
 import { useState, useRef, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useLogin } from '../api/authQueries';
+import { useLogin, useForgotPassword, useResetPassword } from '../api/authQueries';
 import { scaleW, scaleH, rs } from '../../../utils/scale';
 import { T, withAlpha, Shadow } from '../../../theme';
 
@@ -120,13 +120,13 @@ function InputField({
   inputRef?: React.Ref<TextInput>;
   returnKeyType?: 'next' | 'go';
   onSubmitEditing?: () => void;
-  textContentType?: 'username' | 'password';
-  autoComplete?: 'email' | 'password';
+  textContentType?: 'username' | 'password' | 'oneTimeCode' | 'newPassword';
+  autoComplete?: 'email' | 'password' | 'one-time-code' | 'new-password';
   value: string;
   onChangeText: (v: string) => void;
   placeholder?: string;
   secureTextEntry?: boolean;
-  keyboardType?: 'default' | 'email-address';
+  keyboardType?: 'default' | 'email-address' | 'number-pad';
   rightElement?: React.ReactNode;
 }) {
   const [focused, setFocused] = useState(false);
@@ -211,6 +211,89 @@ function ErrorBanner({ message }: { message: string }) {
   );
 }
 
+// ─── Forgot / reset password ──────────────────────────────────────────────────
+const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
+function ResetPasswordForm({ mode, initialEmail, onCodeSent, onDone, onCancel, onError }: {
+  mode: 'forgot' | 'reset';
+  initialEmail: string;
+  onCodeSent: (email: string) => void;
+  onDone: () => void;
+  onCancel: () => void;
+  onError: (message: string) => void;
+}) {
+  const [email, setEmail] = useState(initialEmail);
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [show, setShow] = useState(false);
+  const forgot = useForgotPassword();
+  const reset = useResetPassword();
+
+  const sendCode = () => {
+    if (!isEmail(email)) return onError('Enter the email address you sign in with.');
+    forgot.mutate(email.trim(), {
+      onSuccess: (res) => (res.success ? onCodeSent(email.trim()) : onError(res.message)),
+      onError: () => onError('Could not connect to server. Please try again.'),
+    });
+  };
+
+  const submit = () => {
+    if (!/^\d{6}$/.test(code.trim())) return onError('Enter the 6-digit code from the email.');
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password))
+      return onError('New password: at least 8 characters, with a letter and a number.');
+    if (password !== confirm) return onError('The two passwords do not match.');
+    reset.mutate({ email: email.trim(), code: code.trim(), newPassword: password }, {
+      onSuccess: (res) => (res.success ? onDone() : onError([res.message, ...(res.errors ?? [])].filter(Boolean).join('\n'))),
+      onError: () => onError('Could not connect to server. Please try again.'),
+    });
+  };
+
+  const toggle = (
+    <TouchableOpacity style={styles.showHideBtn} onPress={() => setShow(p => !p)} hitSlop={8}
+      accessibilityRole="button" accessibilityLabel={show ? 'Hide password' : 'Show password'}>
+      <Text style={styles.showHideText}>{show ? 'Hide' : 'Show'}</Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <>
+      <View style={styles.inputsStack}>
+        {mode === 'forgot' ? (
+          <InputField value={email} onChangeText={setEmail} placeholder="Your email..." keyboardType="email-address"
+            accessibilityLabel="Email" textContentType="username" autoComplete="email" returnKeyType="go" onSubmitEditing={sendCode} />
+        ) : (
+          <>
+            <InputField value={code} onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit code..."
+              keyboardType="number-pad" accessibilityLabel="Code from email" textContentType="oneTimeCode" autoComplete="one-time-code" returnKeyType="next" />
+            <InputField value={password} onChangeText={setPassword} placeholder="New password..." secureTextEntry={!show}
+              accessibilityLabel="New password" textContentType="newPassword" autoComplete="new-password" returnKeyType="next" rightElement={toggle} />
+            <InputField value={confirm} onChangeText={setConfirm} placeholder="Confirm new password..." secureTextEntry={!show}
+              accessibilityLabel="Confirm new password" textContentType="newPassword" autoComplete="new-password" returnKeyType="go" onSubmitEditing={submit} />
+          </>
+        )}
+      </View>
+
+      <View style={styles.ctaWrapper}>
+        {mode === 'forgot'
+          ? <CTAButton label="Send code" onPress={sendCode} loading={forgot.isPending} />
+          : <CTAButton label="Set new password" onPress={submit} loading={reset.isPending} />}
+      </View>
+
+      <View style={styles.linkRow}>
+        {mode === 'reset' && (
+          <TouchableOpacity onPress={sendCode} hitSlop={8} accessibilityRole="button" disabled={forgot.isPending}>
+            <Text style={styles.linkText}>Resend code</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity onPress={onCancel} hitSlop={8} accessibilityRole="button">
+          <Text style={styles.linkText}>Back to sign in</Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function LoginPage({
   onLoginSuccess,
@@ -224,6 +307,9 @@ export default function LoginPage({
   const [showPass, setShowPass] = useState(false);
   const [error,    setError]    = useState(errorMessage ?? '');
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  // 'forgot' = ask for the email, 'reset' = enter the emailed code + new password.
+  const [mode, setMode] = useState<'signin' | 'forgot' | 'reset'>('signin');
+  const [notice, setNotice] = useState('');
 
   const { mutate, isPending } = useLogin();
   const insets = useSafeAreaInsets();
@@ -312,6 +398,7 @@ export default function LoginPage({
         onError: () => {
           setError('Could not connect to server. Please try again.');
         },
+        onSettled: () => setNotice(''),
       }
     );
   };
@@ -379,7 +466,7 @@ export default function LoginPage({
           {/* Sign In tab */}
           <View style={styles.tabRow}>
             <View style={styles.tabActive}>
-              <Text style={styles.tabTextActive}>Sign In</Text>
+              <Text style={styles.tabTextActive}>{mode === 'signin' ? 'Sign In' : 'Reset password'}</Text>
               <View style={styles.tabUnderline} />
             </View>
           </View>
@@ -389,7 +476,21 @@ export default function LoginPage({
 
           {/* Error banner */}
           {!!error && <ErrorBanner message={error} />}
+          {!!notice && <Text style={styles.notice} accessibilityLiveRegion="polite">{notice}</Text>}
 
+          {mode !== 'signin' ? (
+            <ResetPasswordForm
+              mode={mode}
+              initialEmail={email}
+              onCodeSent={(addr) => {
+                setEmail(addr); setError(''); setMode('reset');
+                setNotice(`If ${addr} has an account, we've emailed a 6-digit code. It expires in 15 minutes.`);
+              }}
+              onDone={() => { setMode('signin'); setPassword(''); setError(''); setNotice('Password changed. Sign in with your new password.'); }}
+              onCancel={() => { setMode('signin'); setError(''); setNotice(''); }}
+              onError={(m) => { setNotice(''); setError(m); }}
+            />
+          ) : (<>
           {/* Inputs */}
           <View style={styles.inputsStack}>
             <View>
@@ -439,10 +540,20 @@ export default function LoginPage({
             </View>
           </View>
 
+          <TouchableOpacity
+            onPress={() => { setMode('forgot'); setError(''); setNotice(''); }}
+            style={styles.linkBtn}
+            accessibilityRole="button"
+            hitSlop={8}
+          >
+            <Text style={styles.linkText}>Forgot password?</Text>
+          </TouchableOpacity>
+
           {/* CTA */}
           <View style={styles.ctaWrapper}>
             <CTAButton label="Sign In" onPress={handleSignIn} loading={isPending} />
           </View>
+          </>)}
           </ScrollView>
         </Animated.View>
       </View>
@@ -601,6 +712,30 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
+  linkBtn: {
+    alignSelf: 'flex-end',
+    marginTop: scaleH(10),
+    marginRight: scaleW(8),
+  },
+  linkRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: scaleH(14),
+    paddingHorizontal: scaleW(8),
+  },
+  linkText: {
+    fontSize: fs(13),
+    fontWeight: '600',
+    color: T.brand,
+  },
+  notice: {
+    fontSize: fs(13),
+    color: T.text,
+    backgroundColor: withAlpha(T.brand, 0.12),
+    borderRadius: 12,
+    padding: scaleH(10),
+    marginBottom: scaleH(10),
+  },
   fieldError: {
     fontSize: fs(12),
     color: T.err,

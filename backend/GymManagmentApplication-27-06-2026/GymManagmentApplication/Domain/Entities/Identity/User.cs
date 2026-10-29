@@ -22,6 +22,10 @@ public class User : BaseEntity
     public DateTime? PhoneVerifiedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
     public uint LoginCount { get; set; }
+    /// <summary>Bumped on password change/reset and forced sign-out; tokens carrying an older value are rejected.</summary>
+    public int TokenVersion { get; set; }
+    public int FailedLoginCount { get; set; }
+    public DateTime? LockedUntil { get; set; }
     public JsonDocument? FaceEncoding { get; set; }
     public string? BiometricHash { get; set; }
     public string PreferredLanguage { get; set; } = "en";

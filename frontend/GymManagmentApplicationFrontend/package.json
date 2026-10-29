@@ -13,6 +13,7 @@
     "expo-image-picker": "~56.0.19",
     "expo-linear-gradient": "~56.0.4",
     "expo-location": "~56.0.26",
+    "expo-secure-store": "~56.0.4",
     "expo-status-bar": "~56.0.4",
     "nativewind": "^4.2.5",
     "react": "19.2.3",

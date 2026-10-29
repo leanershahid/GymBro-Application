@@ -1,3 +1,4 @@
+using GymManagmentApplication.Infrastructure.Http;
 using System.Text;
 using FluentValidation;
 using GymManagmentApplication.Application.Auth;
@@ -170,10 +171,29 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+// CORS: only the configured web front-ends (Cors:AllowedOrigins / Cors__AllowedOrigins__0 …).
+// Native apps send no Origin header, so they are unaffected.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+    options.AddPolicy("Frontend", policy => policy
+        .SetIsOriginAllowed(origin => allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)
+            || (builder.Environment.IsDevelopment() && Uri.TryCreate(origin, UriKind.Absolute, out var u) && u.IsLoopback))
+        .AllowAnyMethod().AllowAnyHeader());
 });
+
+// Behind Render's proxy: trust X-Forwarded-For/Proto so rate limits see the real client IP.
+builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
+    o.KnownNetworks.Clear();
+    o.KnownProxies.Clear();
+});
+builder.Services.AddAppRateLimits();
+
+// Email (SMTP) — codes for password reset / email verification, invoices.
+builder.Services.Configure<GymManagmentApplication.Infrastructure.Email.EmailSettings>(builder.Configuration.GetSection("Email"));
+builder.Services.AddScoped<GymManagmentApplication.Infrastructure.Email.IEmailSender, GymManagmentApplication.Infrastructure.Email.SmtpEmailSender>();
 // Validators
 builder.Services.AddValidatorsFromAssemblyContaining<LoginValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateTenantValidator>();
@@ -255,14 +275,20 @@ using (var scope = app.Services.CreateScope())
     await DbSeeder.SeedAsync(db);
 }
 
+app.UseForwardedHeaders();
 app.UseMiddleware<ExceptionMiddleware>();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+// API docs only in Development, or when explicitly enabled (Swagger__Enabled=true).
+if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger:Enabled"))
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
-app.UseCors("AllowAll");
+app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();

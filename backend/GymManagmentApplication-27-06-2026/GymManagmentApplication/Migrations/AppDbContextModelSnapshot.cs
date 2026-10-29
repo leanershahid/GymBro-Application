@@ -2271,6 +2271,40 @@ namespace GymManagmentApplication.Migrations
                     b.ToTable("WearableDevices");
                 });
 
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Identity.AuthCode", b =>
+                {
+                    b.Property<decimal>("Id")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Purpose")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("UserId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Purpose");
+
+                    b.ToTable("AuthCodes");
+                });
+
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Identity.Module", b =>
                 {
                     b.Property<decimal>("Id")
@@ -2484,6 +2518,9 @@ namespace GymManagmentApplication.Migrations
                     b.Property<string>("FaceEncoding")
                         .HasColumnType("jsonb");
 
+                    b.Property<int>("FailedLoginCount")
+                        .HasColumnType("integer");
+
                     b.Property<string>("FirstName")
                         .HasColumnType("text");
 
@@ -2495,6 +2532,9 @@ namespace GymManagmentApplication.Migrations
 
                     b.Property<string>("LastName")
                         .HasColumnType("text");
+
+                    b.Property<DateTime?>("LockedUntil")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<long>("LoginCount")
                         .HasColumnType("bigint");
@@ -2526,6 +2566,9 @@ namespace GymManagmentApplication.Migrations
 
                     b.Property<decimal>("TenantId")
                         .HasColumnType("numeric(20,0)");
+
+                    b.Property<int>("TokenVersion")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -2616,6 +2659,9 @@ namespace GymManagmentApplication.Migrations
                         .HasColumnType("numeric(20,0)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
 
                     b.HasIndex("UserId");
 
@@ -6111,6 +6157,17 @@ namespace GymManagmentApplication.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Client");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Identity.AuthCode", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Identity.ModuleAccess", b =>

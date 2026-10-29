@@ -21,9 +21,9 @@ public interface IAuthService
     /// the email is already taken. Used by self-registration and staff-created accounts.
     /// </summary>
     Task<User?> CreateUserAsync(NewUser spec);
-    Task<AuthResponse?> LoginAsync(LoginRequest request);
-    Task LogoutAsync(ulong userId);
-    Task<AuthResponse?> RefreshAsync(string refreshToken);
+    Task<AuthResponse?> LoginAsync(LoginRequest request, SessionInfo? session = null);
+    Task LogoutAsync(ulong userId, string? refreshToken);
+    Task<AuthResponse?> RefreshAsync(string refreshToken, SessionInfo? session = null);
     Task<bool> ForgotPasswordAsync(ForgotPasswordRequest request);
     Task<bool> ResetPasswordAsync(ResetPasswordRequest request);
     Task<bool> ChangePasswordAsync(ulong userId, ChangePasswordRequest request);

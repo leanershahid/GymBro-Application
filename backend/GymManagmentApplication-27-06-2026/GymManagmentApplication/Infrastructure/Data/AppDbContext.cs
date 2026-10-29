@@ -55,6 +55,7 @@ public class AppDbContext : DbContext
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<ModuleAccess> ModuleAccesses => Set<ModuleAccess>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
+    public DbSet<AuthCode> AuthCodes => Set<AuthCode>();
     public DbSet<SsoProvider> SsoProviders => Set<SsoProvider>();
     public DbSet<Module> Modules => Set<Module>();
     public DbSet<UserModuleAccess> UserModuleAccesses => Set<UserModuleAccess>();
@@ -250,6 +251,9 @@ public class AppDbContext : DbContext
         // before we know which gym the user belongs to.
         modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
         modelBuilder.Entity<User>().HasIndex(u => u.Uuid).IsUnique();
+        modelBuilder.Entity<UserSession>().HasIndex(s => s.TokenHash).IsUnique();
+        modelBuilder.Entity<AuthCode>().HasIndex(c => new { c.UserId, c.Purpose });
+        modelBuilder.Entity<AuthCode>().HasOne(c => c.User).WithMany().HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Tenant>().HasIndex(t => t.Slug).IsUnique();
         // Per-gym uniqueness: two gyms may each have a "squat" exercise or a "MAIN" branch.
         modelBuilder.Entity<Exercise>().HasIndex(e => new { e.TenantId, e.Slug }).IsUnique();

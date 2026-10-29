@@ -15,6 +15,7 @@ import LoadingState from '../../common/components/LoadingState';
 import StatusPill from '../../common/components/StatusPill';
 import EmptyState from '../../dashboard/components/EmptyState';
 import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
+import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
 
 function AvatarPicker({ uri, initials, onPick }: { uri?: string | null; initials: string; onPick: (u: string) => void }) {
   const pick = async () => {
@@ -85,6 +86,8 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
   const { data: timeline = [] }      = useMyTimeline(userId);
   const { mutate: update, isPending } = useUpdateProfile(userId);
   const { data: trainer }            = useAssignedTrainer(profile?.trainerId);
+
+  const [pwOpen, setPwOpen] = useState(false);
 
   const [firstName, setFirstName] = useState('');
   const [lastName,  setLastName]  = useState('');
@@ -208,12 +211,21 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
               </View>
             )}
 
+            <PrimaryButton
+              label="Change password"
+              icon="lock"
+              variant="secondary"
+              style={{ marginTop: 24 }}
+              onPress={() => setPwOpen(true)}
+            />
+            <ChangePasswordSheet visible={pwOpen} onClose={() => setPwOpen(false)} onChanged={onLogout} />
+
             {/* Logout */}
             <PrimaryButton
               label="Sign Out"
               icon="log-out"
               variant="danger"
-              style={{ marginTop: 24 }}
+              style={{ marginTop: 12 }}
               onPress={() => Alert.alert('Sign out', 'Are you sure?', [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Sign out', style: 'destructive', onPress: onLogout },
