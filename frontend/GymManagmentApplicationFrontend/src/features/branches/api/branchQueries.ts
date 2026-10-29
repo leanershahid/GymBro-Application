@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchBranches, createBranch, setBranchStatus, deleteBranch, transferBranch } from './branchApi';
+import {
+  fetchBranches, fetchBranch, createBranch, updateBranch, setBranchStatus, deleteBranch, transferBranch,
+} from './branchApi';
 import { queryKeys } from '../../../api/queryKeys';
-import { BranchPayload } from '../types/branch.types';
+import { BranchPayload, BranchUpdatePayload } from '../types/branch.types';
 
 export const useBranches = () =>
   useQuery({
@@ -9,6 +11,22 @@ export const useBranches = () =>
     queryFn:  fetchBranches,
     select:   (res) => res.data ?? [],
   });
+
+export const useBranch = (id: number) =>
+  useQuery({
+    queryKey: [...queryKeys.branches.all, id],
+    queryFn:  () => fetchBranch(id),
+    select:   (res) => res.data,
+    enabled:  id > 0,
+  });
+
+export const useUpdateBranch = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: BranchUpdatePayload }) => updateBranch(id, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.branches.all }),
+  });
+};
 
 export const useCreateBranch = () =>
   useMutation({

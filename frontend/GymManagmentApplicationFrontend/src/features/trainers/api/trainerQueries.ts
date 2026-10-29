@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchTrainers, fetchTrainerById, createTrainer, updateTrainer, setTrainerStatus, deleteTrainer } from './trainerApi';
-import { TrainerPayload } from '../types/trainer.types';
+import { TrainerPayload, UpdateTrainerPayload } from '../types/trainer.types';
 import { queryKeys } from '../../../api/queryKeys';
 
 export const useTrainers = (pageNumber = 1, pageSize = 20) =>
@@ -28,6 +28,15 @@ export const useUpdateTrainerAvailability = () => {
   return useMutation({
     mutationFn: ({ id, isAvailable }: { id: number; isAvailable: boolean }) =>
       updateTrainer(id, { isAvailable }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.trainers.all }),
+  });
+};
+
+/** PUT /trainers/{id} — only the fields in UpdateTrainerPayload are accepted by the API. */
+export const useUpdateTrainer = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: UpdateTrainerPayload }) => updateTrainer(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.trainers.all }),
   });
 };

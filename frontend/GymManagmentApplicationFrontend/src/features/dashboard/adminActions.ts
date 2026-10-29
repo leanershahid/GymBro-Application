@@ -25,7 +25,7 @@ export const ADMIN_ACTIONS: AdminAction[] = [
   { label: 'Exercises', icon: 'zap',         screen: 'exercises', module: 'exercises' },
   { label: 'Workouts',  icon: 'activity',    screen: 'workouts',  module: 'workouts' },
   { label: 'Plans',     icon: 'book-open',   screen: 'plans',     module: 'plans' },
-  { label: 'Roles',     icon: 'shield',      screen: 'module-access', module: 'roles' },
+  { label: 'Roles',     icon: 'shield',      screen: 'roles',         module: 'roles' },
   { label: 'Access',    icon: 'lock',        screen: 'user-access',   module: 'access' },
   { label: 'Challenges',    icon: 'award',       screen: 'challenges-admin',    module: 'gamification' },
   { label: 'Stats',         icon: 'bar-chart-2', screen: 'stats-admin',         module: 'stats' },

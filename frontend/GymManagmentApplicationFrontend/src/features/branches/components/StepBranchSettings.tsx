@@ -16,6 +16,8 @@ interface Props {
   data: Partial<BranchPayload>;
   onChange: (fields: Partial<BranchPayload>) => void;
   errors?: BranchSettingsErrors;
+  /** Edit mode: a branch cannot be moved to another gym after creation. */
+  hideTenant?: boolean;
 }
 
 function Section({ title }: { title: string }) {
@@ -26,7 +28,7 @@ function Section({ title }: { title: string }) {
   );
 }
 
-export default function StepBranchSettings({ data, onChange, errors = {} }: Props) {
+export default function StepBranchSettings({ data, onChange, errors = {}, hideTenant = false }: Props) {
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -61,7 +63,7 @@ export default function StepBranchSettings({ data, onChange, errors = {} }: Prop
 
       {/* The branch is created in the signed-in admin's gym. Only a super admin
           (who manages every gym) may pick a different one. */}
-      {isSuperAdmin(getSession()?.role) && (
+      {!hideTenant && isSuperAdmin(getSession()?.role) && (
         <>
           <Section title="Gym" />
           <TenantDropdown

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, FlatList } from 'react-native';
+import { View, Text, FlatList, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTenants } from '../api/tenantQueries';
 import { Tenant } from '../types/tenant.types';
@@ -22,7 +22,7 @@ const tint = (id: number) => TINTS[id % TINTS.length];
 
 // ─── Plan → pill tone ─────────────────────────────────────────────
 const PLAN_TONE: Record<string, PillTone> = {
-  starter: 'brand', basic: 'info', pro: 'violet', enterprise: 'warn',
+  starter: 'brand', pro: 'violet', enterprise: 'warn', whitelabel: 'info',
 };
 
 function formatDate(iso: string): string {
@@ -33,8 +33,8 @@ function formatDate(iso: string): string {
 
 // ─── Tenant card ──────────────────────────────────────────────────
 // There is no tenant detail screen yet, so the card is a grouped View rather than a
-// Pressable with a no-op handler.
-function TenantCard({ tenant }: { tenant: Tenant }) {
+// Pressable with a no-op handler. Editing is an explicit action button.
+function TenantCard({ tenant, onEdit }: { tenant: Tenant; onEdit?: () => void }) {
   const c        = tint(tenant.id);
   const initials = tenant.name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('');
 
@@ -133,10 +133,32 @@ function TenantCard({ tenant }: { tenant: Tenant }) {
               <Text style={{ color: T.textSub, fontSize: 12, flexShrink: 1 }} numberOfLines={1}>{tenant.customDomain}</Text>
             </View>
           )}
-          <Text style={{ color: T.textFaint, fontSize: 11 }} numberOfLines={1}>
-            Trial ends {formatDate(tenant.trialEndsAt)}
-          </Text>
+          {!!tenant.trialEndsAt && (
+            <Text style={{ color: T.textFaint, fontSize: 11 }} numberOfLines={1}>
+              Trial ends {formatDate(tenant.trialEndsAt)}
+            </Text>
+          )}
         </View>
+
+        {onEdit && (
+          <View style={{ flexDirection: 'row', marginTop: 14 }}>
+            <Pressable
+              onPress={onEdit}
+              accessibilityRole="button"
+              accessibilityLabel={`Edit ${tenant.name}`}
+              hitSlop={6}
+              style={({ pressed }) => ({
+                flexDirection: 'row', alignItems: 'center', gap: 5,
+                paddingHorizontal: 10, paddingVertical: 6, borderRadius: R.pill,
+                backgroundColor: pressed ? withAlpha(T.sky, 0.18) : withAlpha(T.sky, 0.10),
+                borderWidth: 1, borderColor: withAlpha(T.sky, 0.28),
+              })}
+            >
+              <Feather name="edit-2" size={12} color={T.sky} />
+              <Text style={{ color: T.sky, fontSize: 11, fontWeight: '700' }}>Edit</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -146,9 +168,13 @@ function TenantCard({ tenant }: { tenant: Tenant }) {
 interface ViewTenantsPageProps {
   onBack?: () => void;
   onAddTenant?: () => void;
+  /** When provided, each tenant card shows an "Edit" action. */
+  onEditTenant?: (id: number) => void;
 }
 
-export default function ViewTenantsPage({ onBack, onAddTenant }: ViewTenantsPageProps) {
+// GET /tenants is not paginated server-side (TenantController.GetAll takes no page params),
+// so the list stays a single client-filtered list.
+export default function ViewTenantsPage({ onBack, onAddTenant, onEditTenant }: ViewTenantsPageProps) {
   const [search, setSearch] = React.useState('');
   const { data: tenants = [], isLoading, isError, refetch } = useTenants();
 
@@ -208,7 +234,9 @@ export default function ViewTenantsPage({ onBack, onAddTenant }: ViewTenantsPage
       <FlatList
         data={isLoading || isError ? [] : filtered}
         keyExtractor={(t) => String(t.id)}
-        renderItem={({ item }) => <TenantCard tenant={item} />}
+        renderItem={({ item }) => (
+          <TenantCard tenant={item} onEdit={onEditTenant ? () => onEditTenant(item.id) : undefined} />
+        )}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={
           !isLoading && !isError ? (

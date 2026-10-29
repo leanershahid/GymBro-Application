@@ -1,6 +1,6 @@
 import axiosInstance from '../../../api/axios';
 import { ENDPOINTS } from '../../../api/endpoints';
-import { TrainerPayload, ApiResponse, PaginatedData, TrainerSummary, TrainerDetail } from '../types/trainer.types';
+import { TrainerPayload, ApiResponse, PaginatedData, TrainerSummary, TrainerDetail, UpdateTrainerPayload } from '../types/trainer.types';
 
 export const fetchTrainers = async (
   pageNumber = 1,
@@ -25,9 +25,9 @@ export const createTrainer = async (payload: TrainerPayload): Promise<ApiRespons
 
 export const updateTrainer = async (
   id: number,
-  payload: { isAvailable: boolean },
-): Promise<ApiResponse<unknown>> => {
-  const { data } = await axiosInstance.put<ApiResponse<unknown>>(`${ENDPOINTS.TRAINERS}/${id}`, payload);
+  payload: UpdateTrainerPayload,
+): Promise<ApiResponse<TrainerDetail>> => {
+  const { data } = await axiosInstance.put<ApiResponse<TrainerDetail>>(`${ENDPOINTS.TRAINERS}/${id}`, payload);
   return data;
 };
 

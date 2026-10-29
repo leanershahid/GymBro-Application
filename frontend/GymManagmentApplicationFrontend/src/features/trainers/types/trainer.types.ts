@@ -191,3 +191,15 @@ export interface TrainerDetail extends TrainerSummary {
   emergencyContact: EmergencyContact | null;
   socialLinks: SocialLinks | null;
 }
+
+// ─── Update (PUT /api/trainers/{id}) ──────────────────────────────
+// Mirrors the backend UpdateTrainerRequest exactly: every field is optional and an omitted
+// field is left unchanged. Nothing else (code, branch, employment, pay…) is editable via PUT.
+export interface UpdateTrainerPayload {
+  displayName?: string;
+  bio?: string;
+  phone?: string;
+  email?: string;
+  profileImage?: string;
+  isAvailable?: boolean;
+}

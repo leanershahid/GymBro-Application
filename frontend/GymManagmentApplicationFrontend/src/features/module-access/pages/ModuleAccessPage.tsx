@@ -121,18 +121,22 @@ function MatrixCell({ has, label }: { has: boolean; label: string }) {
 }
 
 // ─── Page ─────────────────────────────────────────────────────────
-interface Props { onBack?: () => void; }
+interface Props {
+  onBack?: () => void;
+  /** Open with this role pre-selected in the By Role tab. */
+  initialRoleId?: number;
+}
 
 
 
-export default function ModuleAccessPage({ onBack }: Props) {
+export default function ModuleAccessPage({ onBack, initialRoleId }: Props) {
   const { width } = useWindowDimensions();
   const isWide = width >= 600;
   // Each role column holds 5 x 20px cells + 4 x 3px gaps (112px) - leave breathing room.
   const roleColW = isWide ? 140 : 128;
 
   const [viewTab,        setViewTab]        = useState<ViewTab>('byRole');
-  const [pickedRoleId,   setSelectedRoleId] = useState<number | null>(null);
+  const [pickedRoleId,   setSelectedRoleId] = useState<number | null>(initialRoleId ?? null);
   const [savingModule,   setSavingModule]   = useState<string | null>(null);
 
   // Roles come from GET /api/roles. Ids are numeric strings; the super-admin role is platform-level, not tenant-configurable.
@@ -144,7 +148,7 @@ export default function ModuleAccessPage({ onBack }: Props) {
       .filter(r => Number.isFinite(r.id) && r.id > 0),
     [rawRoles],
   );
-  const selectedRoleId = pickedRoleId ?? roles[0]?.id ?? 0;
+  const selectedRoleId = (pickedRoleId != null && roles.some(r => r.id === pickedRoleId) ? pickedRoleId : null) ?? roles[0]?.id ?? 0;
 
   const { data: moduleKeys = [], isLoading: keysLoading } = useModuleKeys();
   const { data: entries = [],    isLoading: entriesLoading, refetch: refetchEntries } =

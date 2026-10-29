@@ -66,10 +66,11 @@ function ActionButton({
 // There is no branch detail screen yet, so the card is a grouped View rather than a
 // Pressable with a no-op handler.
 function BranchCard({
-  branch, heroH, onToggleStatus, onRemove, canEdit, canDelete,
+  branch, heroH, onEdit, onToggleStatus, onRemove, canEdit, canDelete,
 }: {
   branch: Branch;
   heroH: number;
+  onEdit?: () => void;
   onToggleStatus: () => void;
   onRemove: () => void;
   canEdit: boolean;
@@ -245,7 +246,10 @@ function BranchCard({
 
         {/* Actions — hidden entirely when this account has no edit/delete access to branches */}
         {(canEdit || canDelete) && (
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+            {canEdit && onEdit && (
+              <ActionButton icon="edit-2" label="Edit" tone={T.sky} onPress={onEdit} />
+            )}
             {canEdit && (
               <ActionButton
                 icon={branch.status.toLowerCase() === 'active' ? 'pause-circle' : 'play-circle'}
@@ -268,9 +272,11 @@ function BranchCard({
 interface ViewBranchesPageProps {
   onBack?: () => void;
   onAddBranch?: () => void;
+  /** When provided, each branch shows an "Edit" action (for accounts with edit access). */
+  onEditBranch?: (id: number) => void;
 }
 
-export default function ViewBranchesPage({ onBack, onAddBranch }: ViewBranchesPageProps) {
+export default function ViewBranchesPage({ onBack, onAddBranch, onEditBranch }: ViewBranchesPageProps) {
   const [search, setSearch] = React.useState('');
   const { data: branches = [], isLoading, isError, refetch } = useBranches();
   const { width } = useLayout();
@@ -428,6 +434,7 @@ export default function ViewBranchesPage({ onBack, onAddBranch }: ViewBranchesPa
           <BranchCard
             branch={item}
             heroH={heroH}
+            onEdit={onEditBranch ? () => onEditBranch(item.id) : undefined}
             onToggleStatus={() => handleToggleStatus(item)}
             onRemove={() => handleRemove(item)}
             canEdit={canEditBranches}

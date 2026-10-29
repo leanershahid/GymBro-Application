@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import DetailSheet, { fmtDate } from '../../exercises/components/DetailSheet';
+import { apiErrorText } from '../../../api/apiError';
 import { View, Text, ScrollView, FlatList, Pressable, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useLeads, useConvertLead } from '../api/leadQueries';
+import { useLeads, useLead, useConvertLead } from '../api/leadQueries';
 import { Lead, LeadStatus } from '../types/lead.types';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
@@ -29,17 +31,25 @@ const SOURCE_ICONS: Record<string, FeatherIconName> = {
 
 const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
-function LeadCard({ lead, onConvert }: { lead: Lead; onConvert: (id: number) => void }) {
-  const sm   = STATUS_META[lead.status] ?? STATUS_META.new;
+// The API returns the enum name ("New", "Contacted", …).
+const statusOf = (s: string | null | undefined) => (s ?? 'new').toLowerCase() as LeadStatus;
+
+function LeadCard({ lead, onConvert, onOpen }: { lead: Lead; onConvert: (id: number) => void; onOpen: (id: number) => void }) {
+  const status = statusOf(lead.status);
+  const sm   = STATUS_META[status] ?? STATUS_META.new;
   const name = [lead.firstName, lead.lastName].filter(Boolean).join(' ') || 'Unknown';
   const src  = lead.source ?? 'other';
-  const icon = SOURCE_ICONS[src] ?? 'help-circle';
+  const icon = SOURCE_ICONS[src.toLowerCase()] ?? 'help-circle';
 
   return (
-    <View style={{
-      backgroundColor: T.bgInput, borderRadius: 18, padding: 14,
-      marginBottom: 10, borderWidth: 1, borderColor: T.bgInputActive,
-    }}>
+    <Pressable
+      onPress={() => onOpen(lead.id)}
+      accessibilityRole="button"
+      accessibilityLabel={`${name}, ${status}, view details`}
+      style={({ pressed }) => ({
+        backgroundColor: pressed ? T.bgInputActive : T.bgInput, borderRadius: 18, padding: 14,
+        marginBottom: 10, borderWidth: 1, borderColor: T.bgInputActive,
+      })}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
         {/* Source icon */}
         <View style={{
@@ -57,7 +67,7 @@ function LeadCard({ lead, onConvert }: { lead: Lead; onConvert: (id: number) => 
         </View>
 
         {/* Status badge */}
-        <StatusPill label={capitalize(lead.status)} tone={sm.tone} />
+        <StatusPill label={capitalize(status)} tone={sm.tone} />
       </View>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -72,7 +82,7 @@ function LeadCard({ lead, onConvert }: { lead: Lead; onConvert: (id: number) => 
         </View>
 
         {/* Convert CTA — only for non-converted leads */}
-        {lead.status !== 'converted' && lead.status !== 'lost' && (
+        {status !== 'converted' && status !== 'lost' && (
           <Pressable
             onPress={() => onConvert(lead.id)}
             hitSlop={8}
@@ -84,17 +94,26 @@ function LeadCard({ lead, onConvert }: { lead: Lead; onConvert: (id: number) => 
           </Pressable>
         )}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
 const STATUS_FILTERS: (LeadStatus | 'all')[] = ['all', 'new', 'contacted', 'qualified', 'converted', 'lost'];
 
-interface Props { onBack?: () => void; onAddLead?: () => void; }
+interface Props {
+  onBack?: () => void;
+  onAddLead?: () => void;
+  /** Override the built-in read-only detail sheet. */
+  onOpenLead?: (id: number) => void;
+}
 
-export default function ViewLeadsPage({ onBack, onAddLead }: Props) {
+export default function ViewLeadsPage({ onBack, onAddLead, onOpenLead }: Props) {
   const [page, setPage]         = useState(1);
   const [filter, setFilter]     = useState<LeadStatus | 'all'>('all');
+  const [openId, setOpenId]     = useState<number | null>(null);
+  const detail = useLead(openId);
+  const ld = detail.data;
+  const handleOpen = (id: number) => (onOpenLead ? onOpenLead(id) : setOpenId(id));
 
   const { data: paged, isLoading, isError, refetch } = useLeads(page, 20);
   const { mutate: convert } = useConvertLead();
@@ -103,7 +122,7 @@ export default function ViewLeadsPage({ onBack, onAddLead }: Props) {
   const totalPages = paged?.totalPages ?? 1;
   const totalRecs  = paged?.totalRecords;
 
-  const filtered = filter === 'all' ? items : items.filter(l => l.status === filter);
+  const filtered = filter === 'all' ? items : items.filter(l => statusOf(l.status) === filter);
 
   const handleConvert = (id: number) => {
     Alert.alert('Convert Lead', 'Convert this lead into a full member?', [
@@ -161,7 +180,7 @@ export default function ViewLeadsPage({ onBack, onAddLead }: Props) {
       <FlatList
         data={isLoading || isError ? [] : filtered}
         keyExtractor={(l) => String(l.id)}
-        renderItem={({ item }) => <LeadCard lead={item} onConvert={handleConvert} />}
+        renderItem={({ item }) => <LeadCard lead={item} onConvert={handleConvert} onOpen={handleOpen} />}
         ListHeaderComponent={
           isLoading ? <Skeleton rows={4} height={96} /> :
           isError ? (
@@ -186,6 +205,23 @@ export default function ViewLeadsPage({ onBack, onAddLead }: Props) {
         }
         contentContainerStyle={{ paddingHorizontal: SP.xl, paddingBottom: 48 }}
         showsVerticalScrollIndicator={false}
+      />
+
+      <DetailSheet
+        visible={openId !== null}
+        onClose={() => setOpenId(null)}
+        title={ld ? ([ld.firstName, ld.lastName].filter(Boolean).join(' ') || 'Lead') : 'Lead'}
+        loading={detail.isLoading}
+        error={detail.isError ? apiErrorText(detail.error) : null}
+        rows={ld ? [
+          { label: 'Status',  value: capitalize(statusOf(ld.status)) },
+          { label: 'Phone',   value: ld.phone },
+          { label: 'Email',   value: ld.email },
+          { label: 'Source',  value: ld.source ? capitalize(ld.source) : null },
+          { label: 'Notes',   value: ld.notes },
+          { label: 'AI score', value: ld.aiScore },
+          { label: 'Added',   value: fmtDate(ld.createdAt) },
+        ] : []}
       />
     </Screen>
   );
