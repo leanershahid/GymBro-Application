@@ -24,7 +24,8 @@ public class MemberService(
     ITrainerService trainerService,
     IAuthService authService,
     ICurrentUser currentUser,
-    AppDbContext db) : IMemberService
+    AppDbContext db,
+    GymManagmentApplication.Infrastructure.Storage.IFileStorage storage) : IMemberService
 {
     /// <summary>
     /// Loads a member the caller may act on (see <see cref="MemberScope"/>): clients only
@@ -198,9 +199,13 @@ public class MemberService(
     {
         var user = await GetAccessibleAsync(id);
         if (user is null) return string.Empty;
-        var url = $"/uploads/members/{id}/{photo.FileName}";
+        var url = await storage.SaveAsync(photo, $"tenants/{user.TenantId}/members/{id}/photo",
+            GymManagmentApplication.Infrastructure.Storage.FileKind.Image);
+        var previous = user.AvatarUrl;
         user.AvatarUrl = url;
+        user.UpdatedAt = DateTime.UtcNow;
         await repository.UpdateAsync(user);
+        await storage.DeleteAsync(previous);
         return url;
     }
 
@@ -266,13 +271,17 @@ public class MemberService(
     {
         var member = await GetAccessibleAsync(id) ?? throw new KeyNotFoundException($"Member {id} not found.");
         var tenantId = member.TenantId;
-        var url = $"/uploads/members/{id}/docs/{file.FileName}";
+        var url = await storage.SaveAsync(file, $"tenants/{tenantId}/members/{id}/documents",
+            GymManagmentApplication.Infrastructure.Storage.FileKind.Document);
+        // Shown in lists only; keep it short and free of path characters.
+        var displayName = Path.GetFileName(file.FileName ?? "document");
+        if (displayName.Length > 120) displayName = displayName[..120];
 
         var media = new MediaLibrary
         {
             TenantId = tenantId,
             UploadedBy = id,
-            Name = file.FileName,
+            Name = displayName,
             FileUrl = url,
             FileType = documentType,
             MimeType = file.ContentType,

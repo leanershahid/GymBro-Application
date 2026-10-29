@@ -73,6 +73,8 @@ public class ExerciseController(
 
     [HttpPost("{id:long}/video")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
+    [RequestSizeLimit(110 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 110 * 1024 * 1024)]
     public async Task<ActionResult<ApiResponse<object>>> UploadVideo(ulong id, IFormFile video)
     {
         var url = await service.UploadVideoAsync(id, video);

@@ -13,3 +13,6 @@ Thumbs.db
 # Dependencies / build output
 node_modules/
 .expo/
+
+# Local file uploads (dev only — production uses Supabase Storage)
+**/wwwroot/uploads/

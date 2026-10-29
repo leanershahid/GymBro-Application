@@ -191,6 +191,11 @@ builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>
 });
 builder.Services.AddAppRateLimits();
 
+// File storage — Supabase Storage when configured, local wwwroot/uploads otherwise.
+builder.Services.AddHttpClient();
+builder.Services.Configure<GymManagmentApplication.Infrastructure.Storage.StorageSettings>(builder.Configuration.GetSection("Storage"));
+builder.Services.AddScoped<GymManagmentApplication.Infrastructure.Storage.IFileStorage, GymManagmentApplication.Infrastructure.Storage.FileStorage>();
+
 // Email (SMTP) — codes for password reset / email verification, invoices.
 builder.Services.Configure<GymManagmentApplication.Infrastructure.Email.EmailSettings>(builder.Configuration.GetSection("Email"));
 builder.Services.AddScoped<GymManagmentApplication.Infrastructure.Email.IEmailSender, GymManagmentApplication.Infrastructure.Email.SmtpEmailSender>();
@@ -285,6 +290,7 @@ if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger
     app.UseSwaggerUI();
 }
 
+app.UseStaticFiles(); // local uploads (wwwroot/uploads) when Supabase Storage isn't configured
 app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();

@@ -1,4 +1,6 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { uploadFile, PickedFile } from '../../../api/upload';
+import { ENDPOINTS } from '../../../api/endpoints';
 import {
   fetchMyProfile, updateMyProfile,
   fetchMyTimeline, fetchMyDocuments,
@@ -40,6 +42,15 @@ export const useBookmarkWorkout = () =>
 
 export const useUpdateProfile = (id: number) =>
   useMutation({ mutationFn: (p: Parameters<typeof updateMyProfile>[1]) => updateMyProfile(id, p) });
+
+/** Uploads a new profile photo; the profile query refetches with the stored URL. */
+export const useUploadPhoto = (id: number) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: PickedFile) => uploadFile<{ url: string }>(`${ENDPOINTS.MEMBERS}/${id}/photo`, 'photo', file),
+    onSuccess: () => qc.invalidateQueries({ queryKey: K.profile(id) }),
+  });
+};
 
 export const useHealthToday = (userId: number) =>
   useQuery({ queryKey: queryKeys.health.today(userId), queryFn: fetchHealthToday, select: r => r.data, enabled: userId > 0 });
