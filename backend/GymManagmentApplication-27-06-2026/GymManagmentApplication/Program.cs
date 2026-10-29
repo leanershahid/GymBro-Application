@@ -253,6 +253,8 @@ builder.Services.AddScoped<BillingCore>();
 // Background housekeeping: membership expiry/auto-renewal, overdue invoices, reminders, cleanup.
 builder.Services.AddHostedService<GymManagmentApplication.Infrastructure.Jobs.DailyJobs>();
 builder.Services.AddScoped<IMyBillingService, MyBillingService>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Scheduling.ClassService>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Scheduling.PtService>();
 builder.Services.AddScoped<GymManagmentApplication.Infrastructure.Payments.RazorpayClient>();
 builder.Services.AddSingleton<GymManagmentApplication.Infrastructure.Security.ISecretProtector, GymManagmentApplication.Infrastructure.Security.SecretProtector>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();

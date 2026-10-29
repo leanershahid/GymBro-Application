@@ -19,7 +19,8 @@ public class TrainerService(
     ITrainerRepository repository,
     IAuthService authService,
     ICurrentUser currentUser,
-    AppDbContext db) : ITrainerService
+    AppDbContext db,
+    GymManagmentApplication.Application.Scheduling.PtService pt) : ITrainerService
 {
     private static readonly JsonSerializerOptions _opts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
@@ -311,7 +312,9 @@ public class TrainerService(
     public async Task<TrainerEarningsResponse> GetEarningsAsync(ulong id, int month, int year)
     {
         _ = await GetForWriteAsync(id) ?? throw new KeyNotFoundException($"Trainer {id} not found.");
-        return new TrainerEarningsResponse { TrainerId = id, TotalEarnings = 0, CommissionEarned = 0, Month = month, Year = year };
+        // Completed personal-training sessions in that month, and the trainer's PT commission on them.
+        var (total, commission, _) = await pt.EarningsAsync(id, month, year);
+        return new TrainerEarningsResponse { TrainerId = id, TotalEarnings = total, CommissionEarned = commission, Month = month, Year = year };
     }
 
     public async Task<TrainerResponse?> AutoAssignAsync(ulong clientId, ulong branchId)
