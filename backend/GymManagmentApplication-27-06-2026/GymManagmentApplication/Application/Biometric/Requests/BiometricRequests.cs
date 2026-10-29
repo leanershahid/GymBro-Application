@@ -29,3 +29,12 @@ public class VerifyFingerprintRequest
     /// <summary>Scanner that captured the entry; the event is logged against it.</summary>
     public ulong? DeviceId { get; set; }
 }
+
+/// <summary>Entry reported by a scanner that matched the member on the device.</summary>
+public class DeviceEntryRequest
+{
+    public ulong DeviceId { get; set; }
+    public ulong UserId { get; set; }
+    /// <summary>"face", "fingerprint" or "card".</summary>
+    public string? Method { get; set; }
+}

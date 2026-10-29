@@ -39,6 +39,8 @@ public class SubscriptionUsageResponse
     public ulong SubscriptionId { get; set; }
     public int ClassBookingsUsed { get; set; }
     public int PtSessionsUsed { get; set; }
+    /// <summary>Gym check-ins since the membership started.</summary>
+    public int Visits { get; set; }
     public int DaysActive { get; set; }
     public int DaysRemaining { get; set; }
 }

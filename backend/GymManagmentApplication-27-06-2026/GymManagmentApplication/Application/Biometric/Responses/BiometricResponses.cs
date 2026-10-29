@@ -15,6 +15,7 @@ public class BiometricVerifyResponse
     public string? Name { get; set; }
     public double Confidence { get; set; }
     public DateTime VerifiedAt { get; set; }
+    public string? Message { get; set; }
 }
 
 public class EntryLogResponse

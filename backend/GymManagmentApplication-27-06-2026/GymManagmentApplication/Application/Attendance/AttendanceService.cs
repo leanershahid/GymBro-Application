@@ -157,6 +157,9 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
         if (open is not null)
             return new CheckInResultResponse { CheckedIn = true, Message = $"You're already checked in at {open.Branch.Name}.", Visit = Map(open) };
 
+        if (await MembershipBlockReasonAsync(Me) is { } blocked)
+            return new CheckInResultResponse { CheckedIn = false, Message = blocked };
+
         var candidates = (await BranchesAsync(settings, onlyActive: true))
             .Where(b => request.BranchId is null || b.BranchId == request.BranchId)
             .Select(b => (Branch: b, Distance: DistanceM(request.Lat, request.Lng, (double)b.Lat!.Value, (double)b.Lng!.Value)))
@@ -247,6 +250,7 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
         // One open visit at a time: a second scan while inside is ignored.
         if (await db.Attendances.IgnoreQueryFilters().AnyAsync(a => a.UserId == userId && a.CheckOutAt == null))
             return;
+        if (await MembershipBlockReasonAsync(userId) is not null) return;
 
         db.Attendances.Add(new AttendanceEntity
         {
@@ -257,6 +261,30 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Why a member may not check in, or null if they may. Members whose memberships have all
+    /// expired, been cancelled or are frozen are refused. Members with no membership record at
+    /// all are still let in (gyms that don't track memberships in the app yet), as are staff.
+    /// </summary>
+    private async Task<string?> MembershipBlockReasonAsync(ulong userId)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var memberships = await db.GymMemberships.IgnoreQueryFilters()
+            .Where(m => m.UserId == userId)
+            .Select(m => new { m.Status, m.StartsAt, m.EndsAt })
+            .ToListAsync();
+        if (memberships.Count == 0) return null;
+
+        if (memberships.Any(m => (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Trial)
+                                 && m.StartsAt <= today && (m.EndsAt is null || m.EndsAt >= today)))
+            return null;
+        if (memberships.Any(m => m.Status == MembershipStatus.Paused))
+            return "Your membership is frozen. Ask the front desk to unfreeze it.";
+        if (memberships.Any(m => (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Trial) && m.StartsAt > today))
+            return "Your membership hasn't started yet.";
+        return "Your membership has expired. Please renew it to check in.";
+    }
 
     private static void ValidateFix(LocationCheckRequest r, AttendanceSettings s)
     {

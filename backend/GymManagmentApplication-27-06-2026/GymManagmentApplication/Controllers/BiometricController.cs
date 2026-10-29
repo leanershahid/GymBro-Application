@@ -33,7 +33,15 @@ public class BiometricController(
         var v = await verifyFaceValidator.ValidateAsync(request);
         if (!v.IsValid) return BadRequest(ApiResponse<object>.Fail("Validation failed.", v.Errors.Select(e => e.ErrorMessage).ToList()));
         var result = await service.VerifyFaceAsync(request);
-        return result.Verified ? Ok(ApiResponse<object>.Ok(result, "Identity verified.")) : Unauthorized(ApiResponse<object>.Fail("Face verification failed."));
+        return result.Verified ? Ok(ApiResponse<object>.Ok(result, "Identity verified.")) : StatusCode(501, ApiResponse<object>.Fail(result.Message ?? "Face verification failed."));
+    }
+
+    /// <summary>Entry from a scanner that matched the member on the device (face/fingerprint/card).</summary>
+    [HttpPost("entry")]
+    public async Task<ActionResult<ApiResponse<object>>> DeviceEntry([FromBody] DeviceEntryRequest request)
+    {
+        var result = await service.RecordDeviceEntryAsync(request);
+        return result.Verified ? Ok(ApiResponse<object>.Ok(result, "Entry granted.")) : StatusCode(403, ApiResponse<object>.Fail(result.Message ?? "Entry denied."));
     }
 
     [HttpDelete("face/{userId}")]

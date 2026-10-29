@@ -25,10 +25,11 @@ public class SubscriptionService(AppDbContext db, ICurrentUser currentUser) : IS
     public async Task<PagedResponse<SubscriptionResponse>> GetAllAsync(ulong tenantId, int page, int size)
     {
         tenantId = currentUser.ResolveTenantId(tenantId);
+        (page, size) = Paging.Clamp(page, size);
         var query = db.GymMemberships.Include(m => m.Plan)
             .Where(m => m.TenantId == tenantId);
         var total = await query.CountAsync();
-        var items = await query.Skip((page - 1) * size).Take(size).ToListAsync();
+        var items = await query.OrderByDescending(m => m.Id).Skip((page - 1) * size).Take(size).ToListAsync();
         return new PagedResponse<SubscriptionResponse>
         {
             Items = items.Select(Map), PageNumber = page,
@@ -75,9 +76,16 @@ public class SubscriptionService(AppDbContext db, ICurrentUser currentUser) : IS
     {
         var m = await db.GymMemberships.Include(x => x.Plan).FirstOrDefaultAsync(x => x.Id == id);
         if (m is null) return null;
+        if (m.Status == MembershipStatus.Cancelled)
+            throw new ArgumentException("A cancelled membership can't be renewed — create a new one.");
         var days = CycleToDays(m.Plan?.BillingCycle);
-        m.EndsAt = (m.EndsAt ?? DateOnly.FromDateTime(DateTime.UtcNow)).AddDays(days);
+        // Extend from the current end date, or from today if it already lapsed.
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var from = m.EndsAt is { } end && end > today ? end : today;
+        m.EndsAt = from.AddDays(days);
         m.Status = MembershipStatus.Active;
+        m.PausedAt = null;
+        m.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return Map(m);
     }
@@ -86,7 +94,12 @@ public class SubscriptionService(AppDbContext db, ICurrentUser currentUser) : IS
     {
         var m = await db.GymMemberships.Include(x => x.Plan).FirstOrDefaultAsync(x => x.Id == id);
         if (m is null) return null;
+        if (m.Status == MembershipStatus.Cancelled)
+            throw new ArgumentException("A cancelled membership can't change plan.");
+        // The new plan must belong to the same gym as the membership.
+        await db.EnsureMembershipPlanAsync(request.NewPlanId, m.TenantId);
         m.PlanId = request.NewPlanId;
+        m.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         await db.Entry(m).Reference(x => x.Plan).LoadAsync();
         return Map(m);
@@ -99,8 +112,13 @@ public class SubscriptionService(AppDbContext db, ICurrentUser currentUser) : IS
     {
         var m = await db.GymMemberships.Include(x => x.Plan).FirstOrDefaultAsync(x => x.Id == id);
         if (m is null) return null;
+        if (m.Status != MembershipStatus.Active)
+            throw new ArgumentException("Only an active membership can be frozen.");
         m.Status = MembershipStatus.Paused;
         m.PausedAt = DateTime.UtcNow;
+        if (!string.IsNullOrWhiteSpace(request.Reason))
+            m.Notes = $"{m.Notes}\n[{DateTime.UtcNow:yyyy-MM-dd}] Frozen: {request.Reason.Trim()}".Trim();
+        m.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return Map(m);
     }
@@ -109,28 +127,46 @@ public class SubscriptionService(AppDbContext db, ICurrentUser currentUser) : IS
     {
         var m = await db.GymMemberships.Include(x => x.Plan).FirstOrDefaultAsync(x => x.Id == id);
         if (m is null) return null;
+        if (m.Status != MembershipStatus.Paused)
+            throw new ArgumentException("This membership isn't frozen.");
+        // Give back the frozen days: push the end date out by the length of the pause.
+        if (m.PausedAt is { } pausedAt && m.EndsAt is { } end)
+            m.EndsAt = end.AddDays((int)Math.Ceiling((DateTime.UtcNow - pausedAt).TotalDays));
         m.Status = MembershipStatus.Active;
         m.PausedAt = null;
+        m.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return Map(m);
     }
 
     public async Task<bool> CancelAsync(ulong id)
     {
-        var m = await db.GymMemberships.FindAsync(id);
+        var m = await db.GymMemberships.FirstOrDefaultAsync(x => x.Id == id);
         if (m is null) return false;
         m.Status = MembershipStatus.Cancelled;
         m.CancelledAt = DateTime.UtcNow;
+        m.AutoRenew = false;
+        m.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return true;
     }
 
-    public Task<SubscriptionUsageResponse?> GetUsageAsync(ulong id) =>
-        Task.FromResult<SubscriptionUsageResponse?>(new SubscriptionUsageResponse
+    public async Task<SubscriptionUsageResponse?> GetUsageAsync(ulong id)
+    {
+        var m = await db.GymMemberships.FirstOrDefaultAsync(x => x.Id == id);
+        if (m is null) return null;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var start = m.StartsAt.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        return new SubscriptionUsageResponse
         {
-            SubscriptionId = id, ClassBookingsUsed = 0,
-            PtSessionsUsed = 0, DaysActive = 0, DaysRemaining = 30
-        });
+            SubscriptionId = id,
+            ClassBookingsUsed = 0, // class booking isn't available yet
+            PtSessionsUsed = 0,    // PT sessions aren't available yet
+            Visits = await db.Attendances.CountAsync(a => a.UserId == m.UserId && a.CheckInAt >= start),
+            DaysActive = Math.Max(0, today.DayNumber - m.StartsAt.DayNumber),
+            DaysRemaining = m.EndsAt is { } end ? Math.Max(0, end.DayNumber - today.DayNumber) : 0,
+        };
+    }
 
     private static SubscriptionResponse Map(GymMembership m) => new()
     {
