@@ -30,6 +30,10 @@ export const T = {
 
   onBrand: '#000000',
 
+  // Logo palette (sampled from assets/common/logo01.png) — used by the boot loader.
+  logoLime:  '#D4ED35',
+  logoDeep:  '#7B990B',
+
   // Scrims over imagery, and the shadow colour for elevation.
   overlay: 'rgba(0,0,0,0.55)',
   shadow:  '#000000',

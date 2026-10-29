@@ -31,6 +31,8 @@ module.exports = {
         brand:     '#7ED321', // CTA / accent green
         brandDark: '#5FA317', // pressed/hover state for accent
         brandGold: '#FFC107', // gradient second stop
+        logoLime:  '#D4ED35', // logo palette (boot loader)
+        logoDeep:  '#7B990B',
 
         // Secondary accents for health metrics
         rose:   '#FF4D6D', // heart rate

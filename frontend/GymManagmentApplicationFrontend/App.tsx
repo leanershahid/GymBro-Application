@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { View } from 'react-native';
+import { Asset } from 'expo-asset';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import QueryProvider  from './src/app/providers/QueryProvider';
 import { ToastProvider } from './src/features/common/components/Toast';
+import { BootSplash } from './src/features/common/components/LogoLoader';
 import LoginPage      from './src/features/auth/components/LoginPage';
 import AdminDashboard from './src/features/dashboard/pages/AdminDashboard';
 import MemberApp      from './src/features/member-app/MemberApp';
@@ -15,7 +18,19 @@ type AppState =
   | { status: 'member';  userId: number }
   | { status: 'trainer'; userId: number };
 
+// Images the first screen needs; the boot splash stays up until they're ready.
+const BOOT_ASSETS = [
+  require('./src/assets/loginImages/image02.jpg'),
+  require('./src/assets/common/logo01.png'),
+];
+
 export default function App() {
+  const [booting, setBooting] = useState(true);
+  useEffect(() => {
+    // A failed preload just means the image loads on demand — never block the app on it.
+    Asset.loadAsync(BOOT_ASSETS).catch(() => {}).finally(() => setBooting(false));
+  }, []);
+
   const [appState, setAppState] = useState<AppState>({ status: 'unauthenticated' });
 
   const handleLoginSuccess = (role: string, userId: number) => {
@@ -38,24 +53,27 @@ export default function App() {
     <SafeAreaProvider>
       <QueryProvider>
         <ToastProvider>
-          {appState.status === 'unauthenticated' && (
-            <LoginPage onLoginSuccess={handleLoginSuccess} errorMessage={appState.error} />
-          )}
-          {appState.status === 'admin' && (
-            <AdminDashboard onLogout={logout} />
-          )}
-          {appState.status === 'member' && (
-            <MemberApp
-              userId={appState.userId}
-              onLogout={logout}
-            />
-          )}
-          {appState.status === 'trainer' && (
-            <TrainerApp
-              userId={appState.userId}
-              onLogout={logout}
-            />
-          )}
+          <View style={{ flex: 1 }}>
+            {appState.status === 'unauthenticated' && (
+              <LoginPage onLoginSuccess={handleLoginSuccess} errorMessage={appState.error} />
+            )}
+            {appState.status === 'admin' && (
+              <AdminDashboard onLogout={logout} />
+            )}
+            {appState.status === 'member' && (
+              <MemberApp
+                userId={appState.userId}
+                onLogout={logout}
+              />
+            )}
+            {appState.status === 'trainer' && (
+              <TrainerApp
+                userId={appState.userId}
+                onLogout={logout}
+              />
+            )}
+          </View>
+          <BootSplash loading={booting} />
         </ToastProvider>
       </QueryProvider>
     </SafeAreaProvider>
