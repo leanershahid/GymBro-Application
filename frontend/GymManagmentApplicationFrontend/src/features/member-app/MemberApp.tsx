@@ -13,6 +13,7 @@ import CommunityScreen     from './screens/CommunityScreen';
 import StatsScreen         from './screens/StatsScreen';
 import ProgressScreen      from './screens/ProgressScreen';
 import MyBillingScreen     from '../member-billing/screens/MyBillingScreen';
+import BookScreen          from '../member-booking/screens/BookScreen';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -25,11 +26,13 @@ type Screen =
   | { id: 'train'     }
   | { id: 'plans'     }
   | { id: 'billing'   }
+  | { id: 'book'      }
   | { id: 'workout'; workoutId: number };
 
 // moduleKey undefined => always visible, not gated (Home / Profile)
 const TABS: { key: string; icon: FeatherIconName; label: string; moduleKey?: string }[] = [
   { key: 'home',      icon: 'home',        label: 'Home'      },
+  { key: 'book',      icon: 'calendar',    label: 'Book'      },
   { key: 'community',  icon: 'users',       label: 'Community', moduleKey: 'community' },
   { key: 'stats',      icon: 'bar-chart-2', label: 'Stats',      moduleKey: 'stats'     },
   { key: 'progress',   icon: 'trending-up', label: 'Progress',   moduleKey: 'plans'     },
@@ -102,6 +105,9 @@ function MemberAppContent({ userId, onLogout }: Props) {
           : <HomeScreen userId={userId} onNavigate={navigateFrom} />)}
         {screen.id === 'plans' && (
           <PlansScreen onBack={() => goTo('home')} />
+        )}
+        {screen.id === 'book' && (
+          <BookScreen userId={userId} onOpenBilling={() => setScreen({ id: 'billing' })} />
         )}
         {screen.id === 'billing' && (
           <MyBillingScreen userId={userId} onBack={() => goTo('home')} />
