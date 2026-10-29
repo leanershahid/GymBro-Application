@@ -1,3 +1,4 @@
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Workout.Requests;
 using GymManagmentApplication.Domain.Entities.Training;
 using GymManagmentApplication.Infrastructure.Data;
@@ -19,8 +20,7 @@ public class WorkoutRepository(AppDbContext db) : IWorkoutRepository
         var total = await q.CountAsync();
         var items = await q
             .OrderBy(w => w.Name)
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
+            .Page(request.PageNumber, request.PageSize)
             .ToListAsync();
 
         return (items, total);

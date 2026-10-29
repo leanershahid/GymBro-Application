@@ -2581,7 +2581,8 @@ namespace GymManagmentApplication.Migrations
                     b.HasIndex("BranchId");
 
                     b.HasIndex("Email")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"DeletedAt\" IS NULL");
 
                     b.HasIndex("RoleId");
 

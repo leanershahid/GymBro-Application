@@ -5,7 +5,7 @@ namespace GymManagmentApplication.Infrastructure.Repositories;
 
 public interface ITrainerRepository
 {
-    Task<(List<TrainerProfile> Items, int Total)> GetAllAsync(int pageNumber, int pageSize);
+    Task<(List<TrainerProfile> Items, int Total)> GetAllAsync(int pageNumber, int pageSize, string? search = null);
     Task<TrainerProfile?> GetByIdAsync(ulong id);
     Task<TrainerProfile?> GetByUserIdAsync(ulong userId);
     Task<TrainerProfile> CreateAsync(TrainerProfile trainer);

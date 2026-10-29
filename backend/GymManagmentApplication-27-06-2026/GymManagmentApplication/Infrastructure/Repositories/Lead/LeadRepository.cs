@@ -1,3 +1,4 @@
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Lead.Requests;
 using GymManagmentApplication.Domain.Entities.CRM;
 using GymManagmentApplication.Domain.Enums;
@@ -22,8 +23,7 @@ public class LeadRepository(AppDbContext db) : ILeadRepository
         var total = await q.CountAsync();
         var items = await q
             .OrderByDescending(l => l.CreatedAt)
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
+            .Page(request.PageNumber, request.PageSize)
             .ToListAsync();
 
         return (items, total);

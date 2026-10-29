@@ -1,3 +1,4 @@
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Domain.Entities.Training;
 using GymManagmentApplication.Domain.Enums;
@@ -9,14 +10,22 @@ namespace GymManagmentApplication.Infrastructure.Repositories;
 
 public class TrainerRepository(AppDbContext db) : ITrainerRepository
 {
-    public async Task<(List<TrainerProfile> Items, int Total)> GetAllAsync(int pageNumber, int pageSize)
+    public async Task<(List<TrainerProfile> Items, int Total)> GetAllAsync(int pageNumber, int pageSize, string? search = null)
     {
-        var total = await db.TrainerProfiles.CountAsync();
-        var items = await db.TrainerProfiles
+        var query = db.TrainerProfiles.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = $"%{search.Trim()}%";
+            query = query.Where(t => EF.Functions.ILike(t.DisplayName ?? "", term)
+                || EF.Functions.ILike(t.TrainerCode ?? "", term)
+                || EF.Functions.ILike(t.Email ?? "", term)
+                || EF.Functions.ILike(t.Phone ?? "", term));
+        }
+        var total = await query.CountAsync();
+        var items = await query
             .Include(t => t.Branch)
             .OrderBy(t => t.Id)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
+            .Page(pageNumber, pageSize)
             .ToListAsync();
         return (items, total);
     }

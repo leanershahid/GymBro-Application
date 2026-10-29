@@ -99,8 +99,7 @@ public class BiometricService(AppDbContext db, ICurrentUser currentUser, GymMana
             .Include(e => e.Device).ThenInclude(d => d.Branch)
             .Where(e => e.Device.Branch.TenantId == tenantId)
             .OrderByDescending(e => e.CreatedAt)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
+            .Page(pageNumber, pageSize)
             .ToListAsync();
 
         return events.Select(e => new EntryLogResponse

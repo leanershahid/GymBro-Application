@@ -72,7 +72,7 @@ public class PaymentService(AppDbContext db, ICurrentUser currentUser) : IPaymen
             query = query.Where(p => p.Invoice.UserId == memberId.Value);
         var total = await query.CountAsync();
         var items = await query.OrderByDescending(p => p.CreatedAt)
-            .Skip((page - 1) * size).Take(size).ToListAsync();
+            .Page(page, size).ToListAsync();
         return new PagedResponse<PaymentResponse>
         {
             Items = items.Select(p => MapPayment(p, p.Invoice?.UserId ?? 0)),

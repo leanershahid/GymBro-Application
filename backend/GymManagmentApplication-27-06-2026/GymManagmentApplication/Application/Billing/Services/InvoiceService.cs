@@ -22,8 +22,7 @@ public class InvoiceService(AppDbContext db, ICurrentUser currentUser) : IInvoic
             q = q.Where(i => i.Status == st);
         var total = await q.CountAsync();
         var items = await q.OrderByDescending(i => i.CreatedAt)
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize).ToListAsync();
+            .Page(request.PageNumber, request.PageSize).ToListAsync();
         return new PagedResponse<InvoiceResponse>
         {
             Items = items.Select(Map), PageNumber = request.PageNumber,

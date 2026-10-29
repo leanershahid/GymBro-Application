@@ -32,6 +32,18 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
             await WriteAsync(context, HttpStatusCode.Conflict,
                 "This record is still referenced by other data and cannot be changed or deleted.");
         }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            when (ex.InnerException is Npgsql.PostgresException { SqlState: "23505" } pg)
+        {
+            // Unique violation: a duplicate value, or (PK_) two saves picked the same new id at once.
+            logger.LogWarning(ex, "Unique constraint {Constraint} violated.", pg.ConstraintName);
+            var primaryKey = pg.ConstraintName?.StartsWith("PK_", StringComparison.Ordinal) == true;
+            await WriteAsync(context, HttpStatusCode.Conflict, primaryKey
+                ? "Another change was saved at the same moment. Please try again."
+                : pg.ConstraintName?.Contains("Email", StringComparison.OrdinalIgnoreCase) == true
+                    ? "That email address is already in use."
+                    : "A record with the same value already exists.");
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Unhandled exception occurred.");

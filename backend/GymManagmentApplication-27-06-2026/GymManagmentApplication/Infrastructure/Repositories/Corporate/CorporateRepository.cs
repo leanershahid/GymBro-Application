@@ -1,3 +1,4 @@
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Membership;
 using GymManagmentApplication.Domain.Enums;
 using GymManagmentApplication.Infrastructure.Data;
@@ -12,8 +13,7 @@ public class CorporateRepository(AppDbContext db) : ICorporateRepository
         var total = await db.CorporateAccounts.CountAsync();
         var items = await db.CorporateAccounts
             .OrderBy(a => a.Name)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
+            .Page(pageNumber, pageSize)
             .ToListAsync();
         return (items, total);
     }

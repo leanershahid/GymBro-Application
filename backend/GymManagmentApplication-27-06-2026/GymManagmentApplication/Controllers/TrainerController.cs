@@ -16,8 +16,8 @@ public class TrainerController(ITrainerService service, IValidator<CreateTrainer
 {
     [HttpGet]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
-    public async Task<ActionResult<ApiResponse<object>>> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
-        => Ok(ApiResponse<object>.Ok(await service.GetAllAsync(pageNumber, pageSize)));
+    public async Task<ActionResult<ApiResponse<object>>> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
+        => Ok(ApiResponse<object>.Ok(await service.GetAllAsync(pageNumber, pageSize, search)));
 
     [HttpPost]
     [AuthorizeRoles(RoleNames.Admin)]

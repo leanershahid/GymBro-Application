@@ -23,9 +23,9 @@ public class TrainerService(
 {
     private static readonly JsonSerializerOptions _opts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    public async Task<PagedResponse<TrainerResponse>> GetAllAsync(int pageNumber, int pageSize)
+    public async Task<PagedResponse<TrainerResponse>> GetAllAsync(int pageNumber, int pageSize, string? search = null)
     {
-        var (items, total) = await repository.GetAllAsync(pageNumber, pageSize);
+        var (items, total) = await repository.GetAllAsync(pageNumber, pageSize, search);
         return new PagedResponse<TrainerResponse>
         {
             Items = items.Select(MapToResponse).Select(ForCaller),

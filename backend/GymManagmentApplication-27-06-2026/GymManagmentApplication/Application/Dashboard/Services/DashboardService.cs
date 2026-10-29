@@ -13,10 +13,11 @@ public class DashboardService(AppDbContext db, ICurrentUser currentUser) : IDash
 
     public async Task<DashboardOverviewResponse> GetOverviewAsync()
     {
-        var now = DateTime.UtcNow;
-        var startOfThisMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var startOfLastMonth = startOfThisMonth.AddMonths(-1);
-        var startOfToday = now.Date;
+        // Day/month boundaries follow the gym's time zone, not UTC.
+        var clock = await TenantClock.ForAsync(db, currentUser.TenantId);
+        var startOfThisMonth = clock.StartOfMonthUtc();
+        var startOfLastMonth = clock.StartOfMonthUtc(1);
+        var startOfToday = clock.StartOfTodayUtc;
 
         var clientUsers = db.Users.Where(u => u.DeletedAt == null && u.Role != null && u.Role.Slug == ClientRoleSlug);
 
@@ -37,18 +38,12 @@ public class DashboardService(AppDbContext db, ICurrentUser currentUser) : IDash
 
         // "Online"/"present" means an open attendance row today (checked in, not yet checked out) —
         // not a manually-set availability flag, which can go stale.
-        var openAttendanceUserIds = await db.Attendances
-            .Where(a => a.CheckOutAt == null && a.CheckInAt >= startOfToday)
-            .Select(a => a.UserId)
-            .Distinct()
-            .ToListAsync();
+        var openToday = db.Attendances.Where(a => a.CheckOutAt == null && a.CheckInAt >= startOfToday);
 
         var totalTrainers = await db.TrainerProfiles.CountAsync();
-        var trainerUserIds = await db.TrainerProfiles.Select(t => t.UserId).ToListAsync();
-        var trainersOnline = trainerUserIds.Intersect(openAttendanceUserIds.Cast<ulong?>()).Count();
-
-        var clientUserIds = await clientUsers.Select(u => u.Id).ToListAsync();
-        var membersPresent = clientUserIds.Intersect(openAttendanceUserIds).Count();
+        // Counted in the database — no loading every member id into memory.
+        var trainersOnline = await db.TrainerProfiles.CountAsync(t => openToday.Any(a => a.UserId == t.UserId));
+        var membersPresent = await clientUsers.CountAsync(u => openToday.Any(a => a.UserId == u.Id));
 
         var totalTenants = currentUser.IsSuperAdmin ? await db.Tenants.CountAsync() : 1;
 

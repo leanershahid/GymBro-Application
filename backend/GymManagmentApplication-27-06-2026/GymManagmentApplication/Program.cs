@@ -137,6 +137,8 @@ builder.Services.AddControllers()
         // Blank optional form fields ("") arrive as null instead of failing the request;
         // numbers typed into text inputs ("12") are accepted too.
         o.JsonSerializerOptions.Converters.Add(new GymManagmentApplication.Infrastructure.Json.EmptyStringAsNullConverterFactory());
+        // Enums in request bodies by name or number (responses still write numbers).
+        o.JsonSerializerOptions.Converters.Add(new GymManagmentApplication.Infrastructure.Json.FlexibleEnumConverterFactory());
         o.JsonSerializerOptions.NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString;
     })
     .ConfigureApiBehaviorOptions(o =>

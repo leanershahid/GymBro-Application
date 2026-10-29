@@ -86,7 +86,8 @@ public class MemberService(
         if (branchId is null && request.TrainerId is { } tid)
             branchId = (await db.TrainerProfiles.FirstOrDefaultAsync(t => t.Id == tid))?.BranchId;
 
-        await using var tx = await db.Database.BeginTransactionAsync();
+        // Joins an outer transaction (bulk import) when there is one.
+        await using var tx = db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync() : null;
 
         // Creates the User in this tenant/branch with the tenant's own 'client' role
         // (and checks the branch belongs to the tenant).
@@ -120,7 +121,7 @@ public class MemberService(
             response.TrainerId = request.TrainerId;
         }
 
-        await tx.CommitAsync();
+        if (tx is not null) await tx.CommitAsync();
         return response;
     }
 
@@ -177,11 +178,18 @@ public class MemberService(
         return true;
     }
 
+    private const int BulkImportLimit = 500;
+
     public async Task<List<MemberResponse>> BulkImportAsync(BulkImportMemberRequest request)
     {
+        if (request.Members.Count > BulkImportLimit)
+            throw new ArgumentException($"Import at most {BulkImportLimit} members at a time.");
+        // All or nothing: a bad row rolls back the rows before it.
+        await using var tx = await db.Database.BeginTransactionAsync();
         var results = new List<MemberResponse>();
         foreach (var r in request.Members)
             results.Add(await CreateAsync(r));
+        await tx.CommitAsync();
         return results;
     }
 

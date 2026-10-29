@@ -33,8 +33,7 @@ public class MemberRepository(AppDbContext db) : IMemberRepository
         var items = await q
             .Include(u => u.Branch)
             .OrderBy(u => u.FirstName)
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
+            .Page(request.PageNumber, request.PageSize)
             .ToListAsync();
 
         return (items, total);

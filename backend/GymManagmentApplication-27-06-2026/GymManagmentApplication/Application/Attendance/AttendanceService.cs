@@ -226,13 +226,14 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
         var q = db.Attendances.Include(a => a.Branch).Include(a => a.User).AsQueryable(); // tenant-filtered
         if (date is { } d)
         {
-            var from = d.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            // The date is a day in the gym's time zone.
+            var from = (await TenantClock.ForAsync(db, currentUser.TenantId)).StartOfDayUtc(d);
             q = q.Where(a => a.CheckInAt >= from && a.CheckInAt < from.AddDays(1));
         }
         if (branchId is { } b) q = q.Where(a => a.BranchId == b);
 
         var total = await q.CountAsync();
-        var rows = await q.OrderByDescending(a => a.CheckInAt).Skip((page - 1) * size).Take(size).ToListAsync();
+        var rows = await q.OrderByDescending(a => a.CheckInAt).Page(page, size).ToListAsync();
         return new PagedResponse<AttendanceRecordResponse>
         {
             Items = rows.Select(Map), PageNumber = page, PageSize = size, TotalRecords = total,

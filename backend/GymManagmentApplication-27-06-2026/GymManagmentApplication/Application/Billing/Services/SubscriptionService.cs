@@ -29,7 +29,7 @@ public class SubscriptionService(AppDbContext db, ICurrentUser currentUser) : IS
         var query = db.GymMemberships.Include(m => m.Plan)
             .Where(m => m.TenantId == tenantId);
         var total = await query.CountAsync();
-        var items = await query.OrderByDescending(m => m.Id).Skip((page - 1) * size).Take(size).ToListAsync();
+        var items = await query.OrderByDescending(m => m.Id).Page(page, size).ToListAsync();
         return new PagedResponse<SubscriptionResponse>
         {
             Items = items.Select(Map), PageNumber = page,

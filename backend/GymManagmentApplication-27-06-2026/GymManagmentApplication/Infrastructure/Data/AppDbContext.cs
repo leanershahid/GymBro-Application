@@ -43,6 +43,22 @@ public class AppDbContext : DbContext
     public bool TenantFilterDisabled => currentUser is null || !currentUser.IsAuthenticated || currentUser.IsSuperAdmin;
     public ulong CurrentTenantId => currentUser?.TenantId ?? 0;
 
+    // ── Branch isolation ────────────────────────────────────────────────────
+    // Staff and custom-role users who are assigned to a branch only see that branch's
+    // branch-owned records (members, memberships, attendance, leads). Gym admins, super admins,
+    // trainers/clients (scoped elsewhere) and unassigned staff are not branch-filtered.
+    // Rows without a branch (gym-wide) stay visible.
+    private static readonly HashSet<Type> BranchScopedTypes =
+    [
+        typeof(Domain.Entities.Identity.User),
+        typeof(Domain.Entities.Membership.GymMembership),
+        typeof(Domain.Entities.Scheduling.Attendance),
+        typeof(Domain.Entities.CRM.Lead),
+    ];
+    public bool BranchFilterDisabled => currentUser is null || !currentUser.IsAuthenticated
+        || !currentUser.IsDelegatedRole || currentUser.BranchId is null;
+    public ulong CurrentBranchId => currentUser?.BranchId ?? 0;
+
     // Core
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Branch> Branches => Set<Branch>();
@@ -249,7 +265,8 @@ public class AppDbContext : DbContext
         // Indexes
         // Email stays globally unique on purpose: it is the login key, and login happens
         // before we know which gym the user belongs to.
-        modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
+        // Unique among live accounts only, so a soft-deleted member's email can be used again.
+        modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique().HasFilter("\"DeletedAt\" IS NULL");
         modelBuilder.Entity<User>().HasIndex(u => u.Uuid).IsUnique();
         modelBuilder.Entity<UserSession>().HasIndex(s => s.TokenHash).IsUnique();
         modelBuilder.Entity<AuthCode>().HasIndex(c => new { c.UserId, c.Purpose });
@@ -496,9 +513,92 @@ public class AppDbContext : DbContext
             }
             else continue;
 
-            var body = Expression.OrElse(disabled, match);
+            Expression body = Expression.OrElse(disabled, match);
+
+            // EF allows one filter per entity, so the branch rule is AND-ed into the same lambda.
+            var branchProp = entityType.ClrType.GetProperty("BranchId");
+            if (BranchScopedTypes.Contains(entityType.ClrType) && branchProp is not null)
+            {
+                var branchDisabled = Expression.Property(ctx, nameof(BranchFilterDisabled));
+                var currentBranch = Expression.Property(ctx, nameof(CurrentBranchId));
+                var branchValue = Expression.Property(param, branchProp);
+                Expression branchMatch = branchProp.PropertyType == typeof(ulong?)
+                    ? Expression.OrElse(
+                        Expression.Equal(branchValue, Expression.Constant(null, typeof(ulong?))),
+                        Expression.Equal(branchValue, Expression.Convert(currentBranch, typeof(ulong?))))
+                    : Expression.Equal(branchValue, currentBranch);
+                body = Expression.AndAlso(body, Expression.OrElse(branchDisabled, branchMatch));
+            }
+
             modelBuilder.Entity(entityType.ClrType).HasQueryFilter(Expression.Lambda(body, param));
         }
+    }
+
+    // ── Saving ──────────────────────────────────────────────────────────────
+    // UpdatedAt is stamped on every modified row. Because ids are MAX(Id)+1 (see below), two
+    // requests inserting into the same table at the same moment can pick the same id; the loser
+    // gets a primary-key violation. Ids this context generated are then re-read and the save is
+    // retried, instead of surfacing a 500.
+    private const int MaxIdRetries = 3;
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        StampUpdatedAt();
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            }
+            catch (DbUpdateException ex) when (attempt < MaxIdRetries && IsPrimaryKeyClash(ex) && ReassignGeneratedIds())
+            {
+                await Task.Delay(Random.Shared.Next(10, 60), cancellationToken);
+            }
+        }
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        StampUpdatedAt();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    private void StampUpdatedAt()
+    {
+        var now = DateTime.UtcNow;
+        foreach (var entry in ChangeTracker.Entries<Domain.Entities.BaseEntity>())
+            if (entry.State == EntityState.Modified) entry.Entity.UpdatedAt = now;
+    }
+
+    private static bool IsPrimaryKeyClash(DbUpdateException ex) =>
+        ex.InnerException is Npgsql.PostgresException { SqlState: "23505" } pg
+        && (pg.ConstraintName?.StartsWith("PK_", StringComparison.Ordinal) ?? false);
+
+    /// <summary>Gives every still-Added row whose id this context generated a fresh MAX(Id)+1.</summary>
+    private bool ReassignGeneratedIds()
+    {
+        var added = ChangeTracker.Entries()
+            .Where(e => e.State == EntityState.Added && _generatedIds.Contains(e.Entity))
+            .ToList();
+        if (added.Count == 0) return false;
+        _nextIds.Clear();
+        foreach (var group in added.GroupBy(e => e.Metadata))
+        {
+            var table = group.Key.GetTableName();
+            if (table is null) continue;
+            var schema = group.Key.GetSchema();
+            var qualified = schema is null ? $"\"{table}\"" : $"\"{schema}\".\"{table}\"";
+            var next = ReadMaxId(qualified) + 1;
+            // Leave room for rows in this batch that kept explicit ids.
+            var keptMax = ChangeTracker.Entries()
+                .Where(x => x.Metadata == group.Key && x.State == EntityState.Added && !_generatedIds.Contains(x.Entity))
+                .Select(x => (ulong)x.Property("Id").CurrentValue!)
+                .DefaultIfEmpty(0UL).Max();
+            next = Math.Max(next, keptMax + 1);
+            foreach (var entry in group) entry.Property("Id").CurrentValue = next++;
+            _nextIds[qualified] = next;
+        }
+        return true;
     }
 
     // ── Id generation ───────────────────────────────────────────────────────
@@ -508,6 +608,7 @@ public class AppDbContext : DbContext
     // table per context (unfiltered, so other tenants' rows count) and then incremented
     // locally. Code that already sets an Id is left alone.
     private readonly Dictionary<string, ulong> _nextIds = [];
+    private readonly HashSet<object> _generatedIds = new(ReferenceEqualityComparer.Instance);
 
     private void AssignIdOnTracking(object? sender, Microsoft.EntityFrameworkCore.ChangeTracking.EntityTrackingEventArgs e)
     {
@@ -537,6 +638,7 @@ public class AppDbContext : DbContext
 
         idProp.CurrentValue = next;
         _nextIds[qualified] = next + 1;
+        _generatedIds.Add(e.Entry.Entity);
     }
 
     private ulong ReadMaxId(string qualifiedTable)
