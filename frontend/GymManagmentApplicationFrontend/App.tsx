@@ -13,6 +13,7 @@ import { configureSessionHandling } from './src/api/axios';
 import { isAdminRole, isDelegatedRole } from './src/api/session';
 import { applyAuth, clearAuth, currentRefreshToken, loadStoredAuth } from './src/api/authStore';
 import { logoutSession, refreshSession } from './src/features/auth/api/authApi';
+import { getPreviewRole, startPreview } from './src/dev/previewMode';
 
 type AppState =
   | { status: 'unauthenticated'; error?: string }
@@ -40,7 +41,15 @@ async function renewSession(token: string | null): Promise<boolean> {
 }
 
 export default function App() {
-  const [appState, setAppState] = useState<AppState>({ status: 'unauthenticated' });
+  // Dev-only design preview (?preview=admin|trainer|member on web) — see src/dev/previewMode.ts.
+  const [appState, setAppState] = useState<AppState>(() => {
+    const preview = getPreviewRole();
+    if (!preview) return { status: 'unauthenticated' };
+    const userId = startPreview(preview);
+    return preview === 'member' ? { status: 'member', userId }
+         : preview === 'trainer' ? { status: 'trainer', userId }
+         : { status: 'admin' };
+  });
 
   const [booting, setBooting] = useState(true);
 

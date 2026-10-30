@@ -61,6 +61,7 @@ export interface WorkoutSetLog {
   setNo: number;
   reps: number;
   weightKg: number;
+  durationSec?: number;
   rpe?: number;
 }
 
@@ -109,4 +110,92 @@ export interface ActiveChallenge {
 export interface AssignedTrainer {
   id: number;
   displayName: string;
+}
+
+// ─── Workout structure (GET /workouts/{id}/structure) ─────────────
+export interface StructureExercise {
+  exerciseId: number;
+  exerciseName: string | null;
+  sets: number | null;
+  /** "10", "8-12", "AMRAP"… */
+  reps: string | null;
+  durationSeconds: number | null;
+  restSeconds: number | null;
+  tempo: string | null;
+  weightSuggestion: string | null;
+  notes: string | null;
+}
+
+export interface WorkoutSection {
+  name: string | null;
+  /** Warmup | Main | Cooldown | Circuit | Superset | Dropset | Pyramid | Custom */
+  type: string;
+  rounds: number;
+  restSeconds: number | null;
+  exercises: StructureExercise[];
+}
+
+export interface WorkoutStructure {
+  workoutId: number;
+  workoutName: string | null;
+  sections: WorkoutSection[];
+}
+
+// ─── Plan schedule (GET /plans/{id}/schedule) ─────────────────────
+export interface PlanDay {
+  /** 1 … 7 within the week. */
+  dayNumber: number;
+  workoutId: number | null;
+  workoutName: string | null;
+  isRestDay: boolean;
+}
+
+export interface PlanWeek {
+  weekNumber: number;
+  notes: string | null;
+  days: PlanDay[];
+}
+
+export interface PlanSchedule {
+  planId: number;
+  planName: string | null;
+  durationWeeks: number;
+  weeks: PlanWeek[];
+}
+
+// ─── My training (GET /me/training) ───────────────────────────────
+/** Assigned | InProgress | Completed | Skipped | Expired */
+export type AssignmentStatus = string;
+
+export interface AssignedWorkout {
+  assignmentId: number;
+  workoutId: number;
+  workoutName: string;
+  trainerName: string | null;
+  /** yyyy-MM-dd */
+  assignedAt: string;
+  dueDate: string | null;
+  status: AssignmentStatus;
+  notes: string | null;
+}
+
+export interface AssignedPlan {
+  assignmentId: number;
+  planId: number;
+  planName: string;
+  durationWeeks: number;
+  /** yyyy-MM-dd */
+  startDate: string;
+  status: AssignmentStatus;
+  /** Position in the plan today; null before it starts / after it ends. */
+  currentWeek: number | null;
+  currentDay: number | null;
+  todayWorkoutId: number | null;
+  todayWorkoutName: string | null;
+  todayIsRest: boolean;
+}
+
+export interface MyTraining {
+  workouts: AssignedWorkout[];
+  plans: AssignedPlan[];
 }

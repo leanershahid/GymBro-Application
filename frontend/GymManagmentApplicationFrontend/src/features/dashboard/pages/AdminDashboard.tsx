@@ -63,6 +63,8 @@ import RolesPage         from '../../module-access/pages/RolesPage';
 import BillingHomePage   from '../../billing/pages/BillingHomePage';
 import NewInvoicePage    from '../../billing/pages/NewInvoicePage';
 import NewMembershipPage from '../../billing/pages/NewMembershipPage';
+import ClassSchedulePage from '../../classes/pages/ClassSchedulePage';
+import PtSessionsPage    from '../../classes/pages/PtSessionsPage';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 type Screen =
@@ -77,6 +79,7 @@ type Screen =
   | 'plans'     | 'add-plan'
   | 'roles'
   | 'billing' | 'new-invoice' | 'new-membership'
+  | 'classes' | 'pt-sessions'
   | 'module-access'
   | 'user-access'
   | 'challenges-admin'
@@ -209,6 +212,8 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
   const plans     = useRoleModuleAccess('plans');
   const roles     = useRoleModuleAccess('roles');
   const billingAccess = useRoleModuleAccess('billing');
+  const classesAccess = useRoleModuleAccess('classes');
+  const ptAccess      = useRoleModuleAccess('pt-sessions');
   const canViewMembers  = members.canView;
   const canViewTrainers = trainers.canView;
   const canViewBranches = branches.canView;
@@ -300,6 +305,12 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
     if (screen === 'add-plan') return plans.canCreate
       ? <AddPlanPage onBack={() => go('plans')} />
       : <NoModuleAccess onBack={() => go('plans')} />;
+    if (screen === 'classes') return classesAccess.canView
+      ? <ClassSchedulePage mode="admin" onBack={goHome} />
+      : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'pt-sessions') return ptAccess.canView
+      ? <PtSessionsPage mode="admin" onBack={goHome} />
+      : <NoModuleAccess onBack={goHome} />;
     if (screen === 'billing') return billingAccess.canView
       ? <BillingHomePage onBack={goHome} onOpenMember={canViewMembers ? (id) => open('member-detail', id) : undefined}
           onNewInvoice={billingAccess.canCreate ? () => go('new-invoice') : undefined} />

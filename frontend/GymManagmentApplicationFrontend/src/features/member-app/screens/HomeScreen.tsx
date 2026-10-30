@@ -15,6 +15,7 @@ import PhotoHero from '../../common/components/dashboard/PhotoHero';
 import CheckInCard from '../../attendance/components/CheckInCard';
 import MembershipStatusCard from '../../member-billing/components/MembershipStatusCard';
 import NextBookingCard from '../../member-booking/components/NextBookingCard';
+import TodayWorkoutCard from '../components/TodayWorkoutCard';
 import ActionList, { ActionItem } from '../../common/components/dashboard/ActionList';
 import HomeGreeting from '../components/HomeGreeting';
 import ActivityRingsCard from '../components/ActivityRingsCard';
@@ -173,6 +174,7 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
 
         {/* Location check-in (only when the gym has it switched on at a branch) */}
         <View style={{ marginTop: SP.xl }}><MembershipStatusCard userId={userId} onPress={() => onNavigate('billing')} /></View>
+        <View style={{ marginTop: SP.xl }}><TodayWorkoutCard userId={userId} onOpenWorkout={openWorkout} /></View>
         <View style={{ marginTop: SP.xl }}><NextBookingCard userId={userId} onPress={() => onNavigate('book')} /></View>
         <View style={{ marginTop: SP.xl }}><CheckInCard /></View>
 
