@@ -6,17 +6,14 @@ import QueryProvider, { queryClient } from './src/app/providers/QueryProvider';
 import { ToastProvider } from './src/features/common/components/Toast';
 import { BootSplash } from './src/features/common/components/LogoLoader';
 import LoginPage      from './src/features/auth/components/LoginPage';
-import AdminDashboard from './src/features/dashboard/pages/AdminDashboard';
-import MemberApp      from './src/features/member-app/MemberApp';
-import TrainerApp     from './src/features/trainer-app/TrainerApp';
 import { configureSessionHandling } from './src/api/axios';
 import { isAdminRole, isDelegatedRole } from './src/api/session';
 import { applyAuth, clearAuth, currentRefreshToken, loadStoredAuth } from './src/api/authStore';
 import { logoutSession, refreshSession } from './src/features/auth/api/authApi';
 import { getPreviewRole, startPreview } from './src/dev/previewMode';
 import { AccessProvider } from './src/features/access/context/AccessContext';
+import AppShell from './src/features/access/components/AppShell';
 import { clearStoredAccess } from './src/features/access/api/accessStore';
-import { AccessApp } from './src/features/access/types/access.types';
 
 type AppState =
   | { status: 'unauthenticated'; error?: string }
@@ -55,8 +52,6 @@ export default function App() {
   });
 
   const [booting, setBooting] = useState(true);
-  // Another app the person switched to (they hold modules there too); null = their own app.
-  const [openApp, setOpenApp] = useState<AccessApp | null>(null);
 
   const routeFor = (role: string, userId: number): AppState =>
     isAdminRole(role) || isDelegatedRole(role) ? { status: 'admin', userId }
@@ -68,7 +63,6 @@ export default function App() {
   const endSession = useCallback(async (error?: string) => {
     await Promise.all([clearAuth(), clearStoredAccess()]);
     queryClient.clear();
-    setOpenApp(null);
     setAppState({ status: 'unauthenticated', error });
   }, []);
 
@@ -118,22 +112,13 @@ export default function App() {
             {appState.status === 'unauthenticated' && (
               <LoginPage onLoginSuccess={handleLoginSuccess} errorMessage={appState.error} />
             )}
-            {appState.status !== 'unauthenticated' && (() => {
-              const homeApp: AccessApp = appState.status;
-              const app = openApp ?? homeApp;
-              return (
-                // Keyed by user, so a different account never sees the previous one's menu.
-                <AccessProvider
-                  key={appState.userId} userId={appState.userId} onLogout={logout}
-                  app={app} homeApp={homeApp} onSwitchApp={a => setOpenApp(a === homeApp ? null : a)}
-                >
-                  {/* Keyed by app, so switching starts that app fresh on its first screen. */}
-                  {app === 'admin' && <AdminDashboard key="admin" onLogout={logout} />}
-                  {app === 'member' && <MemberApp key="member" userId={appState.userId} onLogout={logout} />}
-                  {app === 'trainer' && <TrainerApp key="trainer" userId={appState.userId} onLogout={logout} />}
-                </AccessProvider>
-              );
-            })()}
+            {appState.status !== 'unauthenticated' && (
+              // One app for every role: menus come from the modules the person is assigned.
+              // Keyed by user, so a different account never sees the previous one's menu.
+              <AccessProvider key={appState.userId} userId={appState.userId} homeApp={appState.status} onLogout={logout}>
+                <AppShell userId={appState.userId} onLogout={logout} />
+              </AccessProvider>
+            )}
           </View>
           <BootSplash loading={booting} />
         </ToastProvider>

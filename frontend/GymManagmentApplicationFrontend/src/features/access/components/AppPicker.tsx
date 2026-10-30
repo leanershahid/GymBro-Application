@@ -5,18 +5,21 @@ import SegmentedTabs from '../../common/components/SegmentedTabs';
 import { AccessApp } from '../types/access.types';
 
 const TABS: { key: AccessApp; label: string }[] = [
-  { key: 'admin', label: 'Admin app' },
-  { key: 'trainer', label: 'Trainer app' },
-  { key: 'member', label: 'Member app' },
+  { key: 'admin', label: 'Management' },
+  { key: 'trainer', label: 'Training' },
+  { key: 'member', label: 'Member' },
 ];
 
 const NOTES: Record<AccessApp, string> = {
-  admin: 'Admin-app modules work for anyone — a trainer or member given them can switch to the admin app.',
-  trainer: 'Trainer-app modules need a trainer profile; for anyone else those screens stay empty.',
-  member: 'Member-app modules need a gym membership; for anyone else those screens stay empty.',
+  admin: 'Gym management modules — members, billing, branches and more.',
+  trainer: 'Coaching modules. Their screens show data only for people with a trainer profile.',
+  member: 'Member modules. Their screens show data only for people with a gym membership.',
 };
 
-/** Which app's modules an access screen shows. `home` (the app the role signs in to) is marked. */
+/**
+ * Which group of modules an access screen shows. Everyone uses the same app; these groups only
+ * organise the module list. `home` (the group of the role's own screens) is marked.
+ */
 export default function AppPicker({ value, home, onChange }: { value: AccessApp; home?: AccessApp; onChange: (a: AccessApp) => void }) {
   return (
     <View style={{ gap: 8, marginBottom: 12 }}>
@@ -26,7 +29,7 @@ export default function AppPicker({ value, home, onChange }: { value: AccessApp;
         onChange={onChange}
       />
       <Text style={{ color: T.textFaint, fontSize: 12, lineHeight: 17 }}>
-        {value === home ? '★ The app this role signs in to. ' : ''}{NOTES[value]}
+        {value === home ? '★ This role’s own modules. ' : ''}{NOTES[value]}
       </Text>
     </View>
   );

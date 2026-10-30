@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, ScrollView, RefreshControl, Alert } from 'react-native';
 import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
 import { Feather } from '@expo/vector-icons';
@@ -6,7 +6,6 @@ import { T, SP, R } from '../../../theme';
 import { useLayout } from '../../../utils/useLayout';
 import ScreenRoot             from '../../common/components/Screen';
 import LoadingState           from '../../common/components/LoadingState';
-import BottomTabBar, { TabItem } from '../../common/components/BottomTabBar';
 import ActionList, { ActionItem } from '../../common/components/dashboard/ActionList';
 import KpiTile                from '../../common/components/dashboard/KpiTile';
 import BarList                from '../../common/components/dashboard/BarList';
@@ -30,7 +29,7 @@ import { useVisibleAdminActions } from '../adminActions';
 import { getSession, isSuperAdmin, isAdminRole } from '../../../api/session';
 import { useRoleModuleAccess } from '../../module-access/hooks/useRoleModuleAccess';
 import { useLanding, useMenu } from '../../access/context/AccessContext';
-import { MORE_TAB, useRailTabs } from '../../access/components/railTabs';
+import { ShellHosted } from '../../access/types/access.types';
 
 // ─── Feature pages ────────────────────────────────────────────────
 import ViewMembersPage   from '../../members/pages/ViewMembersPage';
@@ -165,10 +164,6 @@ function NoModuleAccess({ onBack }: { onBack: () => void }) {
 
 const SECTION = SP.xxl; // 28px between home sections
 
-// The bottom bar is the granted main-menu modules (see useRailTabs). More is always there:
-// it lists every granted tile and holds Sign out, so no user is ever left with an empty app.
-const ALWAYS_TABS: TabItem[] = [{ key: 'more-actions', label: 'More', icon: 'menu' }];
-
 /** Screens reached from inside another module's page — open only when that module is granted. */
 const OWNER_ROUTE: Partial<Record<Screen, string>> = {
   'add-member': 'members', 'member-detail': 'members', 'edit-member': 'members', 'new-membership': 'members',
@@ -187,11 +182,14 @@ const OWNER_ROUTE: Partial<Record<Screen, string>> = {
 const ALWAYS_OPEN = new Set<Screen>(['more-actions', 'profile-details']);
 const ownerOf = (screen: Screen) => OWNER_ROUTE[screen] ?? screen;
 
-interface AdminDashboardProps { adminName?: string; onLogout?: () => void; }
+interface AdminDashboardProps extends ShellHosted { adminName?: string; onLogout?: () => void; }
 
-export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminDashboardProps) {
+/**
+ * The admin screens. The app shell (AppShell) hosts them and owns the tab bar; which screens open
+ * comes from the access list.
+ */
+export default function AdminDashboard({ adminName = 'Admin', onLogout, open: openRequest, onRouteChange }: AdminDashboardProps) {
   const { routes } = useMenu();
-  const { tabs } = useRailTabs(ALWAYS_TABS);
   const landing = useLanding('home', 'more-actions') as Screen;
   const { data, loading, refreshing, error, refresh } = useDashboardStats(routes.has('home'));
   const actions = useVisibleAdminActions();
@@ -206,11 +204,9 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
     { text: 'Cancel', style: 'cancel' },
     { text: 'Log out', style: 'destructive', onPress: onLogout },
   ]));
-  const [screen, setScreen] = useState<Screen>(landing);
+  const [screen, setScreen] = useState<Screen>((openRequest?.route ?? landing) as Screen);
   // Record the current detail/edit screen is about (member, branch, tenant, role).
   const [selectedId, setSelectedId] = useState<number>(0);
-  const tabKeys = tabs.map(t => t.key);
-  const activeTab = tabKeys.includes(ownerOf(screen)) ? ownerOf(screen) : tabKeys.includes('more-actions') ? 'more-actions' : MORE_TAB;
   const canOpen = (s: Screen) => ALWAYS_OPEN.has(s) || routes.has(ownerOf(s));
   const { tileW } = useLayout();
   const kpiW = tileW(2, 12);
@@ -245,8 +241,9 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
   const open = useCallback((s: Screen, id: number) => { setSelectedId(id); setScreen(s); }, []);
   const goHome = useCallback(() => setScreen(landing), [landing]);
 
-  // Rail keys are screen routes; the overflow "More" slot opens the More page, which lists everything.
-  const handleTab = useCallback((key: string) => go((key === MORE_TAB ? 'more-actions' : key) as Screen), [go]);
+  useEffect(() => { if (openRequest) go(openRequest.route as Screen); }, [openRequest, go]);
+  // A detail or add screen reports the module it belongs to, so that module's tab stays lit.
+  useEffect(() => { onRouteChange?.(ownerOf(screen)); }, [screen]);
 
   // ── Sub-page routing — rendered above the persistent bottom nav ──
   const subPage = (() => {
@@ -361,8 +358,6 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
       <View style={{ flex: 1 }}>
         {subPage ?? renderHome()}
       </View>
-      {/* Bottom nav stays fixed on every admin screen */}
-      <BottomTabBar tabs={tabs} active={activeTab} onChange={handleTab} />
       <ProfileSheet
         visible={profileOpen}
         onClose={() => setProfileOpen(false)}

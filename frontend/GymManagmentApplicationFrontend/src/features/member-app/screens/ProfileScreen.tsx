@@ -18,7 +18,6 @@ import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
 import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
 import { PickedFile } from '../../../api/upload';
 import { apiErrorText } from '../../../api/apiError';
-import AppSwitcher from '../../access/components/AppSwitcher';
 
 function AvatarPicker({ uri, initials, onPick, uploading }: { uri?: string | null; initials: string; onPick: (f: PickedFile) => void; uploading?: boolean }) {
   const pick = async () => {
@@ -253,8 +252,6 @@ export default function ProfileScreen({ userId, onLogout, onOpenBilling }: Props
               onPress={() => setPwOpen(true)}
             />
             <ChangePasswordSheet visible={pwOpen} onClose={() => setPwOpen(false)} onChanged={onLogout} />
-
-            <AppSwitcher />
 
             {/* Logout */}
             <PrimaryButton
