@@ -215,7 +215,7 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack, st
     branch: 'add-branch',   'view-branchs':  'branches',
     trainer: 'add-trainer', 'view-trainers': 'trainers',
     tenant: 'add-tenant',   'view-tenants':  'tenants',
-    client: 'members',      'view-clients':  'members',
+    client: 'add-member',   'view-clients':  'members',
   };
   const handleNavigate = (key: string) => onNavigate?.(ROUTES[key] ?? key);
 

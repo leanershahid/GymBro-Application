@@ -6,7 +6,7 @@ namespace GymManagmentApplication.Application.Trainer.Interfaces;
 
 public interface ITrainerService
 {
-    Task<PagedResponse<TrainerResponse>> GetAllAsync(int pageNumber, int pageSize);
+    Task<PagedResponse<TrainerResponse>> GetAllAsync(int pageNumber, int pageSize, string? search = null);
     Task<TrainerResponse> CreateAsync(CreateTrainerRequest request);
     Task<TrainerResponse?> GetByIdAsync(ulong id);
     Task<TrainerResponse?> GetByUserIdAsync(ulong userId);

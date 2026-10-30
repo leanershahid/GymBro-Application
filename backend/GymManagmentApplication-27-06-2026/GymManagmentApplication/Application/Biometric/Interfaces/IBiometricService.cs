@@ -7,6 +7,7 @@ public interface IBiometricService
 {
     Task<BiometricEnrollResponse> EnrollFaceAsync(EnrollFaceRequest request);
     Task<BiometricVerifyResponse> VerifyFaceAsync(VerifyFaceRequest request);
+    Task<BiometricVerifyResponse> RecordDeviceEntryAsync(DeviceEntryRequest request);
     Task<bool> DeleteBiometricAsync(ulong userId);
     Task<List<EntryLogResponse>> GetEntryLogsAsync(ulong tenantId, int pageNumber, int pageSize);
     Task<BiometricEnrollResponse> EnrollFingerprintAsync(EnrollFingerprintRequest request);

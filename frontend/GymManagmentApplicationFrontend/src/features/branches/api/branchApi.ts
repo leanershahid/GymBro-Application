@@ -1,7 +1,9 @@
 import { isAxiosError } from 'axios';
 import axiosInstance from '../../../api/axios';
 import { ENDPOINTS } from '../../../api/endpoints';
-import { BranchListResponse, BranchPayload, BranchCreateResponse } from '../types/branch.types';
+import {
+  BranchListResponse, BranchPayload, BranchCreateResponse, BranchResponse, BranchUpdatePayload,
+} from '../types/branch.types';
 import { ApiResponse } from '../../../api/types';
 
 export const fetchBranches = async (): Promise<BranchListResponse> => {
@@ -11,6 +13,17 @@ export const fetchBranches = async (): Promise<BranchListResponse> => {
 
 export const createBranch = async (payload: BranchPayload): Promise<BranchCreateResponse> => {
   const { data } = await axiosInstance.post<BranchCreateResponse>(ENDPOINTS.ADD_BRANCH, payload);
+  return data;
+};
+
+export const fetchBranch = async (id: number): Promise<BranchResponse> => {
+  const { data } = await axiosInstance.get<BranchResponse>(`${ENDPOINTS.BRANCHES}/${id}`);
+  return data;
+};
+
+/** Full edit. Throws on non-2xx so callers can use describeApiError / fieldErrorsFrom. */
+export const updateBranch = async (id: number, payload: BranchUpdatePayload): Promise<BranchResponse> => {
+  const { data } = await axiosInstance.put<BranchResponse>(`${ENDPOINTS.BRANCHES}/${id}`, payload);
   return data;
 };
 

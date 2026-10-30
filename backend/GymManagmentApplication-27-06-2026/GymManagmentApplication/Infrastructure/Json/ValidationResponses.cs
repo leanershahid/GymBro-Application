@@ -27,6 +27,7 @@ public static partial class ValidationResponses
     {
         var text = string.IsNullOrWhiteSpace(message) ? ex?.Message ?? "Invalid value." : message;
         if (text.Contains("is not a valid date")) return text[..(text.IndexOf("Use YYYY-MM-DD.", StringComparison.Ordinal) + 15)];
+        if (text.StartsWith("Choose one of:", StringComparison.Ordinal)) return text;
         if (text.Contains("could not be converted"))
         {
             if (text.Contains("DateOnly") || text.Contains("DateTime")) return "Enter a valid date (YYYY-MM-DD).";

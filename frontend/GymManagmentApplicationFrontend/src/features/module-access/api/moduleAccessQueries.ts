@@ -4,6 +4,7 @@ import {
   fetchModuleKeys, fetchModuleAccess, fetchMatrix,
   upsertModuleAccess, bulkUpsertModuleAccess,
   checkAccess, deleteModuleAccess, deleteRoleAccess, fetchRoles,
+  createRole, updateRole, deleteRole, assignUserRole, revokeUserRole, RoleInput,
 } from './moduleAccessApi';
 import {
   ModuleAccessPayload, BulkModuleAccessPayload,
@@ -96,3 +97,46 @@ export const useDeleteRoleAccess = () => {
     },
   });
 };
+
+// ── Roles CRUD & assignment ──────────────────────────────────────
+
+export const useCreateRole = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (p: { name: string; description?: string | null }) => createRole(p),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: queryKeys.moduleAccess.roles() }),
+  });
+};
+
+export const useUpdateRole = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (p: { id: string } & RoleInput) => updateRole(p.id, { name: p.name, description: p.description }),
+    onSuccess:  () => {
+      qc.invalidateQueries({ queryKey: queryKeys.moduleAccess.roles() });
+      qc.invalidateQueries({ queryKey: ['module-access-matrix'] });
+    },
+  });
+};
+
+export const useDeleteRole = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteRole(id),
+    onSuccess:  () => {
+      qc.invalidateQueries({ queryKey: queryKeys.moduleAccess.roles() });
+      qc.invalidateQueries({ queryKey: ['module-access-matrix'] });
+      qc.invalidateQueries({ queryKey: ['module-access'] });
+    },
+  });
+};
+
+export const useAssignUserRole = () =>
+  useMutation({
+    mutationFn: (p: { userId: number; roleId: string }) => assignUserRole(p.userId, p.roleId),
+  });
+
+export const useRevokeUserRole = () =>
+  useMutation({
+    mutationFn: (p: { userId: number; roleId: string }) => revokeUserRole(p.userId, p.roleId),
+  });

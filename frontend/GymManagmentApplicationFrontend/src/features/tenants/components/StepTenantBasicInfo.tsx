@@ -15,6 +15,8 @@ interface Props {
   data: Partial<TenantPayload>;
   onChange: (fields: Partial<TenantPayload>) => void;
   errors?: TenantBasicInfoErrors;
+  /** Edit mode: the server does not allow changing a tenant's slug after creation. */
+  slugLocked?: boolean;
 }
 
 function Section({ title }: { title: string }) {
@@ -25,7 +27,7 @@ function Section({ title }: { title: string }) {
   );
 }
 
-export default function StepTenantBasicInfo({ data, onChange, errors = {} }: Props) {
+export default function StepTenantBasicInfo({ data, onChange, errors = {}, slugLocked = false }: Props) {
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -55,6 +57,7 @@ export default function StepTenantBasicInfo({ data, onChange, errors = {} }: Pro
         autoCapitalize="none"
         autoCorrect={false}
         error={errors.slug}
+        editable={!slugLocked}
       />
 
       <Section title="Branding" />

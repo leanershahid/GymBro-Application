@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -11,40 +10,40 @@ using GymManagmentApplication.Application.Auth.Responses;
 using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Domain.Enums;
 using GymManagmentApplication.Infrastructure.Data;
+using GymManagmentApplication.Infrastructure.Email;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace GymManagmentApplication.Application.Auth.Services;
 
-public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IAuthService
+public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db, IEmailSender email) : IAuthService
 {
     private readonly JwtSettings _jwt = jwtOptions.Value;
 
-    // In-memory stores for refresh/reset tokens and OTPs (stateless; replace with DB-backed if needed)
-    private static readonly ConcurrentDictionary<string, (ulong UserId, DateTime Expiry)> _refreshTokens = new();
-    private static readonly ConcurrentDictionary<string, (ulong UserId, DateTime Expiry)> _passwordResetTokens = new();
-    private static readonly ConcurrentDictionary<string, (string Otp, DateTime Expiry)> _otpStore = new();
+    // Sign-in lockout: this many wrong passwords in a row lock the account for LockoutFor.
+    private const int MaxFailedLogins = 5;
+    private static readonly TimeSpan LockoutFor = TimeSpan.FromMinutes(15);
+    private const int CodeValidMinutes = 15;
 
     public async Task<AuthResponse?> RegisterAsync(RegisterRequest request)
     {
-        // Resolve TenantId — fall back to the first (default) tenant if not provided.
-        // The tenant must exist and be active; you can only join a real gym.
-        var tenantId = request.TenantId != 0
-            ? request.TenantId
-            : (await db.Tenants.OrderBy(t => t.Id).Select(t => t.Id).FirstOrDefaultAsync());
-
-        var tenantActive = await db.Tenants.AnyAsync(t => t.Id == tenantId && (t.Status == TenantStatus.Active || t.Status == TenantStatus.Trial));
+        // Self-registration must name an active gym — never default into the platform tenant.
+        var tenantActive = request.TenantId != 0 && await db.Tenants.AnyAsync(t =>
+            t.Id == request.TenantId && (t.Status == TenantStatus.Active || t.Status == TenantStatus.Trial));
         if (!tenantActive)
             throw new ArgumentException("The selected gym does not exist or is not accepting registrations.");
 
         // Public self-registration always creates a 'client' account — the role is never
         // taken from the request body, since that would let anyone register as admin/trainer.
+        // The account stays Pending (cannot sign in) until the emailed code is verified.
         var user = await CreateUserAsync(new NewUser(
-            tenantId, BranchId: null, RoleNames.Client,
+            request.TenantId, BranchId: null, RoleNames.Client,
             request.Email, request.Password, request.FirstName, request.LastName, UserStatus.Pending));
+        if (user is null) return null;
 
-        return user is null ? null : GenerateTokens(user, RoleNames.Client);
+        await SendCodeAsync(user, AuthCodePurpose.EmailVerification);
+        return new AuthResponse { UserId = user.Id, TenantId = user.TenantId, Email = user.Email ?? string.Empty, Role = RoleNames.Client };
     }
 
     public async Task<User?> CreateUserAsync(NewUser spec)
@@ -88,7 +87,7 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
         return user;
     }
 
-    public async Task<AuthResponse?> LoginAsync(LoginRequest request)
+    public async Task<AuthResponse?> LoginAsync(LoginRequest request, SessionInfo? session = null)
     {
         // Find user by email only — don't join Role here,
         // a broken RoleId FK would cause Include to fail or return null
@@ -97,9 +96,23 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
                 u.Email != null &&
                 u.Email.ToLower() == request.Email.ToLower() &&
                 u.DeletedAt == null);
+        if (user is null) return null;
 
-        if (user is null || !PasswordHasher.Verify(request.Password, user.PasswordHash, out var needsRehash))
+        if (user.LockedUntil is { } until && until > DateTime.UtcNow)
+            throw new UnauthorizedAccessException(
+                $"Too many failed sign-in attempts. Try again in {Math.Ceiling((until - DateTime.UtcNow).TotalMinutes)} minute(s) or reset your password.");
+
+        if (!PasswordHasher.Verify(request.Password, user.PasswordHash, out var needsRehash))
+        {
+            user.FailedLoginCount++;
+            if (user.FailedLoginCount >= MaxFailedLogins)
+            {
+                user.LockedUntil = DateTime.UtcNow.Add(LockoutFor);
+                user.FailedLoginCount = 0;
+            }
+            await db.SaveChangesAsync();
             return null;
+        }
 
         await EnsureCanSignInAsync(user);
 
@@ -109,65 +122,69 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
         // Load role separately so a missing/0 RoleId doesn't block login
         var roleSlug = await ResolveRoleSlugAsync(user);
 
-        // Update last login
+        user.FailedLoginCount = 0;
+        user.LockedUntil = null;
         user.LastLoginAt = DateTime.UtcNow;
         user.LoginCount++;
         user.UpdatedAt = DateTime.UtcNow;
+        var tokens = await IssueTokensAsync(user, roleSlug, session);
         await db.SaveChangesAsync();
-
-        return GenerateTokens(user, roleSlug);
+        return tokens;
     }
 
-    public Task LogoutAsync(ulong userId)
+    /// <summary>Ends one device's session (its refresh token). The short-lived access token simply expires.</summary>
+    public async Task LogoutAsync(ulong userId, string? refreshToken)
     {
-        var keys = _refreshTokens.Where(kv => kv.Value.UserId == userId).Select(kv => kv.Key).ToList();
-        foreach (var k in keys) _refreshTokens.TryRemove(k, out _);
-        return Task.CompletedTask;
+        if (string.IsNullOrEmpty(refreshToken)) return;
+        var hash = Sha256(refreshToken);
+        await db.UserSessions.Where(s => s.UserId == userId && s.TokenHash == hash).ExecuteDeleteAsync();
     }
 
-    public async Task<AuthResponse?> RefreshAsync(string refreshToken)
+    /// <summary>Rotates the refresh token: the old one is consumed, a new pair is issued.</summary>
+    public async Task<AuthResponse?> RefreshAsync(string refreshToken, SessionInfo? session = null)
     {
-        if (!_refreshTokens.TryGetValue(refreshToken, out var entry) || entry.Expiry < DateTime.UtcNow)
-            return null;
+        if (string.IsNullOrEmpty(refreshToken)) return null;
+        var hash = Sha256(refreshToken);
+        var stored = await db.UserSessions.FirstOrDefaultAsync(s => s.TokenHash == hash);
+        if (stored is null) return null;
+        db.UserSessions.Remove(stored);
+        if (stored.ExpiresAt < DateTime.UtcNow) { await db.SaveChangesAsync(); return null; }
 
-        _refreshTokens.TryRemove(refreshToken, out _);
-
-        var user = await db.Users
-            .FirstOrDefaultAsync(u => u.Id == entry.UserId && u.DeletedAt == null);
-
-        if (user is null) return null;
+        var user = await db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == stored.UserId && u.DeletedAt == null);
+        if (user is null) { await db.SaveChangesAsync(); return null; }
 
         await EnsureCanSignInAsync(user);
-
         var roleSlug = await ResolveRoleSlugAsync(user);
-        return GenerateTokens(user, roleSlug);
+        var tokens = await IssueTokensAsync(user, roleSlug,
+            session ?? new SessionInfo(stored.IpAddress, stored.UserAgent, stored.DeviceType));
+        await db.SaveChangesAsync();
+        return tokens;
     }
 
     public async Task<bool> ForgotPasswordAsync(ForgotPasswordRequest request)
     {
-        var user = await db.Users
-            .FirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == request.Email.ToLower() && u.DeletedAt == null);
-        if (user is null) return false;
-
-        var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-        _passwordResetTokens[token] = (user.Id, DateTime.UtcNow.AddHours(1));
-        // In production: send token via email
+        var user = await FindByEmailAsync(request.Email);
+        // Always "succeeds" so the response never reveals whether an account exists.
+        if (user is null || user.Status is UserStatus.Suspended or UserStatus.Inactive) return true;
+        await SendCodeAsync(user, AuthCodePurpose.PasswordReset);
         return true;
     }
 
     public async Task<bool> ResetPasswordAsync(ResetPasswordRequest request)
     {
-        if (!_passwordResetTokens.TryGetValue(request.Token, out var entry) || entry.Expiry < DateTime.UtcNow)
-            return false;
-
-        var user = await db.Users.FindAsync(entry.UserId);
-        if (user is null) return false;
+        var user = await FindByEmailAsync(request.Email);
+        if (user is null || !await ConsumeCodeAsync(user.Id, AuthCodePurpose.PasswordReset, request.Code)) return false;
 
         user.PasswordHash = PasswordHasher.Hash(request.NewPassword);
+        user.FailedLoginCount = 0;
+        user.LockedUntil = null;
+        // Receiving the code proves the mailbox, so a pending self-registration is verified too.
+        user.EmailVerifiedAt ??= DateTime.UtcNow;
+        if (user.Status == UserStatus.Pending) user.Status = UserStatus.Active;
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
-
-        _passwordResetTokens.TryRemove(request.Token, out _);
+        await AuthSessions.RevokeAllAsync(db, user.Id); // sign out every device
         return true;
     }
 
@@ -179,6 +196,7 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
         user.PasswordHash = PasswordHasher.Hash(request.NewPassword);
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
+        await AuthSessions.RevokeAllAsync(db, user.Id); // every device, this one included, signs in again
         return true;
     }
 
@@ -208,30 +226,65 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
 
     public async Task<bool> VerifyEmailAsync(VerifyEmailRequest request)
     {
-        if (!_otpStore.TryGetValue(request.Email, out var entry) || entry.Expiry < DateTime.UtcNow || entry.Otp != request.Otp)
-            return false;
-
-        var user = await db.Users
-            .FirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == request.Email.ToLower() && u.DeletedAt == null);
-        if (user is null) return false;
+        var user = await FindByEmailAsync(request.Email);
+        if (user is null || !await ConsumeCodeAsync(user.Id, AuthCodePurpose.EmailVerification, request.Otp)) return false;
 
         user.EmailVerifiedAt = DateTime.UtcNow;
+        if (user.Status == UserStatus.Pending) user.Status = UserStatus.Active;
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
-
-        _otpStore.TryRemove(request.Email, out _);
         return true;
     }
 
     public async Task<bool> ResendOtpAsync(ResendOtpRequest request)
     {
-        var exists = await db.Users
-            .AnyAsync(u => u.Email != null && u.Email.ToLower() == request.Email.ToLower() && u.DeletedAt == null);
-        if (!exists) return false;
+        var user = await FindByEmailAsync(request.Email);
+        // Neutral result either way — never reveal whether the email is registered.
+        if (user is not null && user.EmailVerifiedAt is null)
+            await SendCodeAsync(user, AuthCodePurpose.EmailVerification);
+        return true;
+    }
 
-        var otp = Random.Shared.Next(100000, 999999).ToString();
-        _otpStore[request.Email] = (otp, DateTime.UtcNow.AddMinutes(10));
-        // In production: send via email/SMS based on request.Channel
+    private Task<User?> FindByEmailAsync(string email) =>
+        db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u =>
+            u.Email != null && u.Email.ToLower() == email.ToLower() && u.DeletedAt == null);
+
+    /// <summary>Replaces any open code for this purpose with a fresh one and emails it.</summary>
+    private async Task SendCodeAsync(User user, AuthCodePurpose purpose)
+    {
+        await db.AuthCodes.Where(c => c.UserId == user.Id && c.Purpose == purpose).ExecuteDeleteAsync();
+        var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+        db.AuthCodes.Add(new AuthCode
+        {
+            UserId = user.Id, Purpose = purpose, CodeHash = Sha256($"{user.Id}:{code}"),
+            ExpiresAt = DateTime.UtcNow.AddMinutes(CodeValidMinutes),
+        });
+        await db.SaveChangesAsync();
+
+        if (string.IsNullOrEmpty(user.Email)) return;
+        var (subject, heading, intro) = purpose == AuthCodePurpose.PasswordReset
+            ? ("Your GymBro password reset code", "Reset your password", "Use this code in the app to set a new password:")
+            : ("Verify your GymBro email", "Verify your email", "Use this code in the app to verify your email address:");
+        await email.SendAsync(user.Email, subject, EmailTemplates.Code(heading, intro, code, CodeValidMinutes));
+    }
+
+    /// <summary>True (and the code is marked used) if it matches; wrong guesses count against MaxAttempts.</summary>
+    private async Task<bool> ConsumeCodeAsync(ulong userId, AuthCodePurpose purpose, string code)
+    {
+        var row = await db.AuthCodes
+            .Where(c => c.UserId == userId && c.Purpose == purpose && c.UsedAt == null)
+            .OrderByDescending(c => c.CreatedAt).FirstOrDefaultAsync();
+        if (row is null || row.ExpiresAt < DateTime.UtcNow || row.Attempts >= AuthCode.MaxAttempts) return false;
+
+        var expected = Encoding.UTF8.GetBytes(row.CodeHash);
+        var actual = Encoding.UTF8.GetBytes(Sha256($"{userId}:{(code ?? string.Empty).Trim()}"));
+        if (!CryptographicOperations.FixedTimeEquals(expected, actual))
+        {
+            row.Attempts++;
+            await db.SaveChangesAsync();
+            return false;
+        }
+        row.UsedAt = DateTime.UtcNow; // saved together with the caller's changes
         return true;
     }
 
@@ -248,19 +301,14 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
         return slug ?? RoleNames.Client;
     }
 
-    /// <summary>Clears every refresh token of a user (role change, deactivation, deletion).</summary>
-    public static void RevokeRefreshTokens(ulong userId)
-    {
-        foreach (var k in _refreshTokens.Where(kv => kv.Value.UserId == userId).Select(kv => kv.Key).ToList())
-            _refreshTokens.TryRemove(k, out _);
-    }
-
     /// <summary>
     /// Suspended/deactivated accounts, and every account of a suspended or cancelled gym,
-    /// cannot sign in or refresh. (Pending = self-registered, not yet verified — still allowed.)
+    /// cannot sign in or refresh. Pending (self-registered) accounts must verify their email first.
     /// </summary>
     private async Task EnsureCanSignInAsync(User user)
     {
+        if (user.Status == UserStatus.Pending)
+            throw new UnauthorizedAccessException("Please verify your email first — enter the code we sent you.");
         if (user.Status is UserStatus.Suspended or UserStatus.Inactive)
             throw new UnauthorizedAccessException("This account has been deactivated. Please contact your gym.");
 
@@ -269,12 +317,24 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
             throw new UnauthorizedAccessException("This gym's account is not active. Please contact support.");
     }
 
-    private AuthResponse GenerateTokens(User user, string roleSlug)
+    private async Task<AuthResponse> IssueTokensAsync(User user, string roleSlug, SessionInfo? session)
     {
         var expiry = DateTime.UtcNow.AddMinutes(_jwt.AccessTokenExpiryMinutes);
         var accessToken = CreateJwt(user, roleSlug, expiry);
-        var refreshToken = GenerateRefreshToken();
-        _refreshTokens[refreshToken] = (user.Id, DateTime.UtcNow.AddDays(_jwt.RefreshTokenExpiryDays));
+        var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+
+        // Refresh tokens live in the database (hashed), so they survive restarts and work across instances.
+        await db.UserSessions.Where(s => s.UserId == user.Id && s.ExpiresAt < DateTime.UtcNow).ExecuteDeleteAsync();
+        db.UserSessions.Add(new UserSession
+        {
+            UserId     = user.Id,
+            TokenHash  = Sha256(refreshToken),
+            IpAddress  = Truncate(session?.IpAddress, 64),
+            UserAgent  = Truncate(session?.UserAgent, 255),
+            DeviceType = session?.DeviceType ?? DeviceType.Web,
+            ExpiresAt  = DateTime.UtcNow.AddDays(_jwt.RefreshTokenExpiryDays),
+        });
+
         return new AuthResponse
         {
             AccessToken  = accessToken,
@@ -288,6 +348,10 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
         };
     }
 
+    private static string? Truncate(string? v, int max) => v is null || v.Length <= max ? v : v[..max];
+
+    private static string Sha256(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
     private string CreateJwt(User user, string roleSlug, DateTime expiry)
     {
         var key   = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key));
@@ -298,6 +362,7 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
             new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
             new(ClaimTypes.Role,               roleSlug),
             new(CustomClaims.TenantId,         user.TenantId.ToString()),
+            new(CustomClaims.TokenVersion,     user.TokenVersion.ToString()),
             new(JwtRegisteredClaimNames.Jti,   Guid.NewGuid().ToString())
         };
         if (user.BranchId is { } branchId)
@@ -311,5 +376,4 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db) : IA
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    private static string GenerateRefreshToken() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 }

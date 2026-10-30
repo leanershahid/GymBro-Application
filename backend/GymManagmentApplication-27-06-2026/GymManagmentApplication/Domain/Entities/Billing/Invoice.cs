@@ -13,6 +13,10 @@ public class Invoice : BaseEntity
     public decimal Tax { get; set; }
     public decimal Discount { get; set; }
     public decimal Total { get; set; }
+    /// <summary>Sum of completed payments minus refunds.</summary>
+    public decimal AmountPaid { get; set; }
+    /// <summary>Line items: [{ description, unitPrice, quantity }].</summary>
+    public System.Text.Json.JsonDocument? Items { get; set; }
     public string Currency { get; set; } = "USD";
     public DateOnly? DueDate { get; set; }
     public DateTime? PaidAt { get; set; }

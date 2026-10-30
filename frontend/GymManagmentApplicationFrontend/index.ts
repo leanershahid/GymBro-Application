@@ -1,5 +1,8 @@
 import { registerRootComponent } from 'expo';
 import './global.css';
+import { installWebAlert } from './src/utils/webAlert';
+
+installWebAlert();
 
 import App from './App';
 

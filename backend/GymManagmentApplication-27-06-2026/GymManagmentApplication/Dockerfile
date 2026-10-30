@@ -10,4 +10,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 EXPOSE 8080
 COPY --from=build /app/publish .
+# Run as the image's unprivileged 'app' user; only the local-uploads folder needs to be writable.
+RUN mkdir -p /app/wwwroot/uploads && chown -R app:app /app/wwwroot
+USER app
 ENTRYPOINT ["dotnet", "GymManagmentApplication.dll"]

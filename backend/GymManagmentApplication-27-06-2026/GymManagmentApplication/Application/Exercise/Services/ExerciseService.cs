@@ -8,7 +8,8 @@ using Microsoft.AspNetCore.Http;
 
 namespace GymManagmentApplication.Application.Exercise.Services;
 
-public class ExerciseService(IExerciseRepository repository, ICurrentUser currentUser) : IExerciseService
+public class ExerciseService(IExerciseRepository repository, ICurrentUser currentUser,
+    GymManagmentApplication.Infrastructure.Storage.IFileStorage storage) : IExerciseService
 {
     public async Task<PagedResponse<ExerciseResponse>> GetAllAsync(ExerciseListRequest request)
     {
@@ -111,9 +112,12 @@ public class ExerciseService(IExerciseRepository repository, ICurrentUser curren
         var e = await repository.GetByIdAsync(id);
         if (e is null) return string.Empty;
         EnsureCanEdit(e);
-        var url = $"/uploads/exercises/{id}/{video.FileName}";
+        var url = await storage.SaveAsync(video, $"exercises/{id}/video",
+            GymManagmentApplication.Infrastructure.Storage.FileKind.Video);
+        var previous = e.VideoUrl;
         e.VideoUrl = url;
         await repository.UpdateAsync(e);
+        if (previous != url) await storage.DeleteAsync(previous);
         return url;
     }
 

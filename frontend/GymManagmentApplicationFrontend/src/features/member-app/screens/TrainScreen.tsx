@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { useMyWorkouts, useExerciseList, useBookmarkWorkout } from '../api/memberAppQueries';
+import { View, Text, ScrollView, Pressable } from 'react-native';
+import { Feather, Ionicons } from '@expo/vector-icons';
+import { useMyWorkouts, useExerciseList, useBookmarkWorkout, useMyTraining } from '../api/memberAppQueries';
+import { useIsBookmarked } from '../api/bookmarkStore';
+import { apiErrorText } from '../../../api/apiError';
+import { useToast } from '../../common/components/Toast';
+import { PlanTodayCard, AssignedWorkoutCard } from '../components/TrainingCards';
+import { activeTodayPlans, sortOpenWorkouts, isOpen } from '../components/trainingUtils';
 import { getDifficultyColor } from '../../common/constants/statusColors';
 import { T, R, withAlpha } from '../../../theme';
 import Screen from '../../common/components/Screen';
@@ -34,7 +39,6 @@ export default function TrainScreen({ userId, onOpenWorkout }: Props) {
   const { data: wPaged, isLoading: wLoad, isError: wErr, refetch: wRefetch } = useMyWorkouts(userId, wPage);
   const tagParam = exFilter !== 'All' ? exFilter.toLowerCase() : undefined;
   const { data: exPaged, isLoading: exLoad, isError: exErr, refetch: exRefetch } = useExerciseList(exPage, tagParam);
-  const { mutate: bookmark } = useBookmarkWorkout();
 
   const workouts    = wPaged?.items      ?? [];
   const wTotal      = wPaged?.totalPages ?? 1;
@@ -64,12 +68,15 @@ export default function TrainScreen({ userId, onOpenWorkout }: Props) {
       {/* ── Workouts tab ── */}
       {tab === 'workouts' && (
         <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
+          <AssignedSection userId={userId} onOpenWorkout={onOpenWorkout} />
+
+          <Text style={{ color: T.text, fontSize: 17, fontWeight: '700', marginBottom: 12 }}>Workout library</Text>
           {wLoad && <Skeleton rows={4} />}
           {wErr && (
             <EmptyState icon="wifi-off" tone="error" title="Failed to load" action={{ label: 'Retry', onPress: () => wRefetch() }} />
           )}
           {!wLoad && !wErr && workouts.length === 0 && (
-            <EmptyState icon="activity" title="No workouts assigned" subtitle="Ask your trainer to assign a workout." />
+            <EmptyState icon="activity" title="No workouts in the library" subtitle="Ask your trainer to add or assign a workout." />
           )}
           {!wLoad && !wErr && workouts.map(w => {
             return (
@@ -96,18 +103,7 @@ export default function TrainScreen({ userId, onOpenWorkout }: Props) {
                   {w.difficulty && <StatusPill label={w.difficulty} tone={difficultyTone(w.difficulty)} />}
                   {!!w.durationMin && <View style={{ backgroundColor: T.bgInputActive, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: T.line, flexDirection: 'row', alignItems: 'center', gap: 4 }}><Feather name="clock" size={10} color={T.textFaint} /><Text style={{ color: T.textSub, fontSize: 11 }}>{w.durationMin}min</Text></View>}
                 </View>
-                {/* Bookmark */}
-                <Pressable onPress={() => bookmark(w.id, {
-                  onSuccess: () => Alert.alert('✓', 'Bookmark toggled.'),
-                  onError: () => {},
-                })}
-                  hitSlop={12}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Save ${w.name}`}
-                  style={{ alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 32, paddingHorizontal: 4 }}>
-                  <Feather name="bookmark" size={14} color={T.textSub} />
-                  <Text style={{ color: T.textSub, fontSize: 12 }}>Save</Text>
-                </Pressable>
+                <BookmarkButton workoutId={w.id} name={w.name} />
               </Pressable>
             );
           })}
@@ -173,5 +169,68 @@ export default function TrainScreen({ userId, onOpenWorkout }: Props) {
         </>
       )}
     </Screen>
+  );
+}
+
+/** Toggle with filled/unfilled state; errors are toasted, not swallowed. */
+function BookmarkButton({ workoutId, name }: { workoutId: number; name: string }) {
+  const saved = useIsBookmarked(workoutId);
+  const toast = useToast();
+  const { mutate, isPending } = useBookmarkWorkout();
+  const onPress = () => mutate(workoutId, {
+    onSuccess: now => toast.show({ type: 'success', message: now ? `Saved ${name}.` : `Removed ${name} from saved.` }),
+    onError: e => toast.show({ type: 'error', message: apiErrorText(e) }),
+  });
+  return (
+    <Pressable onPress={onPress} disabled={isPending}
+      hitSlop={12}
+      accessibilityRole="button"
+      accessibilityLabel={saved ? `Remove ${name} from saved` : `Save ${name}`}
+      accessibilityState={{ selected: saved, busy: isPending }}
+      style={{ alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 32, paddingHorizontal: 4, opacity: isPending ? 0.6 : 1 }}>
+      <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={14} color={saved ? T.brand : T.textSub} />
+      <Text style={{ color: saved ? T.brand : T.textSub, fontSize: 12 }}>{saved ? 'Saved' : 'Save'}</Text>
+    </Pressable>
+  );
+}
+
+const ASSIGNED_PREVIEW = 3;
+
+/** "Assigned to you": today's plan cards, then open assigned workouts (soonest due first). */
+function AssignedSection({ userId, onOpenWorkout }: { userId: number; onOpenWorkout: (id: number) => void }) {
+  const { data, isLoading, isError, refetch } = useMyTraining(userId);
+  const [showAll, setShowAll] = useState(false);
+
+  if (isLoading) return <View style={{ marginBottom: 20 }}><Skeleton rows={2} height={72} borderRadius={R.xl} gap={10} /></View>;
+  if (isError) return (
+    <View style={{ marginBottom: 20 }}>
+      <EmptyState icon="wifi-off" tone="error" title="Couldn't load your assignments" action={{ label: 'Retry', onPress: () => refetch() }} />
+    </View>
+  );
+
+  const todays = activeTodayPlans(data?.plans ?? []);
+  const open = sortOpenWorkouts(data?.workouts ?? []);
+  const done = (data?.workouts ?? []).filter(w => !isOpen(w.status));
+  const list = showAll ? [...open, ...done] : open.slice(0, ASSIGNED_PREVIEW);
+  const hidden = open.length + done.length - list.length;
+  if (todays.length === 0 && open.length === 0 && done.length === 0) return null;
+
+  return (
+    <View style={{ marginBottom: 20 }}>
+      <Text style={{ color: T.text, fontSize: 17, fontWeight: '700', marginBottom: 12 }}>Assigned to you</Text>
+      {todays.map(p => <PlanTodayCard key={p.assignmentId} plan={p} onOpenWorkout={onOpenWorkout} />)}
+      {list.map(w => <AssignedWorkoutCard key={w.assignmentId} item={w} onOpenWorkout={onOpenWorkout} />)}
+      {open.length === 0 && !showAll && done.length > 0 && (
+        <Text style={{ color: T.textSub, fontSize: 13, marginBottom: 8 }}>You're all caught up on assigned workouts.</Text>
+      )}
+      {(hidden > 0 || showAll) && (
+        <Pressable onPress={() => setShowAll(v => !v)} hitSlop={8} accessibilityRole="button"
+          style={{ alignSelf: 'flex-start', minHeight: 32, justifyContent: 'center' }}>
+          <Text style={{ color: T.brand, fontSize: 13, fontWeight: '700' }}>
+            {showAll ? 'Show less' : `Show all (${hidden} more${done.length ? ', incl. completed' : ''})`}
+          </Text>
+        </Pressable>
+      )}
+    </View>
   );
 }

@@ -16,10 +16,10 @@ interface Props {
 }
 
 const PLANS: { label: string; value: TenantPlan; description: string }[] = [
-  { label: 'Starter',    value: TenantPlan.Starter,    description: 'Up to 2 branches, 100 members' },
-  { label: 'Basic',      value: TenantPlan.Basic,       description: 'Up to 5 branches, 500 members' },
-  { label: 'Pro',        value: TenantPlan.Pro,         description: 'Up to 20 branches, unlimited members' },
-  { label: 'Enterprise', value: TenantPlan.Enterprise,  description: 'Unlimited everything + SLA' },
+  { label: 'Starter',     value: TenantPlan.Starter,    description: 'Up to 2 branches, 100 members' },
+  { label: 'Pro',         value: TenantPlan.Pro,        description: 'Up to 20 branches, unlimited members' },
+  { label: 'Enterprise',  value: TenantPlan.Enterprise, description: 'Unlimited everything + SLA' },
+  { label: 'White Label', value: TenantPlan.WhiteLabel, description: 'Enterprise with your own branding and domain' },
 ];
 
 function Section({ title }: { title: string }) {

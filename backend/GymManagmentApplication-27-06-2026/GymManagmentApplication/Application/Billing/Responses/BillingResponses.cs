@@ -32,6 +32,10 @@ public class SubscriptionResponse
     public decimal Price { get; set; }
     public string Currency { get; set; } = default!;
     public DateTime CreatedAt { get; set; }
+    public string? MemberName { get; set; }
+    public bool AutoRenew { get; set; }
+    /// <summary>The invoice raised by this create/renew, if any.</summary>
+    public ulong? InvoiceId { get; set; }
 }
 
 public class SubscriptionUsageResponse
@@ -39,6 +43,8 @@ public class SubscriptionUsageResponse
     public ulong SubscriptionId { get; set; }
     public int ClassBookingsUsed { get; set; }
     public int PtSessionsUsed { get; set; }
+    /// <summary>Gym check-ins since the membership started.</summary>
+    public int Visits { get; set; }
     public int DaysActive { get; set; }
     public int DaysRemaining { get; set; }
 }
@@ -54,6 +60,12 @@ public class PaymentResponse
     public string? Description { get; set; }
     public string? GatewayRef { get; set; }
     public DateTime PaidAt { get; set; }
+    public ulong InvoiceId { get; set; }
+    public string? InvoiceNo { get; set; }
+    public string Method { get; set; } = default!;
+    public string? Reference { get; set; }
+    public decimal RefundedAmount { get; set; }
+    public string? MemberName { get; set; }
 }
 
 public class PaymentMethodResponse
@@ -90,6 +102,44 @@ public class InvoiceResponse
     public DateOnly? DueDate { get; set; }
     public DateTime IssuedAt { get; set; }
     public string? Notes { get; set; }
+    public string InvoiceNo { get; set; } = default!;
+    public decimal AmountPaid { get; set; }
+    public decimal Balance { get; set; }
+    public DateTime? PaidAt { get; set; }
+    public ulong? MembershipId { get; set; }
+    public string? MemberName { get; set; }
+    public List<InvoiceItemResponse> Items { get; set; } = [];
+}
+
+public class InvoiceItemResponse
+{
+    public string Description { get; set; } = default!;
+    public decimal UnitPrice { get; set; }
+    public int Quantity { get; set; }
+}
+
+public class GatewayStatusResponse
+{
+    public string Provider { get; set; } = "razorpay";
+    public bool Configured { get; set; }
+    public bool IsActive { get; set; }
+    /// <summary>Public key id (safe to show); the secret is never returned.</summary>
+    public string? KeyId { get; set; }
+}
+
+public class OnlineOrderResponse
+{
+    public string Provider { get; set; } = "razorpay";
+    public string KeyId { get; set; } = default!;
+    public string OrderId { get; set; } = default!;
+    public long AmountMinor { get; set; }
+    public string Currency { get; set; } = default!;
+    public ulong InvoiceId { get; set; }
+    public string InvoiceNo { get; set; } = default!;
+    public string? GymName { get; set; }
+    public string? MemberName { get; set; }
+    public string? MemberEmail { get; set; }
+    public string? MemberPhone { get; set; }
 }
 
 public class PricingRuleResponse

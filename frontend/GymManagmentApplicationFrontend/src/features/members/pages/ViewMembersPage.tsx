@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, FlatList, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useMembers, useDeleteMember, useSetMemberStatus } from '../api/memberQueries';
@@ -50,11 +50,14 @@ function ActionButton({
 }
 
 function MemberCard({
-  member, trainerName, onPress, onToggleStatus, onRemove, canEdit, canDelete,
+  member, trainerName, onPress, pressHint, onManageAccess, onToggleStatus, onRemove, canEdit, canDelete,
 }: {
   member: Member;
   trainerName?: string;
   onPress: () => void;
+  pressHint: string;
+  /** Secondary "Access" action, shown when the row itself opens the member's detail page. */
+  onManageAccess?: () => void;
   onToggleStatus: () => void;
   onRemove: () => void;
   canEdit: boolean;
@@ -74,7 +77,7 @@ function MemberCard({
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`${fullName}, ${member.status}`}
-        accessibilityHint="Opens access management for this member"
+        accessibilityHint={pressHint}
         style={{ flexDirection: 'row', alignItems: 'center' }}
       >
         {/* Avatar */}
@@ -146,18 +149,34 @@ function MemberCard({
           {canDelete && (
             <ActionButton icon="trash-2" label="Remove" tone={T.err} onPress={onRemove} />
           )}
+          {canEdit && onManageAccess && (
+            <ActionButton icon="shield" label="Access" tone={T.sky} onPress={onManageAccess} />
+          )}
         </View>
       )}
     </View>
   );
 }
 
-interface Props { onBack?: () => void; onAddMember?: () => void; }
+interface Props {
+  onBack?: () => void;
+  onAddMember?: () => void;
+  /** When given, tapping a member opens their detail page (access management stays as a secondary action). */
+  onOpenMember?: (id: number) => void;
+}
 
-export default function ViewMembersPage({ onBack, onAddMember }: Props) {
-  const [search, setSearch] = useState('');
+export default function ViewMembersPage({ onBack, onAddMember, onOpenMember }: Props) {
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');   // debounced value that drives the query
   const [page, setPage]     = useState(1);
   const [manageAccessFor, setManageAccessFor] = useState<Member | null>(null);
+
+  // Debounce typing so we don't fire a request per keystroke.
+  useEffect(() => {
+    if (searchInput === search) return;
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 350);
+    return () => clearTimeout(t);
+  }, [searchInput, search]);
 
   const { data: paged, isLoading, isError, isFetching, refetch } = useMembers(search, page, 20);
   const items      = paged?.items        ?? [];
@@ -253,8 +272,8 @@ export default function ViewMembersPage({ onBack, onAddMember }: Props) {
         {/* Search (+ background-refresh spinner) */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
           <SearchBar
-            value={search}
-            onChangeText={(v) => { setSearch(v); setPage(1); }}
+            value={searchInput}
+            onChangeText={setSearchInput}
             placeholder="Search by name or email…"
             label="Search members"
             style={{ flex: 1 }}
@@ -273,7 +292,9 @@ export default function ViewMembersPage({ onBack, onAddMember }: Props) {
           <MemberCard
             member={item}
             trainerName={item.trainerId ? trainerNames.get(item.trainerId) : undefined}
-            onPress={() => setManageAccessFor(item)}
+            onPress={() => (onOpenMember ? onOpenMember(item.id) : setManageAccessFor(item))}
+            pressHint={onOpenMember ? 'Opens this member’s details' : 'Opens access management for this member'}
+            onManageAccess={onOpenMember ? () => setManageAccessFor(item) : undefined}
             onToggleStatus={() => handleToggleStatus(item)}
             onRemove={() => handleRemove(item)}
             canEdit={canEditMembers}

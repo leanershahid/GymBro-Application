@@ -40,3 +40,8 @@ export interface BranchPayload {
 }
 
 export type BranchCreateResponse = ApiResponse<Branch>;
+
+// ─── Update branch (PUT /branches/{id}) ───────────────────────────
+// Code and tenant are fixed after creation; status has its own toggle on the list.
+export type BranchUpdatePayload = Omit<BranchPayload, 'tenantId' | 'code'>;
+export type BranchResponse = ApiResponse<Branch>;

@@ -1,3 +1,4 @@
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Exercise.Requests;
 using GymManagmentApplication.Infrastructure.Data;
 using ExerciseEntity = GymManagmentApplication.Domain.Entities.Training.Exercise;
@@ -26,8 +27,7 @@ public class ExerciseRepository(AppDbContext db) : IExerciseRepository
             .Include(e => e.ExerciseMuscles)
             .Include(e => e.ExerciseEquipments)
             .OrderBy(e => e.Name)
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
+            .Page(request.PageNumber, request.PageSize)
             .ToListAsync();
 
         return (items, total);

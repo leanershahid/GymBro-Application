@@ -18,7 +18,7 @@ public interface IAttendanceService
     Task<CheckInResultResponse> CheckInByLocationAsync(LocationCheckRequest request);
     Task<AttendanceRecordResponse?> CheckOutAsync(LocationCheckRequest? request);
     Task<List<AttendanceRecordResponse>> GetMyHistoryAsync(int days);
-    Task<PagedResponse<AttendanceRecordResponse>> GetAllAsync(DateOnly? date, ulong? branchId, int page, int size);
+    Task<PagedResponse<AttendanceRecordResponse>> GetAllAsync(DateOnly? date, ulong? branchId, int page, int size, ulong? userId = null);
     /// <summary>Records a biometric (face/fingerprint) entry as attendance when that method is enabled.</summary>
     Task RecordBiometricAsync(ulong userId, ulong branchId, AttendanceMethod method, string? device);
 }
@@ -157,6 +157,9 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
         if (open is not null)
             return new CheckInResultResponse { CheckedIn = true, Message = $"You're already checked in at {open.Branch.Name}.", Visit = Map(open) };
 
+        if (await MembershipBlockReasonAsync(Me) is { } blocked)
+            return new CheckInResultResponse { CheckedIn = false, Message = blocked };
+
         var candidates = (await BranchesAsync(settings, onlyActive: true))
             .Where(b => request.BranchId is null || b.BranchId == request.BranchId)
             .Select(b => (Branch: b, Distance: DistanceM(request.Lat, request.Lng, (double)b.Lat!.Value, (double)b.Lng!.Value)))
@@ -216,20 +219,22 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
         return rows.Select(Map).ToList();
     }
 
-    public async Task<PagedResponse<AttendanceRecordResponse>> GetAllAsync(DateOnly? date, ulong? branchId, int page, int size)
+    public async Task<PagedResponse<AttendanceRecordResponse>> GetAllAsync(DateOnly? date, ulong? branchId, int page, int size, ulong? userId = null)
     {
         page = Math.Max(1, page);
         size = Math.Clamp(size, 1, 100);
         var q = db.Attendances.Include(a => a.Branch).Include(a => a.User).AsQueryable(); // tenant-filtered
         if (date is { } d)
         {
-            var from = d.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+            // The date is a day in the gym's time zone.
+            var from = (await TenantClock.ForAsync(db, currentUser.TenantId)).StartOfDayUtc(d);
             q = q.Where(a => a.CheckInAt >= from && a.CheckInAt < from.AddDays(1));
         }
         if (branchId is { } b) q = q.Where(a => a.BranchId == b);
+        if (userId is { } u) q = q.Where(a => a.UserId == u);
 
         var total = await q.CountAsync();
-        var rows = await q.OrderByDescending(a => a.CheckInAt).Skip((page - 1) * size).Take(size).ToListAsync();
+        var rows = await q.OrderByDescending(a => a.CheckInAt).Page(page, size).ToListAsync();
         return new PagedResponse<AttendanceRecordResponse>
         {
             Items = rows.Select(Map), PageNumber = page, PageSize = size, TotalRecords = total,
@@ -247,6 +252,7 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
         // One open visit at a time: a second scan while inside is ignored.
         if (await db.Attendances.IgnoreQueryFilters().AnyAsync(a => a.UserId == userId && a.CheckOutAt == null))
             return;
+        if (await MembershipBlockReasonAsync(userId) is not null) return;
 
         db.Attendances.Add(new AttendanceEntity
         {
@@ -257,6 +263,8 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
+
+    private Task<string?> MembershipBlockReasonAsync(ulong userId) => MembershipRules.BlockReasonAsync(db, userId);
 
     private static void ValidateFix(LocationCheckRequest r, AttendanceSettings s)
     {

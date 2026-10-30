@@ -1,3 +1,4 @@
+using GymManagmentApplication.Infrastructure.Http;
 using System.Text;
 using FluentValidation;
 using GymManagmentApplication.Application.Auth;
@@ -136,6 +137,8 @@ builder.Services.AddControllers()
         // Blank optional form fields ("") arrive as null instead of failing the request;
         // numbers typed into text inputs ("12") are accepted too.
         o.JsonSerializerOptions.Converters.Add(new GymManagmentApplication.Infrastructure.Json.EmptyStringAsNullConverterFactory());
+        // Enums in request bodies by name or number (responses still write numbers).
+        o.JsonSerializerOptions.Converters.Add(new GymManagmentApplication.Infrastructure.Json.FlexibleEnumConverterFactory());
         o.JsonSerializerOptions.NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString;
     })
     .ConfigureApiBehaviorOptions(o =>
@@ -170,10 +173,34 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+// CORS: only the configured web front-ends (Cors:AllowedOrigins / Cors__AllowedOrigins__0 …).
+// Native apps send no Origin header, so they are unaffected.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+    options.AddPolicy("Frontend", policy => policy
+        .SetIsOriginAllowed(origin => allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)
+            || (builder.Environment.IsDevelopment() && Uri.TryCreate(origin, UriKind.Absolute, out var u) && u.IsLoopback))
+        .AllowAnyMethod().AllowAnyHeader());
 });
+
+// Behind Render's proxy: trust X-Forwarded-For/Proto so rate limits see the real client IP.
+builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
+    o.KnownNetworks.Clear();
+    o.KnownProxies.Clear();
+});
+builder.Services.AddAppRateLimits();
+
+// File storage — Supabase Storage when configured, local wwwroot/uploads otherwise.
+builder.Services.AddHttpClient();
+builder.Services.Configure<GymManagmentApplication.Infrastructure.Storage.StorageSettings>(builder.Configuration.GetSection("Storage"));
+builder.Services.AddScoped<GymManagmentApplication.Infrastructure.Storage.IFileStorage, GymManagmentApplication.Infrastructure.Storage.FileStorage>();
+
+// Email (SMTP) — codes for password reset / email verification, invoices.
+builder.Services.Configure<GymManagmentApplication.Infrastructure.Email.EmailSettings>(builder.Configuration.GetSection("Email"));
+builder.Services.AddScoped<GymManagmentApplication.Infrastructure.Email.IEmailSender, GymManagmentApplication.Infrastructure.Email.SmtpEmailSender>();
 // Validators
 builder.Services.AddValidatorsFromAssemblyContaining<LoginValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateTenantValidator>();
@@ -219,7 +246,20 @@ builder.Services.AddScoped<IWorkoutAutomationService, WorkoutAutomationService>(
 builder.Services.AddScoped<IModuleAccessService, ModuleAccessService>();
 builder.Services.AddScoped<IMembershipPlanService, MembershipPlanService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
-builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<PaymentService>();
+builder.Services.AddScoped<IPaymentService>(sp => sp.GetRequiredService<PaymentService>());
+builder.Services.AddScoped<BillingCore>();
+
+// Background housekeeping: membership expiry/auto-renewal, overdue invoices, reminders, cleanup.
+builder.Services.AddHostedService<GymManagmentApplication.Infrastructure.Jobs.DailyJobs>();
+builder.Services.AddScoped<IMyBillingService, MyBillingService>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Scheduling.ClassService>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Scheduling.PtService>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Workout.WorkoutStructureService>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Engagement.Notifier>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Engagement.EngagementService>();
+builder.Services.AddScoped<GymManagmentApplication.Infrastructure.Payments.RazorpayClient>();
+builder.Services.AddSingleton<GymManagmentApplication.Infrastructure.Security.ISecretProtector, GymManagmentApplication.Infrastructure.Security.SecretProtector>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IPricingService, PricingService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
@@ -255,14 +295,21 @@ using (var scope = app.Services.CreateScope())
     await DbSeeder.SeedAsync(db);
 }
 
+app.UseForwardedHeaders();
 app.UseMiddleware<ExceptionMiddleware>();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+// API docs only in Development, or when explicitly enabled (Swagger__Enabled=true).
+if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger:Enabled"))
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
-app.UseCors("AllowAll");
+app.UseStaticFiles(); // local uploads (wwwroot/uploads) when Supabase Storage isn't configured
+app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();

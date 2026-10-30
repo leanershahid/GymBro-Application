@@ -48,6 +48,7 @@ interface ProfileSheetProps {
   roleLabel: string;
   onLogout?: () => void;
   onViewMore?: () => void;
+  onChangePassword?: () => void;
 }
 
 /** Admin's own profile, opened from the dashboard header avatar. */
@@ -60,6 +61,7 @@ export default function ProfileSheet({
   roleLabel,
   onLogout,
   onViewMore,
+  onChangePassword,
 }: ProfileSheetProps) {
   const fullName = profile ? `${profile.firstName} ${profile.lastName}`.trim() : '';
 
@@ -149,6 +151,29 @@ export default function ProfileSheet({
               >
                 <Text style={{ color: T.brand, fontSize: 14, fontWeight: '700' }}>View more details</Text>
                 <Feather name="arrow-right" size={16} color={T.brand} />
+              </Pressable>
+            )}
+
+            {onChangePassword && (
+              <Pressable
+                onPress={onChangePassword}
+                accessibilityRole="button"
+                accessibilityLabel="Change password"
+                style={({ pressed }) => ({
+                  marginTop: SP.md,
+                  height: 48,
+                  borderRadius: R.pill,
+                  borderWidth: 1,
+                  borderColor: T.line,
+                  backgroundColor: pressed ? T.bgInputActive : T.bgInput,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 8,
+                })}
+              >
+                <Feather name="lock" size={16} color={T.text} />
+                <Text style={{ color: T.text, fontSize: 14, fontWeight: '700' }}>Change password</Text>
               </Pressable>
             )}
 

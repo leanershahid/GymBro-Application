@@ -17,10 +17,10 @@ public interface IMembershipPlanService
 
 public interface ISubscriptionService
 {
-    Task<PagedResponse<SubscriptionResponse>> GetAllAsync(ulong tenantId, int page, int size);
+    Task<PagedResponse<SubscriptionResponse>> GetAllAsync(ulong tenantId, int page, int size, ulong? memberId = null);
     Task<SubscriptionResponse> CreateAsync(CreateSubscriptionRequest request);
     Task<SubscriptionResponse?> GetByIdAsync(ulong id);
-    Task<SubscriptionResponse?> RenewAsync(ulong id);
+    Task<SubscriptionResponse?> RenewAsync(ulong id, RenewSubscriptionRequest? request = null);
     Task<SubscriptionResponse?> UpgradeAsync(ulong id, UpgradeDowngradeRequest request);
     Task<SubscriptionResponse?> DowngradeAsync(ulong id, UpgradeDowngradeRequest request);
     Task<SubscriptionResponse?> FreezeAsync(ulong id, FreezeSubscriptionRequest request);
@@ -38,8 +38,12 @@ public interface IPaymentService
     Task<PaymentMethodResponse> SaveMethodAsync(SavePaymentMethodRequest request);
     Task<List<PaymentMethodResponse>> GetMethodsAsync(ulong memberId);
     Task<bool> RemoveMethodAsync(ulong methodId);
-    Task<PaymentIntentResponse> CreateIntentAsync(CreatePaymentIntentRequest request);
+    Task<OnlineOrderResponse> CreateIntentAsync(CreatePaymentIntentRequest request);
+    Task<PaymentResponse> VerifyOnlineAsync(VerifyOnlinePaymentRequest request);
     Task<bool> SendReminderAsync(PaymentReminderRequest request);
+    Task<GatewayStatusResponse> GetGatewayAsync();
+    Task<GatewayStatusResponse> SaveGatewayAsync(SaveGatewayRequest request);
+    Task<bool> RemoveGatewayAsync();
 }
 
 public interface IInvoiceService
@@ -49,7 +53,7 @@ public interface IInvoiceService
     Task<InvoiceResponse?> GetByIdAsync(ulong id);
     Task<byte[]?> GetPdfAsync(ulong id);
     Task<bool> SendAsync(ulong id, SendInvoiceRequest request);
-    Task<InvoiceResponse?> MarkPaidAsync(ulong id);
+    Task<InvoiceResponse?> MarkPaidAsync(ulong id, MarkInvoicePaidRequest? request = null);
 }
 
 public interface IPricingService
@@ -62,4 +66,16 @@ public interface IPricingService
     Task<List<DiscountResponse>> GetDiscountsAsync(ulong tenantId);
     Task<DiscountResponse> CreateDiscountAsync(CreateDiscountRequest request);
     Task<ValidateDiscountResponse> ValidateDiscountAsync(ValidateDiscountRequest request);
+}
+
+/// <summary>The signed-in member's own billing (member app).</summary>
+public interface IMyBillingService
+{
+    Task<List<SubscriptionResponse>> GetMyMembershipsAsync();
+    Task<List<InvoiceResponse>> GetMyInvoicesAsync();
+    Task<List<PaymentResponse>> GetMyPaymentsAsync();
+    Task<byte[]?> GetMyInvoicePdfAsync(ulong invoiceId);
+    Task<OnlineOrderResponse> StartOnlinePaymentAsync(ulong invoiceId);
+    Task<PaymentResponse> VerifyOnlinePaymentAsync(VerifyOnlinePaymentRequest request);
+    Task<bool> OnlinePaymentsEnabledAsync();
 }

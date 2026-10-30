@@ -4,6 +4,7 @@ import {
   MemberProfile, TimelineEvent, MemberDocument,
   WorkoutDetail, WorkoutCompletePayload,
   HealthToday, ActiveChallenge, AssignedTrainer,
+  WorkoutStructure, PlanSchedule, MyTraining,
   ApiResponse, PaginatedData,
 } from '../types/member-app.types';
 
@@ -55,6 +56,7 @@ export const completeWorkout = async (
   return data;
 };
 
+/** Toggles the bookmark. Today the API answers `data: null` ("Bookmark toggled.") — no new state. */
 export const bookmarkWorkout = async (workoutId: number): Promise<ApiResponse<unknown>> => {
   const { data } = await axiosInstance.post<ApiResponse<unknown>>(`${ENDPOINTS.WORKOUTS}/${workoutId}/bookmark`);
   return data;
@@ -99,5 +101,22 @@ export const fetchActiveChallenges = async (): Promise<ApiResponse<ActiveChallen
 // ─── Assigned trainer (name for the profile chip) ──────────────────
 export const fetchAssignedTrainer = async (trainerId: number): Promise<ApiResponse<AssignedTrainer>> => {
   const { data } = await axiosInstance.get<ApiResponse<AssignedTrainer>>(`${ENDPOINTS.TRAINERS}/${trainerId}`);
+  return data;
+};
+
+// ─── Training structure / schedule / assignments ───────────────────
+export const fetchWorkoutStructure = async (id: number): Promise<ApiResponse<WorkoutStructure>> => {
+  const { data } = await axiosInstance.get<ApiResponse<WorkoutStructure>>(`${ENDPOINTS.WORKOUTS}/${id}/structure`);
+  return data;
+};
+
+export const fetchPlanSchedule = async (id: number): Promise<ApiResponse<PlanSchedule>> => {
+  const { data } = await axiosInstance.get<ApiResponse<PlanSchedule>>(`${ENDPOINTS.PLANS}/${id}/schedule`);
+  return data;
+};
+
+/** The signed-in member's assigned workouts and plans (with today's workout). */
+export const fetchMyTraining = async (): Promise<ApiResponse<MyTraining>> => {
+  const { data } = await axiosInstance.get<ApiResponse<MyTraining>>('/me/training');
   return data;
 };

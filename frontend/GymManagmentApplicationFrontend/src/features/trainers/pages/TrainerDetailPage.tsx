@@ -83,9 +83,11 @@ function Chip({ label }: { label: string }) {
 interface Props {
   trainer: TrainerSummary;
   onBack: () => void;
+  /** When provided, an Edit action is shown in the header. */
+  onEdit?: () => void;
 }
 
-export default function TrainerDetailPage({ trainer: summary, onBack }: Props) {
+export default function TrainerDetailPage({ trainer: summary, onBack, onEdit }: Props) {
   const [tab, setTab] = useState<Tab>('details');
   const { data: trainer, isLoading, isError, refetch } = useTrainer(summary.id);
 
@@ -94,7 +96,12 @@ export default function TrainerDetailPage({ trainer: summary, onBack }: Props) {
 
   return (
     <Screen>
-      <ScreenHeader eyebrow="Trainer" title={fullName} onBack={onBack} />
+      <ScreenHeader
+        eyebrow="Trainer"
+        title={fullName}
+        onBack={onBack}
+        action={onEdit ? { label: 'Edit', icon: 'edit-2', onPress: onEdit } : undefined}
+      />
 
       <View style={{ paddingHorizontal: SP.xl, paddingBottom: SP.md }}>
         <SegmentedTabs<Tab>

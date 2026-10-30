@@ -16,6 +16,8 @@ interface Props {
   data: Partial<BranchPayload>;
   onChange: (fields: Partial<BranchPayload>) => void;
   errors?: BranchBasicInfoErrors;
+  /** Edit mode: the server does not allow changing a branch's code after creation. */
+  codeLocked?: boolean;
 }
 
 function Section({ title }: { title: string }) {
@@ -26,7 +28,7 @@ function Section({ title }: { title: string }) {
   );
 }
 
-export default function StepBranchBasicInfo({ data, onChange, errors = {} }: Props) {
+export default function StepBranchBasicInfo({ data, onChange, errors = {}, codeLocked = false }: Props) {
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -55,6 +57,7 @@ export default function StepBranchBasicInfo({ data, onChange, errors = {} }: Pro
         placeholder="e.g. DT-001"
         autoCapitalize="characters"
         error={errors.code}
+        editable={!codeLocked}
       />
 
       <Section title="Contact" />

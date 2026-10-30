@@ -13,6 +13,7 @@ import EmptyState from '../../dashboard/components/EmptyState';
 import StatsStrip from '../../common/StatsStrip';
 import Skeleton from '../../common/components/Skeleton';
 import TrainerDetailPage from './TrainerDetailPage';
+import EditTrainerPage from './EditTrainerPage';
 import { useToast } from '../../common/components/Toast';
 import { useRoleModuleAccess } from '../../module-access/hooks/useRoleModuleAccess';
 
@@ -215,14 +216,17 @@ function TrainerCard({
 interface ViewTrainersPageProps {
   onBack?: () => void;
   onAddTrainer?: () => void;
+  /** Optional: let the parent route to a trainer instead of this page's built-in detail view. */
+  onOpenTrainer?: (id: number) => void;
 }
 
 const PAGE_SIZE = 20;
 
-export default function ViewTrainersPage({ onBack, onAddTrainer }: ViewTrainersPageProps) {
+export default function ViewTrainersPage({ onBack, onAddTrainer, onOpenTrainer }: ViewTrainersPageProps) {
   const [search, setSearch]   = useState('');
   const [page, setPage]       = useState(1);
   const [selectedTrainer, setSelectedTrainer] = useState<TrainerSummary | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const { data: paged, isLoading, isError, isFetching, refetch } = useTrainers(page, PAGE_SIZE);
   const { mutate: setStatus } = useSetTrainerStatus();
@@ -232,11 +236,21 @@ export default function ViewTrainersPage({ onBack, onAddTrainer }: ViewTrainersP
   const canEditTrainers = trainersAccess.canEdit;
   const canDeleteTrainers = trainersAccess.canDelete;
 
+  if (selectedTrainer && editing) {
+    return (
+      <EditTrainerPage
+        trainerId={selectedTrainer.id}
+        onBack={() => setEditing(false)}
+      />
+    );
+  }
+
   if (selectedTrainer) {
     return (
       <TrainerDetailPage
         trainer={selectedTrainer}
         onBack={() => setSelectedTrainer(null)}
+        onEdit={canEditTrainers ? () => setEditing(true) : undefined}
       />
     );
   }
@@ -287,6 +301,7 @@ export default function ViewTrainersPage({ onBack, onAddTrainer }: ViewTrainersP
   const totalRecords = paged?.totalRecords;
   const totalPages   = paged?.totalPages   ?? 1;
 
+  // GET /api/trainers only takes pageNumber/pageSize (no search param), so search filters the loaded page.
   const filtered = items.filter((t) =>
     search.trim() === '' ||
     t.displayName.toLowerCase().includes(search.toLowerCase()) ||
@@ -352,7 +367,7 @@ export default function ViewTrainersPage({ onBack, onAddTrainer }: ViewTrainersP
         renderItem={({ item }) => (
           <TrainerCard
             trainer={item}
-            onPress={() => setSelectedTrainer(item)}
+            onPress={() => (onOpenTrainer ? onOpenTrainer(item.id) : setSelectedTrainer(item))}
             onToggleStatus={() => handleToggleStatus(item)}
             onRemove={() => handleRemove(item)}
             canEdit={canEditTrainers}

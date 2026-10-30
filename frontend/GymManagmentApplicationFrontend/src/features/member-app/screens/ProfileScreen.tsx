@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, Pressable,
-  Platform, Alert, Image, TouchableOpacity, KeyboardAvoidingView,
+  Platform, Alert, Image, TouchableOpacity, KeyboardAvoidingView, ActivityIndicator,
 } from 'react-native';
 
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useMyProfile, useMyTimeline, useUpdateProfile, useAssignedTrainer } from '../api/memberAppQueries';
+import { useMyProfile, useMyTimeline, useUpdateProfile, useUploadPhoto, useAssignedTrainer } from '../api/memberAppQueries';
 import { T, withAlpha } from '../../../theme';
 import Screen from '../../common/components/Screen';
 import SegmentedTabs from '../../common/components/SegmentedTabs';
@@ -15,8 +15,11 @@ import LoadingState from '../../common/components/LoadingState';
 import StatusPill from '../../common/components/StatusPill';
 import EmptyState from '../../dashboard/components/EmptyState';
 import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
+import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
+import { PickedFile } from '../../../api/upload';
+import { apiErrorText } from '../../../api/apiError';
 
-function AvatarPicker({ uri, initials, onPick }: { uri?: string | null; initials: string; onPick: (u: string) => void }) {
+function AvatarPicker({ uri, initials, onPick, uploading }: { uri?: string | null; initials: string; onPick: (f: PickedFile) => void; uploading?: boolean }) {
   const pick = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -29,12 +32,14 @@ function AvatarPicker({ uri, initials, onPick }: { uri?: string | null; initials
       aspect: [1, 1],
       quality: 0.8,
     });
-    if (!result.canceled && result.assets[0]?.uri) onPick(result.assets[0].uri);
+    const asset = result.canceled ? undefined : result.assets[0];
+    if (asset?.uri) onPick({ uri: asset.uri, mimeType: asset.mimeType, fileName: asset.fileName });
   };
 
   return (
-    <TouchableOpacity onPress={pick} activeOpacity={0.8}
+    <TouchableOpacity onPress={pick} activeOpacity={0.8} disabled={uploading}
       accessibilityRole="button"
+      accessibilityState={{ busy: !!uploading }}
       accessibilityLabel="Change profile photo"
       style={{ alignItems: 'center', marginBottom: 12 }}>
       {uri ? (
@@ -47,6 +52,11 @@ function AvatarPicker({ uri, initials, onPick }: { uri?: string | null; initials
           {initials
             ? <Text style={{ color: T.brand, fontSize: 28, fontWeight: '800' }}>{initials}</Text>
             : <Feather name="user" size={32} color={T.brand} />}
+        </View>
+      )}
+      {uploading && (
+        <View style={{ position: 'absolute', top: 0, width: 88, height: 88, borderRadius: 44, backgroundColor: withAlpha(T.black, 0.55), alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={T.brand} />
         </View>
       )}
       {/* camera badge */}
@@ -78,13 +88,16 @@ function TimelineRow({ event }: { event: { eventType: string; description: strin
   );
 }
 
-interface Props { userId: number; onLogout: () => void; }
+interface Props { userId: number; onLogout: () => void; onOpenBilling?: () => void; }
 
-export default function ProfileScreen({ userId, onLogout }: Props) {
+export default function ProfileScreen({ userId, onLogout, onOpenBilling }: Props) {
   const { data: profile, isLoading } = useMyProfile(userId);
   const { data: timeline = [] }      = useMyTimeline(userId);
   const { mutate: update, isPending } = useUpdateProfile(userId);
+  const { mutate: uploadPhoto, isPending: uploading } = useUploadPhoto(userId);
   const { data: trainer }            = useAssignedTrainer(profile?.trainerId);
+
+  const [pwOpen, setPwOpen] = useState(false);
 
   const [firstName, setFirstName] = useState('');
   const [lastName,  setLastName]  = useState('');
@@ -101,6 +114,19 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
       setAvatarUri(profile.avatarUrl ?? null);
     }
   }, [profile]);
+
+  // Photos upload as soon as they're picked; the preview shows the local file meanwhile.
+  const handlePhoto = (file: PickedFile) => {
+    const previous = avatarUri;
+    setAvatarUri(file.uri);
+    uploadPhoto(file, {
+      onSuccess: res => {
+        if (res.success && res.data?.url) setAvatarUri(res.data.url);
+        else { setAvatarUri(previous); Alert.alert('Photo not saved', res.message ?? 'Upload failed.'); }
+      },
+      onError: e => { setAvatarUri(previous); Alert.alert('Photo not saved', apiErrorText(e)); },
+    });
+  };
 
   const handleSave = () => {
     update({ firstName: firstName.trim(), lastName: lastName.trim(), phone: phone || undefined }, {
@@ -130,7 +156,8 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
           <AvatarPicker
             uri={avatarUri}
             initials={initials}
-            onPick={(uri) => setAvatarUri(uri)}
+            onPick={handlePhoto}
+            uploading={uploading}
           />
           <Text numberOfLines={1} style={{ color: T.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }}>
             {profile?.firstName} {profile?.lastName}
@@ -208,12 +235,30 @@ export default function ProfileScreen({ userId, onLogout }: Props) {
               </View>
             )}
 
+            {onOpenBilling && (
+              <PrimaryButton
+                label="Membership & payments"
+                icon="credit-card"
+                variant="secondary"
+                style={{ marginTop: 24 }}
+                onPress={onOpenBilling}
+              />
+            )}
+            <PrimaryButton
+              label="Change password"
+              icon="lock"
+              variant="secondary"
+              style={{ marginTop: onOpenBilling ? 12 : 24 }}
+              onPress={() => setPwOpen(true)}
+            />
+            <ChangePasswordSheet visible={pwOpen} onClose={() => setPwOpen(false)} onChanged={onLogout} />
+
             {/* Logout */}
             <PrimaryButton
               label="Sign Out"
               icon="log-out"
               variant="danger"
-              style={{ marginTop: 24 }}
+              style={{ marginTop: 12 }}
               onPress={() => Alert.alert('Sign out', 'Are you sure?', [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Sign out', style: 'destructive', onPress: onLogout },

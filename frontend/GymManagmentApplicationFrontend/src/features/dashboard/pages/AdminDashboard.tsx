@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, RefreshControl } from 'react-native';
+import { View, ScrollView, RefreshControl, Alert } from 'react-native';
+import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
 import { Feather } from '@expo/vector-icons';
 import { T, SP, R } from '../../../theme';
 import { useLayout } from '../../../utils/useLayout';
@@ -50,18 +51,35 @@ import LiveCoachingAdminPage  from '../../trainers/pages/LiveCoachingAdminPage';
 import AiCoachSettingsPage    from '../../ai-coach/pages/AiCoachSettingsPage';
 import AttendanceSettingsPage from '../../attendance/pages/AttendanceSettingsPage';
 import AttendanceLogPage      from '../../attendance/pages/AttendanceLogPage';
+import MemberDetailPage  from '../../members/pages/MemberDetailPage';
+import EditMemberPage    from '../../members/pages/EditMemberPage';
+import EditBranchPage    from '../../branches/pages/EditBranchPage';
+import EditTenantPage    from '../../tenants/pages/EditTenantPage';
+import AddExercisePage   from '../../exercises/pages/AddExercisePage';
+import AddWorkoutPage    from '../../workouts/pages/AddWorkoutPage';
+import AddPlanPage       from '../../workouts/pages/AddPlanPage';
+import AddLeadPage       from '../../leads/pages/AddLeadPage';
+import RolesPage         from '../../module-access/pages/RolesPage';
+import BillingHomePage   from '../../billing/pages/BillingHomePage';
+import NewInvoicePage    from '../../billing/pages/NewInvoicePage';
+import NewMembershipPage from '../../billing/pages/NewMembershipPage';
+import ClassSchedulePage from '../../classes/pages/ClassSchedulePage';
+import PtSessionsPage    from '../../classes/pages/PtSessionsPage';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 type Screen =
   | 'home' | 'module-hub'
-  | 'members' | 'add-member'
+  | 'members' | 'add-member' | 'member-detail' | 'edit-member'
   | 'trainers' | 'add-trainer'
-  | 'branches' | 'add-branch'
-  | 'tenants'  | 'add-tenant'
-  | 'leads'
-  | 'exercises'
-  | 'workouts'
-  | 'plans'
+  | 'branches' | 'add-branch' | 'edit-branch'
+  | 'tenants'  | 'add-tenant' | 'edit-tenant'
+  | 'leads'    | 'add-lead'
+  | 'exercises' | 'add-exercise'
+  | 'workouts'  | 'add-workout'
+  | 'plans'     | 'add-plan'
+  | 'roles'
+  | 'billing' | 'new-invoice' | 'new-membership'
+  | 'classes' | 'pt-sessions'
   | 'module-access'
   | 'user-access'
   | 'challenges-admin'
@@ -122,7 +140,7 @@ function buildTodayItems({ stats, branches, recentMembers }: DashboardData, go: 
     badge: `${stats.membersPresent} of ${stats.totalMembers}`,
     title: 'Members checked in',
     subtitle: stats.membersPresent === 0 ? 'No one on the floor now' : 'On the floor now',
-    onPress: () => go('members'),
+    onPress: () => go('attendance-log'),
   });
 
   return items;
@@ -168,7 +186,14 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
   const { data: me, isLoading: meLoading, isError: meError } = useMe();
   const displayName = me ? `${me.firstName} ${me.lastName}`.trim() || adminName : adminName;
   const [profileOpen, setProfileOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
+  const confirmLogout = onLogout && (() => Alert.alert('Log out', 'Are you sure you want to log out?', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Log out', style: 'destructive', onPress: onLogout },
+  ]));
   const [screen, setScreen] = useState<Screen>('home');
+  // Record the current detail/edit screen is about (member, branch, tenant, role).
+  const [selectedId, setSelectedId] = useState<number>(0);
   const activeTab = tabForScreen(screen);
   const { tileW } = useLayout();
   const kpiW = tileW(2, 12);
@@ -182,6 +207,13 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
   const tenants  = useRoleModuleAccess('tenants');
   const attendance = useRoleModuleAccess('attendance');
   const leads    = useRoleModuleAccess('leads');
+  const exercises = useRoleModuleAccess('exercises');
+  const workouts  = useRoleModuleAccess('workouts');
+  const plans     = useRoleModuleAccess('plans');
+  const roles     = useRoleModuleAccess('roles');
+  const billingAccess = useRoleModuleAccess('billing');
+  const classesAccess = useRoleModuleAccess('classes');
+  const ptAccess      = useRoleModuleAccess('pt-sessions');
   const canViewMembers  = members.canView;
   const canViewTrainers = trainers.canView;
   const canViewBranches = branches.canView;
@@ -194,6 +226,7 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
   const canViewLeads    = leads.canView;
 
   const go = useCallback((s: Screen) => setScreen(s), []);
+  const open = useCallback((s: Screen, id: number) => { setSelectedId(id); setScreen(s); }, []);
   const goHome = useCallback(() => setScreen('home'), []);
 
   const handleTab = useCallback((key: string) => {
@@ -208,8 +241,16 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
   const subPage = (() => {
     if (screen === 'module-hub')  return <AdminModuleDevelopmentDashboard onBack={goHome} onNavigate={(k) => go(k as Screen)} stats={data?.stats} />;
     if (screen === 'members') return canViewMembers
-      ? <ViewMembersPage onBack={goHome} onAddMember={canAddMember ? () => go('add-member') : undefined} />
+      ? <ViewMembersPage onBack={goHome} onAddMember={canAddMember ? () => go('add-member') : undefined} onOpenMember={(id) => open('member-detail', id)} />
       : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'member-detail') return canViewMembers
+      ? <MemberDetailPage memberId={selectedId} onBack={() => go('members')} canEdit={members.canEdit}
+          onEdit={members.canEdit ? () => go('edit-member') : undefined}
+          onNewMembership={billingAccess.canCreate ? () => go('new-membership') : undefined} />
+      : <NoModuleAccess onBack={() => go('members')} />;
+    if (screen === 'edit-member') return members.canEdit
+      ? <EditMemberPage memberId={selectedId} onBack={() => go('member-detail')} onSaved={() => go('member-detail')} />
+      : <NoModuleAccess onBack={() => go('member-detail')} />;
     if (screen === 'add-member') return canAddMember
       ? <AddMemberPage onBack={() => go('members')} />
       : <NoModuleAccess onBack={() => go('members')} />;
@@ -220,24 +261,72 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
       ? <AddTrainerPage onBack={() => go('trainers')} />
       : <NoModuleAccess onBack={() => go('trainers')} />;
     if (screen === 'branches') return canViewBranches
-      ? <ViewBranchesPage onBack={goHome} onAddBranch={canAddBranch ? () => go('add-branch') : undefined} />
+      ? <ViewBranchesPage onBack={goHome} onAddBranch={canAddBranch ? () => go('add-branch') : undefined}
+          onEditBranch={branches.canEdit ? (id) => open('edit-branch', id) : undefined} />
       : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'edit-branch') return branches.canEdit
+      ? <EditBranchPage branchId={selectedId} onBack={() => go('branches')} onSaved={() => go('branches')} />
+      : <NoModuleAccess onBack={() => go('branches')} />;
     if (screen === 'add-branch') return canAddBranch
       ? <AddBranchPage onBack={() => go('branches')} />
       : <NoModuleAccess onBack={() => go('branches')} />;
     if (screen === 'tenants') return canViewTenants
-      ? <ViewTenantsPage onBack={goHome} onAddTenant={canAddTenant ? () => go('add-tenant') : undefined} />
+      ? <ViewTenantsPage onBack={goHome} onAddTenant={canAddTenant ? () => go('add-tenant') : undefined}
+          onEditTenant={tenants.canEdit ? (id) => open('edit-tenant', id) : undefined} />
       : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'edit-tenant') return tenants.canEdit
+      ? <EditTenantPage tenantId={selectedId} onBack={() => go('tenants')} onSaved={() => go('tenants')} />
+      : <NoModuleAccess onBack={() => go('tenants')} />;
     if (screen === 'add-tenant') return canAddTenant
       ? <AddTenantPage onBack={() => go('tenants')} />
       : <NoModuleAccess onBack={() => go('tenants')} />;
     if (screen === 'leads') return canViewLeads
-      ? <ViewLeadsPage onBack={goHome} />
+      ? <ViewLeadsPage onBack={goHome} onAddLead={leads.canCreate ? () => go('add-lead') : undefined} />
       : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'exercises')   return <ViewExercisesPage onBack={goHome} />;
-    if (screen === 'workouts')    return <ViewWorkoutsPage  onBack={goHome} />;
-    if (screen === 'plans')       return <ViewPlansPage     onBack={goHome} />;
-    if (screen === 'module-access') return <ModuleAccessPage  onBack={goHome} />;
+    if (screen === 'add-lead') return leads.canCreate
+      ? <AddLeadPage onBack={() => go('leads')} />
+      : <NoModuleAccess onBack={() => go('leads')} />;
+    // Exercises/workouts/plans are gated here too, not only by hiding their tiles.
+    if (screen === 'exercises') return exercises.canView
+      ? <ViewExercisesPage onBack={goHome} onAddExercise={exercises.canCreate ? () => go('add-exercise') : undefined} />
+      : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'add-exercise') return exercises.canCreate
+      ? <AddExercisePage onBack={() => go('exercises')} />
+      : <NoModuleAccess onBack={() => go('exercises')} />;
+    if (screen === 'workouts') return workouts.canView
+      ? <ViewWorkoutsPage onBack={goHome} onAddWorkout={workouts.canCreate ? () => go('add-workout') : undefined} />
+      : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'add-workout') return workouts.canCreate
+      ? <AddWorkoutPage onBack={() => go('workouts')} />
+      : <NoModuleAccess onBack={() => go('workouts')} />;
+    if (screen === 'plans') return plans.canView
+      ? <ViewPlansPage onBack={goHome} onAddPlan={plans.canCreate ? () => go('add-plan') : undefined} />
+      : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'add-plan') return plans.canCreate
+      ? <AddPlanPage onBack={() => go('plans')} />
+      : <NoModuleAccess onBack={() => go('plans')} />;
+    if (screen === 'classes') return classesAccess.canView
+      ? <ClassSchedulePage mode="admin" onBack={goHome} />
+      : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'pt-sessions') return ptAccess.canView
+      ? <PtSessionsPage mode="admin" onBack={goHome} />
+      : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'billing') return billingAccess.canView
+      ? <BillingHomePage onBack={goHome} onOpenMember={canViewMembers ? (id) => open('member-detail', id) : undefined}
+          onNewInvoice={billingAccess.canCreate ? () => go('new-invoice') : undefined} />
+      : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'new-invoice') return billingAccess.canCreate
+      ? <NewInvoicePage onBack={() => go('billing')} />
+      : <NoModuleAccess onBack={() => go('billing')} />;
+    if (screen === 'new-membership') return billingAccess.canCreate
+      ? <NewMembershipPage memberId={selectedId} onBack={() => go('member-detail')} />
+      : <NoModuleAccess onBack={() => go('member-detail')} />;
+    if (screen === 'roles') return roles.canView
+      ? <RolesPage onBack={goHome} onOpenRoleAccess={(id) => open('module-access', id)} />
+      : <NoModuleAccess onBack={goHome} />;
+    if (screen === 'module-access') return roles.canView
+      ? <ModuleAccessPage onBack={() => go('roles')} initialRoleId={selectedId || undefined} />
+      : <NoModuleAccess onBack={goHome} />;
     if (screen === 'user-access')   return <UserAccessListPage onBack={goHome} />;
     if (screen === 'challenges-admin')   return <ChallengesAdminPage   onBack={goHome} />;
     if (screen === 'stats-admin')        return <StatsAdminPage        onBack={goHome} />;
@@ -247,7 +336,7 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
       ? <AttendanceSettingsPage onBack={goHome} onOpenLog={() => go('attendance-log')} />
       : <NoModuleAccess onBack={goHome} />;
     if (screen === 'attendance-log')     return <AttendanceLogPage     onBack={() => go('attendance')} />;
-    if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} onLogout={onLogout} />;
+    if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} onLogout={confirmLogout} />;
     if (screen === 'profile-details')    return <AdminProfileDetailsPage onBack={goHome} roleLabel={roleLabel} />;
     return null;
   })();
@@ -267,9 +356,11 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
         isLoading={meLoading}
         isError={meError}
         roleLabel={roleLabel}
-        onLogout={onLogout}
+        onLogout={confirmLogout}
         onViewMore={() => { setProfileOpen(false); go('profile-details'); }}
+        onChangePassword={() => { setProfileOpen(false); setPwOpen(true); }}
       />
+      <ChangePasswordSheet visible={pwOpen} onClose={() => setPwOpen(false)} onChanged={() => onLogout?.()} />
     </View>
   );
 
@@ -423,7 +514,7 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
             <EmptyState icon="user-plus" title="No sign-ups yet" subtitle="New members will show up here as they join." />
           ) : (
             recentMembers.map((member) => (
-              <RecentMemberRow key={member.id} member={member} onPress={() => go('members')} />
+              <RecentMemberRow key={member.id} member={member} onPress={() => Number(member.id) > 0 ? open('member-detail', Number(member.id)) : go('members')} />
             ))
           )}
         </View>

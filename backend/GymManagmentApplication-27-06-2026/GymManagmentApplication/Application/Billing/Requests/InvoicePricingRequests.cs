@@ -8,6 +8,14 @@ public class GenerateInvoiceRequest
     public List<InvoiceLineItem> Items { get; set; } = [];
     public string? Notes { get; set; }
     public DateOnly? DueDate { get; set; }
+    public decimal TaxPercent { get; set; }
+    public decimal Discount { get; set; }
+}
+
+public class MarkInvoicePaidRequest
+{
+    public string Method { get; set; } = "cash";
+    public string? Reference { get; set; }
 }
 
 public class InvoiceLineItem

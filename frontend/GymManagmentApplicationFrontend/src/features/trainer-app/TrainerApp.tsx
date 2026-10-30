@@ -7,6 +7,8 @@ import TrainerHomeScreen    from './screens/TrainerHomeScreen';
 import ClientsScreen        from './screens/ClientsScreen';
 import ProgramBuilderScreen from './screens/ProgramBuilderScreen';
 import TrainerProfileScreen from './screens/TrainerProfileScreen';
+import ClassSchedulePage    from '../classes/pages/ClassSchedulePage';
+import PtSessionsPage       from '../classes/pages/PtSessionsPage';
 import { T } from '../../theme';
 import BottomTabBar from '../common/components/BottomTabBar';
 import LoadingState from '../common/components/LoadingState';
@@ -19,14 +21,18 @@ type Route =
   | { id: 'clients' }
   | { id: 'builder' }
   | { id: 'profile' }
+  | { id: 'classes' }
+  | { id: 'sessions' }
   | { id: 'client'; clientId: number };
 
 // moduleKey undefined => always visible, not gated
 const TABS: { key: string; icon: FeatherIconName; label: string; moduleKey?: string }[] = [
-  { key: 'home',    icon: 'home',     label: 'Today'    },
-  { key: 'clients', icon: 'users',    label: 'Clients'  },
-  { key: 'builder', icon: 'activity', label: 'Programs', moduleKey: 'workouts' },
-  { key: 'profile', icon: 'user',     label: 'Profile'  },
+  { key: 'home',     icon: 'home',     label: 'Today'    },
+  { key: 'clients',  icon: 'users',    label: 'Clients'  },
+  { key: 'sessions', icon: 'clock',    label: 'PT'       },
+  { key: 'classes',  icon: 'calendar', label: 'Classes'  },
+  { key: 'builder',  icon: 'activity', label: 'Programs', moduleKey: 'workouts' },
+  { key: 'profile',  icon: 'user',     label: 'Profile'  },
 ];
 
 interface Props {
@@ -86,7 +92,7 @@ function TrainerAppContent({ trainerId, onLogout }: Props) {
       setScreen({ id: 'client', clientId: cid });
       return;
     }
-    if (['home', 'clients', 'builder', 'profile', 'performance'].includes(target)) {
+    if (['home', 'clients', 'builder', 'profile', 'performance', 'classes', 'sessions'].includes(target)) {
       const mapped = target === 'performance' ? 'profile' : target;
       goTo(mapped);
       return;
@@ -118,6 +124,8 @@ function TrainerAppContent({ trainerId, onLogout }: Props) {
         {screen.id === 'builder' && (
           <ProgramBuilderScreen trainerId={trainerId} />
         )}
+        {screen.id === 'classes' && <ClassSchedulePage mode="trainer" />}
+        {screen.id === 'sessions' && <PtSessionsPage mode="trainer" />}
         {screen.id === 'profile' && (
           <TrainerProfileScreen trainerId={trainerId} onLogout={onLogout} />
         )}

@@ -12,6 +12,8 @@ import WorkoutDetailScreen from './screens/WorkoutDetailScreen';
 import CommunityScreen     from './screens/CommunityScreen';
 import StatsScreen         from './screens/StatsScreen';
 import ProgressScreen      from './screens/ProgressScreen';
+import MyBillingScreen     from '../member-billing/screens/MyBillingScreen';
+import BookScreen          from '../member-booking/screens/BookScreen';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -22,12 +24,16 @@ type Screen =
   | { id: 'progress'  }
   | { id: 'profile'   }
   | { id: 'train'     }
-  | { id: 'plans'     }
-  | { id: 'workout'; workoutId: number };
+  | { id: 'plans'; planId?: number }
+  | { id: 'billing'   }
+  | { id: 'book'      }
+  // `from` is the screen Back returns to (defaults to Train, or Home without workout access)
+  | { id: 'workout'; workoutId: number; from?: Screen };
 
 // moduleKey undefined => always visible, not gated (Home / Profile)
 const TABS: { key: string; icon: FeatherIconName; label: string; moduleKey?: string }[] = [
   { key: 'home',      icon: 'home',        label: 'Home'      },
+  { key: 'book',      icon: 'calendar',    label: 'Book'      },
   { key: 'community',  icon: 'users',       label: 'Community', moduleKey: 'community' },
   { key: 'stats',      icon: 'bar-chart-2', label: 'Stats',      moduleKey: 'stats'     },
   { key: 'progress',   icon: 'trending-up', label: 'Progress',   moduleKey: 'plans'     },
@@ -72,11 +78,11 @@ function MemberAppContent({ userId, onLogout }: Props) {
   const navigateFrom = (target: string) => {
     if (target.startsWith('workout-')) {
       const wid = parseInt(target.replace('workout-', ''), 10);
-      setScreen({ id: 'workout', workoutId: wid });
+      setScreen({ id: 'workout', workoutId: wid, from: screen });
       return;
     }
-    if (target === 'train' || target === 'plans') {
-      setScreen({ id: target as 'train' | 'plans' });
+    if (target === 'train' || target === 'plans' || target === 'billing') {
+      setScreen({ id: target as 'train' | 'plans' | 'billing' });
       return;
     }
     // Only real tabs; unknown targets are ignored
@@ -92,14 +98,25 @@ function MemberAppContent({ userId, onLogout }: Props) {
           <WorkoutDetailScreen
             workoutId={screen.workoutId}
             userId={userId}
-            onBack={() => setScreen({ id: canWorkouts ? 'train' : 'home' })}
+            onBack={() => setScreen(screen.from ?? { id: canWorkouts ? 'train' : 'home' })}
           />
         )}
         {screen.id === 'train' && (canWorkouts
           ? <TrainScreen userId={userId} onOpenWorkout={(id) => setScreen({ id: 'workout', workoutId: id })} />
           : <HomeScreen userId={userId} onNavigate={navigateFrom} />)}
         {screen.id === 'plans' && (
-          <PlansScreen onBack={() => goTo('home')} />
+          <PlansScreen
+            userId={userId}
+            initialPlanId={screen.planId}
+            onBack={() => goTo('home')}
+            onOpenWorkout={(id, planId) => setScreen({ id: 'workout', workoutId: id, from: { id: 'plans', planId } })}
+          />
+        )}
+        {screen.id === 'book' && (
+          <BookScreen userId={userId} onOpenBilling={() => setScreen({ id: 'billing' })} />
+        )}
+        {screen.id === 'billing' && (
+          <MyBillingScreen userId={userId} onBack={() => goTo('home')} />
         )}
         {screen.id === 'home' && (
           <HomeScreen userId={userId} onNavigate={navigateFrom} />
@@ -111,10 +128,10 @@ function MemberAppContent({ userId, onLogout }: Props) {
           <StatsScreen userId={userId} />
         )}
         {screen.id === 'progress' && (
-          <ProgressScreen userId={userId} />
+          <ProgressScreen userId={userId} onOpenPlans={() => setScreen({ id: 'plans' })} />
         )}
         {screen.id === 'profile' && (
-          <ProfileScreen userId={userId} onLogout={onLogout} />
+          <ProfileScreen userId={userId} onLogout={onLogout} onOpenBilling={() => setScreen({ id: 'billing' })} />
         )}
       </View>
 

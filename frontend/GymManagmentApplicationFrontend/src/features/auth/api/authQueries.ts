@@ -1,24 +1,15 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { login, getMe } from './authApi';
+import { login, getMe, forgotPassword, resetPassword, changePassword } from './authApi';
 import { LoginPayload } from '../types/auth.types';
-import { setAuthToken } from '../../../api/axios';
-import { setSession } from '../../../api/session';
+import { applyAuth } from '../../../api/authStore';
 import { queryKeys } from '../../../api/queryKeys';
 
 export const useLogin = () =>
   useMutation({
     mutationFn: (payload: LoginPayload) => login(payload),
-    onSuccess: (res) => {
-      // Store the JWT so all subsequent requests include it
-      if (res.success && res.data?.accessToken) {
-        setAuthToken(res.data.accessToken);
-        setSession({
-          userId:   res.data.userId,
-          role:     res.data.role,
-          tenantId: res.data.tenantId,
-          branchId: res.data.branchId ?? null,
-        });
-      }
+    onSuccess: async (res) => {
+      // Activate + persist the session so the user stays signed in across restarts
+      if (res.success && res.data?.accessToken) await applyAuth(res.data);
     },
   });
 
@@ -32,3 +23,7 @@ export const useMe = () =>
     },
     staleTime: 5 * 60 * 1000,
   });
+
+export const useForgotPassword = () => useMutation({ mutationFn: forgotPassword });
+export const useResetPassword = () => useMutation({ mutationFn: resetPassword });
+export const useChangePassword = () => useMutation({ mutationFn: changePassword });

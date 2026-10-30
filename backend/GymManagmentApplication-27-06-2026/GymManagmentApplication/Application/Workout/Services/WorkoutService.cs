@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Workout.Services;
 
-public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentUser, AppDbContext db) : IWorkoutService
+public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentUser, AppDbContext db, GymManagmentApplication.Application.Engagement.Notifier notifier) : IWorkoutService
 {
     private static readonly HashSet<(ulong WorkoutId, ulong UserId)> _bookmarks = [];
 
@@ -137,6 +137,8 @@ public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentU
                 DueDate = request.DueDate,
                 Notes = request.Notes
             };
+            notifier.Add(workout.TenantId, memberId, "New workout assigned",
+                $"{workout.Name}{(request.DueDate is { } due ? $" — due {due:dd MMM}" : "")}.", "training", workout.Id);
             var created = await repository.CreateAssignmentAsync(assignment);
             results.Add(new WorkoutLogResponse { Id = created.Id, ClientId = memberId, StartedAt = DateTime.UtcNow });
         }

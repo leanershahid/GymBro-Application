@@ -19,13 +19,14 @@ public class TrainerService(
     ITrainerRepository repository,
     IAuthService authService,
     ICurrentUser currentUser,
-    AppDbContext db) : ITrainerService
+    AppDbContext db,
+    GymManagmentApplication.Application.Scheduling.PtService pt) : ITrainerService
 {
     private static readonly JsonSerializerOptions _opts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    public async Task<PagedResponse<TrainerResponse>> GetAllAsync(int pageNumber, int pageSize)
+    public async Task<PagedResponse<TrainerResponse>> GetAllAsync(int pageNumber, int pageSize, string? search = null)
     {
-        var (items, total) = await repository.GetAllAsync(pageNumber, pageSize);
+        var (items, total) = await repository.GetAllAsync(pageNumber, pageSize, search);
         return new PagedResponse<TrainerResponse>
         {
             Items = items.Select(MapToResponse).Select(ForCaller),
@@ -170,10 +171,10 @@ public class TrainerService(
                 .Where(a => a.TrainerId == id && a.Status == TrainerAssignmentStatus.Active)
                 .ToListAsync();
             foreach (var a in assignments) a.Status = TrainerAssignmentStatus.Paused;
-            AuthService.RevokeRefreshTokens(user.Id);
         }
 
         await db.SaveChangesAsync();
+        if (!isActive) await AuthSessions.RevokeAllAsync(db, user.Id);
         return true;
     }
 
@@ -193,9 +194,9 @@ public class TrainerService(
             .Where(a => a.TrainerId == id && a.Status == TrainerAssignmentStatus.Active)
             .ToListAsync();
         foreach (var a in assignments) a.Status = TrainerAssignmentStatus.Paused;
-        AuthService.RevokeRefreshTokens(user.Id);
 
         await db.SaveChangesAsync();
+        await AuthSessions.RevokeAllAsync(db, user.Id);
         return true;
     }
 
@@ -234,6 +235,13 @@ public class TrainerService(
         if (await db.TrainerClientAssignments.AnyAsync(a =>
                 a.TrainerId == id && a.ClientId == client.Id && a.Status == TrainerAssignmentStatus.Active))
             throw new ArgumentException("This member is already assigned to the trainer.");
+
+        // A member has one active trainer: assigning a new one ends the previous assignment.
+        var previous = await db.TrainerClientAssignments
+            .Where(a => a.ClientId == client.Id && a.TrainerId != id &&
+                        (a.Status == TrainerAssignmentStatus.Active || a.Status == TrainerAssignmentStatus.Paused))
+            .ToListAsync();
+        foreach (var p in previous) p.Status = TrainerAssignmentStatus.Inactive;
 
         // A member's home branch follows their trainer assignment if not set yet.
         client.BranchId ??= branchId;
@@ -304,7 +312,9 @@ public class TrainerService(
     public async Task<TrainerEarningsResponse> GetEarningsAsync(ulong id, int month, int year)
     {
         _ = await GetForWriteAsync(id) ?? throw new KeyNotFoundException($"Trainer {id} not found.");
-        return new TrainerEarningsResponse { TrainerId = id, TotalEarnings = 0, CommissionEarned = 0, Month = month, Year = year };
+        // Completed personal-training sessions in that month, and the trainer's PT commission on them.
+        var (total, commission, _) = await pt.EarningsAsync(id, month, year);
+        return new TrainerEarningsResponse { TrainerId = id, TotalEarnings = total, CommissionEarned = commission, Month = month, Year = year };
     }
 
     public async Task<TrainerResponse?> AutoAssignAsync(ulong clientId, ulong branchId)

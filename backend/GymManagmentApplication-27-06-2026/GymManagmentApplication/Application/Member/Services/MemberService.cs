@@ -24,7 +24,8 @@ public class MemberService(
     ITrainerService trainerService,
     IAuthService authService,
     ICurrentUser currentUser,
-    AppDbContext db) : IMemberService
+    AppDbContext db,
+    GymManagmentApplication.Infrastructure.Storage.IFileStorage storage) : IMemberService
 {
     /// <summary>
     /// Loads a member the caller may act on (see <see cref="MemberScope"/>): clients only
@@ -39,9 +40,10 @@ public class MemberService(
         var onlyAssignedTo = currentUser.IsTrainer() ? currentUser.UserId : null;
         var (items, total) = await repository.GetAllAsync(request, onlyAssignedTo);
         var needsReassignment = await NeedsReassignmentSetAsync();
+        var trainers = await ActiveTrainerMapAsync(items.Select(u => u.Id));
         return new PagedResponse<MemberResponse>
         {
-            Items = items.Select(u => MapWithFlags(u, needsReassignment)),
+            Items = items.Select(u => WithTrainer(MapWithFlags(u, needsReassignment), trainers)),
             PageNumber = request.PageNumber,
             PageSize = request.PageSize,
             TotalRecords = total
@@ -85,7 +87,8 @@ public class MemberService(
         if (branchId is null && request.TrainerId is { } tid)
             branchId = (await db.TrainerProfiles.FirstOrDefaultAsync(t => t.Id == tid))?.BranchId;
 
-        await using var tx = await db.Database.BeginTransactionAsync();
+        // Joins an outer transaction (bulk import) when there is one.
+        await using var tx = db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync() : null;
 
         // Creates the User in this tenant/branch with the tenant's own 'client' role
         // (and checks the branch belongs to the tenant).
@@ -119,7 +122,7 @@ public class MemberService(
             response.TrainerId = request.TrainerId;
         }
 
-        await tx.CommitAsync();
+        if (tx is not null) await tx.CommitAsync();
         return response;
     }
 
@@ -128,7 +131,26 @@ public class MemberService(
         var user = await GetAccessibleAsync(id);
         if (user is null) return null;
         var needsReassignment = await NeedsReassignmentSetAsync();
-        return MapWithFlags(user, needsReassignment);
+        return WithTrainer(MapWithFlags(user, needsReassignment), await ActiveTrainerMapAsync([user.Id]));
+    }
+
+    /// <summary>Member id → their active trainer's profile id.</summary>
+    private async Task<Dictionary<ulong, ulong>> ActiveTrainerMapAsync(IEnumerable<ulong> memberIds)
+    {
+        var ids = memberIds.ToList();
+        if (ids.Count == 0) return [];
+        var rows = await db.TrainerClientAssignments
+            .Where(a => ids.Contains(a.ClientId) && a.Status == TrainerAssignmentStatus.Active)
+            .OrderByDescending(a => a.Id)
+            .Select(a => new { a.ClientId, a.TrainerId })
+            .ToListAsync();
+        return rows.GroupBy(r => r.ClientId).ToDictionary(g => g.Key, g => g.First().TrainerId);
+    }
+
+    private static MemberResponse WithTrainer(MemberResponse r, Dictionary<ulong, ulong> trainers)
+    {
+        if (trainers.TryGetValue(r.Id, out var t)) r.TrainerId = t;
+        return r;
     }
 
     public async Task<MemberResponse?> UpdateAsync(ulong id, UpdateMemberRequest request)
@@ -160,7 +182,7 @@ public class MemberService(
         if (id == currentUser.UserId)
             throw new ArgumentException("You cannot archive your own account.");
         var deleted = await repository.SoftDeleteAsync(id);
-        if (deleted) AuthService.RevokeRefreshTokens(id); // signed-in sessions end at next request
+        if (deleted) await AuthSessions.RevokeAllAsync(db, id); // signed-in sessions end at next request
         return deleted;
     }
 
@@ -172,15 +194,22 @@ public class MemberService(
             throw new ArgumentException("You cannot deactivate your own account.");
         user.Status = isActive ? UserStatus.Active : UserStatus.Inactive;
         await repository.UpdateAsync(user);
-        if (!isActive) AuthService.RevokeRefreshTokens(id);
+        if (!isActive) await AuthSessions.RevokeAllAsync(db, id);
         return true;
     }
 
+    private const int BulkImportLimit = 500;
+
     public async Task<List<MemberResponse>> BulkImportAsync(BulkImportMemberRequest request)
     {
+        if (request.Members.Count > BulkImportLimit)
+            throw new ArgumentException($"Import at most {BulkImportLimit} members at a time.");
+        // All or nothing: a bad row rolls back the rows before it.
+        await using var tx = await db.Database.BeginTransactionAsync();
         var results = new List<MemberResponse>();
         foreach (var r in request.Members)
             results.Add(await CreateAsync(r));
+        await tx.CommitAsync();
         return results;
     }
 
@@ -198,9 +227,13 @@ public class MemberService(
     {
         var user = await GetAccessibleAsync(id);
         if (user is null) return string.Empty;
-        var url = $"/uploads/members/{id}/{photo.FileName}";
+        var url = await storage.SaveAsync(photo, $"tenants/{user.TenantId}/members/{id}/photo",
+            GymManagmentApplication.Infrastructure.Storage.FileKind.Image);
+        var previous = user.AvatarUrl;
         user.AvatarUrl = url;
+        user.UpdatedAt = DateTime.UtcNow;
         await repository.UpdateAsync(user);
+        await storage.DeleteAsync(previous);
         return url;
     }
 
@@ -266,13 +299,17 @@ public class MemberService(
     {
         var member = await GetAccessibleAsync(id) ?? throw new KeyNotFoundException($"Member {id} not found.");
         var tenantId = member.TenantId;
-        var url = $"/uploads/members/{id}/docs/{file.FileName}";
+        var url = await storage.SaveAsync(file, $"tenants/{tenantId}/members/{id}/documents",
+            GymManagmentApplication.Infrastructure.Storage.FileKind.Document);
+        // Shown in lists only; keep it short and free of path characters.
+        var displayName = Path.GetFileName(file.FileName ?? "document");
+        if (displayName.Length > 120) displayName = displayName[..120];
 
         var media = new MediaLibrary
         {
             TenantId = tenantId,
             UploadedBy = id,
-            Name = file.FileName,
+            Name = displayName,
             FileUrl = url,
             FileType = documentType,
             MimeType = file.ContentType,

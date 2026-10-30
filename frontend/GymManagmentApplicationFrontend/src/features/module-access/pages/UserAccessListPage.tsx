@@ -16,7 +16,7 @@ interface Props { onBack?: () => void; }
 
 type Tab = 'trainers' | 'clients';
 
-interface PersonRow { userId: number; name: string; subtitle: string }
+interface PersonRow { userId: number; name: string; subtitle: string; roleSlug: string }
 
 export default function UserAccessListPage({ onBack }: Props) {
   const [tab, setTab] = useState<Tab>('trainers');
@@ -31,6 +31,7 @@ export default function UserAccessListPage({ onBack }: Props) {
       <ManageUserAccessPage
         userId={selected.userId}
         userName={selected.name}
+        currentRoleSlug={selected.roleSlug}
         onBack={() => setSelected(null)}
       />
     );
@@ -38,10 +39,10 @@ export default function UserAccessListPage({ onBack }: Props) {
 
   const trainerRows: PersonRow[] = (trainerPage?.items ?? [])
     .filter(t => !search.trim() || t.displayName.toLowerCase().includes(search.toLowerCase()))
-    .map(t => ({ userId: t.userId, name: t.displayName, subtitle: t.employment?.designation ?? 'Trainer' }));
+    .map(t => ({ userId: t.userId, name: t.displayName, subtitle: t.employment?.designation ?? 'Trainer', roleSlug: 'trainer' }));
 
   const clientRows: PersonRow[] = (memberPage?.items ?? [])
-    .map(m => ({ userId: m.id, name: `${m.firstName} ${m.lastName}`, subtitle: m.email }));
+    .map(m => ({ userId: m.id, name: `${m.firstName} ${m.lastName}`, subtitle: m.email, roleSlug: 'client' }));
 
   const rows = tab === 'trainers' ? trainerRows : clientRows;
   const isLoading = tab === 'trainers' ? trainersLoading : membersLoading;

@@ -48,8 +48,9 @@ public class AttendanceController(IAttendanceService service) : ControllerBase
     [HttpGet]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> GetAll(
-        [FromQuery] DateOnly? date, [FromQuery] ulong? branchId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
-        => Ok(ApiResponse<object>.Ok(await service.GetAllAsync(date, branchId, pageNumber, pageSize)));
+        [FromQuery] DateOnly? date, [FromQuery] ulong? branchId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20,
+        [FromQuery] ulong? userId = null)
+        => Ok(ApiResponse<object>.Ok(await service.GetAllAsync(date, branchId, pageNumber, pageSize, userId)));
 
     // ── Member / trainer: location check-in ──────────────────────────────────
 

@@ -11,7 +11,8 @@ namespace GymManagmentApplication.Application.Auth;
 /// <summary>
 /// Runs on every authenticated request (JwtBearerEvents.OnTokenValidated). A token stays valid
 /// only while its user still exists, is not suspended/inactive, still holds the same role in the
-/// same gym, and that gym is not suspended/cancelled — so demotions, deactivations and closed
+/// same gym, that gym is not suspended/cancelled, and the user hasn't been signed out everywhere
+/// (password change/reset bumps TokenVersion) — so demotions, deactivations and closed
 /// gyms take effect within <see cref="CacheFor"/> instead of when the token expires.
 /// </summary>
 public static class TokenValidator
@@ -24,15 +25,16 @@ public static class TokenValidator
             return "Invalid token.";
         var role = principal.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
         var tenant = principal.FindFirstValue(CustomClaims.TenantId) ?? string.Empty;
+        var version = principal.FindFirstValue(CustomClaims.TokenVersion) ?? "0";
 
         var key = $"token-state:{userId}";
-        if (!cache.TryGetValue(key, out (string Role, string Tenant, string? Problem) state))
+        if (!cache.TryGetValue(key, out (string Role, string Tenant, string Version, string? Problem) state))
         {
             var row = await db.Users.IgnoreQueryFilters()
                 .Where(u => u.Id == userId)
                 .Select(u => new
                 {
-                    u.DeletedAt, u.Status, u.TenantId,
+                    u.DeletedAt, u.Status, u.TenantId, u.TokenVersion,
                     Role = db.Roles.IgnoreQueryFilters()
                         .Where(r => r.Id == u.RoleId && r.TenantId == u.TenantId)
                         .Select(r => r.Slug).FirstOrDefault(),
@@ -45,13 +47,15 @@ public static class TokenValidator
                 row.Status is UserStatus.Suspended or UserStatus.Inactive ? "This account has been deactivated." :
                 row.TenantStatus is TenantStatus.Suspended or TenantStatus.Cancelled ? "This gym's account is not active." :
                 null;
-            state = (row?.Role ?? RoleNames.Client, row?.TenantId.ToString() ?? string.Empty, problem);
+            state = (row?.Role ?? RoleNames.Client, row?.TenantId.ToString() ?? string.Empty, row?.TokenVersion.ToString() ?? "0", problem);
             cache.Set(key, state, CacheFor);
         }
 
         if (state.Problem is not null) return state.Problem;
         if (!string.Equals(state.Role, role, StringComparison.OrdinalIgnoreCase) || state.Tenant != tenant)
             return "Your access has changed. Please sign in again.";
+        if (state.Version != version)
+            return "You were signed out. Please sign in again.";
         return null;
     }
 
