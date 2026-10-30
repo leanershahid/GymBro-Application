@@ -10,10 +10,13 @@ using Microsoft.AspNetCore.Mvc.Filters;
 namespace GymManagmentApplication.Filters;
 
 /// <summary>
-/// Role gate. Built-in roles (superadmin/admin/trainer/client) pass only when listed.
-/// Any other role — 'staff' or an admin-defined custom role — passes when its module grants
-/// (see <see cref="IAccessService.CanAsync"/>) allow the action implied by the HTTP method on the
-/// endpoint's <see cref="PermissionModuleAttribute"/> key.
+/// Role gate. A listed role passes. Any other role — built-in, 'staff' or custom — still passes
+/// when it was granted a module that unlocks the endpoint's <see cref="PermissionModuleAttribute"/>
+/// key with the action implied by the HTTP method (see <see cref="IAccessService.CanAsync"/>), and
+/// that module belongs to the app of one of the listed roles: admin-app modules open Admin
+/// endpoints, trainer-app modules Trainer endpoints, member-app modules Client endpoints. So a
+/// trainer granted Admin → Billing can use billing, but a trainer-app grant never opens an
+/// admin-only endpoint.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class AuthorizeRolesAttribute(params string[] roles) : Attribute, IAsyncAuthorizationFilter
@@ -41,7 +44,7 @@ public class AuthorizeRolesAttribute(params string[] roles) : Attribute, IAsyncA
             roles.Any(r => r.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase)))
             return;
 
-        if (!RoleNames.IsBuiltIn(userRole) && await IsGrantedByMatrixAsync(context, userRole))
+        if (await IsGrantedByModuleAsync(context, userRole, roles))
             return;
 
         context.Result = new JsonResult(ApiResponse<object>.Fail($"Forbidden. Required role(s): {string.Join(", ", roles)}."))
@@ -50,7 +53,7 @@ public class AuthorizeRolesAttribute(params string[] roles) : Attribute, IAsyncA
         };
     }
 
-    private static async Task<bool> IsGrantedByMatrixAsync(AuthorizationFilterContext context, string roleSlug)
+    private static async Task<bool> IsGrantedByModuleAsync(AuthorizationFilterContext context, string roleSlug, string[] roles)
     {
         // Method-level module wins over controller-level.
         var descriptor = context.ActionDescriptor as ControllerActionDescriptor;
@@ -74,7 +77,10 @@ public class AuthorizeRolesAttribute(params string[] roles) : Attribute, IAsyncA
         var currentUser = context.HttpContext.RequestServices.GetRequiredService<ICurrentUser>();
         if (currentUser.UserId is not { } userId) return false;
 
+        // Only grants from the apps the listed roles use count.
+        var apps = roles.Select(ModuleCatalog.AppForRole).Distinct().ToList();
+
         var service = context.HttpContext.RequestServices.GetRequiredService<IAccessService>();
-        return await service.CanAsync(userId, roleSlug, module, action);
+        return await service.CanAsync(userId, roleSlug, module, action, apps);
     }
 }

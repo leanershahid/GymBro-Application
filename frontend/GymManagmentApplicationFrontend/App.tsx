@@ -16,6 +16,7 @@ import { logoutSession, refreshSession } from './src/features/auth/api/authApi';
 import { getPreviewRole, startPreview } from './src/dev/previewMode';
 import { AccessProvider } from './src/features/access/context/AccessContext';
 import { clearStoredAccess } from './src/features/access/api/accessStore';
+import { AccessApp } from './src/features/access/types/access.types';
 
 type AppState =
   | { status: 'unauthenticated'; error?: string }
@@ -54,6 +55,8 @@ export default function App() {
   });
 
   const [booting, setBooting] = useState(true);
+  // Another app the person switched to (they hold modules there too); null = their own app.
+  const [openApp, setOpenApp] = useState<AccessApp | null>(null);
 
   const routeFor = (role: string, userId: number): AppState =>
     isAdminRole(role) || isDelegatedRole(role) ? { status: 'admin', userId }
@@ -65,6 +68,7 @@ export default function App() {
   const endSession = useCallback(async (error?: string) => {
     await Promise.all([clearAuth(), clearStoredAccess()]);
     queryClient.clear();
+    setOpenApp(null);
     setAppState({ status: 'unauthenticated', error });
   }, []);
 
@@ -114,14 +118,22 @@ export default function App() {
             {appState.status === 'unauthenticated' && (
               <LoginPage onLoginSuccess={handleLoginSuccess} errorMessage={appState.error} />
             )}
-            {appState.status !== 'unauthenticated' && (
-              // Keyed by user, so a different account never sees the previous one's menu.
-              <AccessProvider key={appState.userId} userId={appState.userId} onLogout={logout}>
-                {appState.status === 'admin' && <AdminDashboard onLogout={logout} />}
-                {appState.status === 'member' && <MemberApp userId={appState.userId} onLogout={logout} />}
-                {appState.status === 'trainer' && <TrainerApp userId={appState.userId} onLogout={logout} />}
-              </AccessProvider>
-            )}
+            {appState.status !== 'unauthenticated' && (() => {
+              const homeApp: AccessApp = appState.status;
+              const app = openApp ?? homeApp;
+              return (
+                // Keyed by user, so a different account never sees the previous one's menu.
+                <AccessProvider
+                  key={appState.userId} userId={appState.userId} onLogout={logout}
+                  app={app} homeApp={homeApp} onSwitchApp={a => setOpenApp(a === homeApp ? null : a)}
+                >
+                  {/* Keyed by app, so switching starts that app fresh on its first screen. */}
+                  {app === 'admin' && <AdminDashboard key="admin" onLogout={logout} />}
+                  {app === 'member' && <MemberApp key="member" userId={appState.userId} onLogout={logout} />}
+                  {app === 'trainer' && <TrainerApp key="trainer" userId={appState.userId} onLogout={logout} />}
+                </AccessProvider>
+              );
+            })()}
           </View>
           <BootSplash loading={booting} />
         </ToastProvider>

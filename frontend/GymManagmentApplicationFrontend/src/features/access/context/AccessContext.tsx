@@ -8,7 +8,7 @@ import Screen from '../../common/components/Screen';
 import EmptyState from '../../dashboard/components/EmptyState';
 import { fetchMyAccess } from '../api/accessApi';
 import { loadStoredAccess, storeAccess } from '../api/accessStore';
-import { AccessList, AccessModule } from '../types/access.types';
+import { AccessApp, AccessList, AccessModule } from '../types/access.types';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -37,8 +37,14 @@ const byOrder = (a: AccessModule, b: AccessModule) => a.sortOrder - b.sortOrder;
 // ── Provider ──────────────────────────────────────────────────────────────
 
 interface AccessContextValue {
+  /** Granted modules and tabs of the app currently open. */
   modules: AccessModule[];
   tabs: AccessModule[];
+  /** The app currently open, and every app the person holds modules in (theirs first). */
+  app: AccessApp;
+  apps: AccessApp[];
+  /** Opens another app the person holds modules in. */
+  switchApp: (app: AccessApp) => void;
   /** Fetches the list again — after an admin changed this user's access, for example. */
   refresh: () => Promise<void>;
   isRefreshing: boolean;
@@ -50,6 +56,11 @@ const accessKey = (userId: number) => ['access', 'me', userId] as const;
 
 interface ProviderProps {
   userId: number;
+  /** The app being shown; the list may hold modules of other apps too. */
+  app: AccessApp;
+  /** The app the person's main role signs in to — always offered. */
+  homeApp: AccessApp;
+  onSwitchApp: (app: AccessApp) => void;
   /** Offered on the error screen, so a user is never stuck with nothing to tap. */
   onLogout: () => void;
   children: React.ReactNode;
@@ -62,7 +73,7 @@ interface ProviderProps {
  * the app comes back to the foreground. Hiding things here is for usability only — the API checks
  * every request itself.
  */
-export function AccessProvider({ userId, onLogout, children }: ProviderProps) {
+export function AccessProvider({ userId, app, homeApp, onSwitchApp, onLogout, children }: ProviderProps) {
   const qc = useQueryClient();
   const [restored, setRestored] = useState(false);
 
@@ -102,12 +113,20 @@ export function AccessProvider({ userId, onLogout, children }: ProviderProps) {
   const refresh = useCallback(async () => { await refetch(); }, [refetch]);
 
   const data: AccessList | undefined = query.data;
-  const value = useMemo<AccessContextValue>(() => ({
-    modules: data?.modules ?? [],
-    tabs: data?.tabs ?? [],
-    refresh,
-    isRefreshing: query.isFetching,
-  }), [data, refresh, query.isFetching]);
+  const value = useMemo<AccessContextValue>(() => {
+    const all = data?.modules ?? [];
+    const others = (['admin', 'trainer', 'member'] as AccessApp[]).filter(a => a !== homeApp && all.some(m => m.app === a));
+    return {
+      // A list saved before modules carried their app has none — treat those rows as the home app's.
+      modules: all.filter(m => (m.app ?? homeApp) === app),
+      tabs: (data?.tabs ?? []).filter(t => (t.app ?? homeApp) === app),
+      app,
+      apps: [homeApp, ...others],
+      switchApp: onSwitchApp,
+      refresh,
+      isRefreshing: query.isFetching,
+    };
+  }, [data, app, homeApp, onSwitchApp, refresh, query.isFetching]);
 
   if (!data) {
     if (query.isError) {
@@ -135,7 +154,9 @@ export function AccessProvider({ userId, onLogout, children }: ProviderProps) {
 
 // ── Hooks ─────────────────────────────────────────────────────────────────
 
-const EMPTY: AccessContextValue = { modules: [], tabs: [], refresh: async () => {}, isRefreshing: false };
+const EMPTY: AccessContextValue = {
+  modules: [], tabs: [], app: 'admin', apps: [], switchApp: () => {}, refresh: async () => {}, isRefreshing: false,
+};
 
 export function useAccess(): AccessContextValue {
   return useContext(AccessContext) ?? EMPTY;

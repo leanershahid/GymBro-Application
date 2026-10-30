@@ -9,7 +9,8 @@ import EmptyState from '../../dashboard/components/EmptyState';
 import { useRoles } from '../api/moduleAccessQueries';
 import { useModuleTree, useRoleGrants, useSaveRoleGrants } from '../../access/api/accessQueries';
 import PermissionCard, { BulkButton, SaveBar, descendantsOf, orderTree } from '../../access/components/ModuleTreeRowCard';
-import { ModuleGrant } from '../../access/types/access.types';
+import AppPicker from '../../access/components/AppPicker';
+import { AccessApp, ModuleGrant } from '../../access/types/access.types';
 
 interface Props {
   onBack?: () => void;
@@ -54,8 +55,11 @@ export default function ModuleAccessPage({ onBack, initialRoleId }: Props) {
   const roleId = (pickedRoleId != null && roles.some(r => r.id === pickedRoleId) ? pickedRoleId : null) ?? roles[0]?.id ?? 0;
 
   const grantsQ = useRoleGrants(roleId);
-  const app = grantsQ.data?.app;
-  const treeQ = useModuleTree(app);
+  // Any role can be given modules of any app; the picker starts on the app the role signs in to.
+  const homeApp = grantsQ.data?.app;
+  const [pickedApp, setPickedApp] = useState<AccessApp | null>(null);
+  const app = pickedApp ?? homeApp ?? 'admin';
+  const treeQ = useModuleTree();
   const save = useSaveRoleGrants(roleId);
   const isAdminRole = grantsQ.data?.roleSlug === 'admin';
   const locked = (key: string) => isAdminRole && ADMIN_LOCKED.has(key);
@@ -64,6 +68,7 @@ export default function ModuleAccessPage({ onBack, initialRoleId }: Props) {
     () => orderTree((treeQ.data ?? []).filter(r => r.app === app && (isAdminRole || !r.adminOnly))),
     [treeQ.data, app, isAdminRole],
   );
+  const allRows = useMemo(() => (treeQ.data ?? []).filter(r => isAdminRole || !r.adminOnly), [treeQ.data, isAdminRole]);
 
   const saved = useMemo<Draft>(
     () => Object.fromEntries((grantsQ.data?.grants ?? []).map(g => [g.moduleKey, g])),
@@ -72,7 +77,7 @@ export default function ModuleAccessPage({ onBack, initialRoleId }: Props) {
   const [draft, setDraft] = useState<Draft>({});
   useEffect(() => { setDraft(saved); }, [saved]);
 
-  const dirtyCount = rows.filter(r => !same(draft[r.key], saved[r.key])).length;
+  const dirtyCount = allRows.filter(r => !same(draft[r.key], saved[r.key])).length;
   const onCount = rows.filter(r => draft[r.key]?.canView).length;
 
   const update = (fn: (next: Draft) => void) => setDraft(prev => { const next = { ...prev }; fn(next); return next; });
@@ -100,10 +105,11 @@ export default function ModuleAccessPage({ onBack, initialRoleId }: Props) {
 
   const pickRole = (id: number) => {
     if (id === roleId) return;
-    if (!dirtyCount) { setPickedRoleId(id); return; }
+    const go = () => { setPickedRoleId(id); setPickedApp(null); };
+    if (!dirtyCount) { go(); return; }
     Alert.alert('Discard changes?', 'Your unsaved changes to this role will be lost.', [
       { text: 'Keep editing', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: () => setPickedRoleId(id) },
+      { text: 'Discard', style: 'destructive', onPress: go },
     ]);
   };
 
@@ -146,6 +152,8 @@ export default function ModuleAccessPage({ onBack, initialRoleId }: Props) {
       ) : (
         <>
           <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+            <AppPicker value={app} home={homeApp} onChange={setPickedApp} />
+
             {/* Summary */}
             <View style={{
               padding: 14, borderRadius: 16, marginBottom: 12, gap: 6,

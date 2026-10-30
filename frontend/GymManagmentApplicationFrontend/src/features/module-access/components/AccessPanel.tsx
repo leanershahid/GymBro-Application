@@ -6,7 +6,8 @@ import LoadingState from '../../common/components/LoadingState';
 import EmptyState from '../../dashboard/components/EmptyState';
 import { useModuleTree, useSaveUserOverrides, useUserAccess } from '../../access/api/accessQueries';
 import PermissionCard, { BulkButton, SaveBar, orderTree } from '../../access/components/ModuleTreeRowCard';
-import { ModuleGrant, UserOverride } from '../../access/types/access.types';
+import AppPicker from '../../access/components/AppPicker';
+import { AccessApp, ModuleGrant, UserOverride } from '../../access/types/access.types';
 
 interface Props {
   userId: number;
@@ -64,8 +65,11 @@ function ModeSwitch({ value, name, onChange }: { value: Mode; name: string; onCh
  */
 export default function AccessPanel({ userId, intro }: Props) {
   const accessQ = useUserAccess(userId);
-  const app = accessQ.data?.app;
-  const treeQ = useModuleTree(app);
+  // Modules of any app can be given; the picker starts on the app this person signs in to.
+  const homeApp = accessQ.data?.app;
+  const [pickedApp, setPickedApp] = useState<AccessApp | null>(null);
+  const app = pickedApp ?? homeApp ?? 'admin';
+  const treeQ = useModuleTree();
   const save = useSaveUserOverrides(userId);
 
   const rows = useMemo(() => orderTree((treeQ.data ?? []).filter(r => r.app === app)), [treeQ.data, app]);
@@ -80,8 +84,9 @@ export default function AccessPanel({ userId, intro }: Props) {
   const [draft, setDraft] = useState<Draft>({});
   useEffect(() => { setDraft(saved); }, [saved]);
 
-  const dirtyCount = rows.filter(r => !sameOverride(draft[r.key], saved[r.key])).length;
-  const overridden = rows.filter(r => draft[r.key]).length;
+  const allRows = treeQ.data ?? [];
+  const dirtyCount = allRows.filter(r => !sameOverride(draft[r.key], saved[r.key])).length;
+  const overridden = allRows.filter(r => draft[r.key]).length;
 
   const update = (fn: (next: Draft) => void) => setDraft(prev => { const next = { ...prev }; fn(next); return next; });
 
@@ -117,6 +122,8 @@ export default function AccessPanel({ userId, intro }: Props) {
   return (
     <>
       <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+        <AppPicker value={app} home={homeApp} onChange={setPickedApp} />
+
         <View style={{
           padding: 14, borderRadius: 16, marginBottom: 12, gap: 6,
           backgroundColor: withAlpha(T.brand, 0.06), borderWidth: 1, borderColor: withAlpha(T.brand, 0.2),

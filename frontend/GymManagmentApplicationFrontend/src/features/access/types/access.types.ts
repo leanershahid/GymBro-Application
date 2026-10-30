@@ -1,6 +1,8 @@
 /** One module the signed-in user is granted (GET /access/me and /access/me/tabs). */
 export interface AccessModule {
   key: string;
+  /** The app the module belongs to — a person may hold modules of several apps. */
+  app: AccessApp;
   name: string;
   level: number;
   parentKey: string | null;
