@@ -22,7 +22,7 @@ public class BillingTests : IDisposable
     public async Task Invoice_totals_apply_discount_then_tax_in_gym_currency()
     {
         using var db = _db.Create(new FakeUser());
-        var inv = await new BillingCore(db).CreateInvoiceAsync(Invoice(1000, tax: 18, discount: 100));
+        var inv = await new BillingCore(db, new GymManagmentApplication.Application.Engagement.Notifier(db, new FakeUser())).CreateInvoiceAsync(Invoice(1000, tax: 18, discount: 100));
         await db.SaveChangesAsync();
 
         Assert.Equal(1000m, inv.Subtotal);
@@ -38,7 +38,7 @@ public class BillingTests : IDisposable
     public async Task Invoice_numbers_increase_per_gym()
     {
         using var db = _db.Create(new FakeUser());
-        var billing = new BillingCore(db);
+        var billing = new BillingCore(db, new GymManagmentApplication.Application.Engagement.Notifier(db, new FakeUser()));
         var a = await billing.CreateInvoiceAsync(Invoice(10));
         var b = await billing.CreateInvoiceAsync(Invoice(20));
         await db.SaveChangesAsync();
@@ -52,7 +52,7 @@ public class BillingTests : IDisposable
     public async Task Partial_payments_settle_the_invoice_only_when_fully_paid()
     {
         using var db = _db.Create(new FakeUser());
-        var billing = new BillingCore(db);
+        var billing = new BillingCore(db, new GymManagmentApplication.Application.Engagement.Notifier(db, new FakeUser()));
         var inv = await billing.CreateInvoiceAsync(Invoice(1000));
         await db.SaveChangesAsync();
 
@@ -71,7 +71,7 @@ public class BillingTests : IDisposable
     public async Task Paying_more_than_the_balance_is_rejected()
     {
         using var db = _db.Create(new FakeUser());
-        var billing = new BillingCore(db);
+        var billing = new BillingCore(db, new GymManagmentApplication.Application.Engagement.Notifier(db, new FakeUser()));
         var inv = await billing.CreateInvoiceAsync(Invoice(500));
         Assert.Throws<ArgumentException>(() => billing.ApplyPayment(inv, 501, PaymentMethod.Cash, null, null, 1, null));
         Assert.Throws<ArgumentException>(() => billing.ApplyPayment(inv, 0, PaymentMethod.Cash, null, null, 1, null));
@@ -81,7 +81,7 @@ public class BillingTests : IDisposable
     public async Task Refunds_reduce_amount_paid_and_reopen_or_refund_the_invoice()
     {
         using var db = _db.Create(new FakeUser());
-        var billing = new BillingCore(db);
+        var billing = new BillingCore(db, new GymManagmentApplication.Application.Engagement.Notifier(db, new FakeUser()));
         var inv = await billing.CreateInvoiceAsync(Invoice(1000));
         await db.SaveChangesAsync();
         var payment = billing.ApplyPayment(inv, 1000, PaymentMethod.Card, null, null, 1, null);

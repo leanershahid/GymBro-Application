@@ -11,7 +11,7 @@ namespace GymManagmentApplication.Application.Billing.Services;
 /// Shared billing rules: creating invoices (numbered per gym, in the gym's currency) and
 /// applying payments/refunds to them. Used by memberships, invoices and payments alike.
 /// </summary>
-public class BillingCore(AppDbContext db)
+public class BillingCore(AppDbContext db, GymManagmentApplication.Application.Engagement.Notifier notifier)
 {
     public record NewInvoice(
         ulong TenantId, ulong UserId, IReadOnlyList<InvoiceLineItem> Items,
@@ -47,6 +47,9 @@ public class BillingCore(AppDbContext db)
         };
         if (invoice.Total == 0) { invoice.Status = InvoiceStatus.Paid; invoice.PaidAt = DateTime.UtcNow; }
         db.Invoices.Add(invoice);
+        if (invoice.Total > 0)
+            notifier.Add(spec.TenantId, spec.UserId, $"New invoice {invoice.InvoiceNo}",
+                $"{invoice.Total:N2} {invoice.Currency}{(spec.DueDate is { } d ? $" due {d:dd MMM}" : "")}.", "billing", null);
         return invoice;
     }
 

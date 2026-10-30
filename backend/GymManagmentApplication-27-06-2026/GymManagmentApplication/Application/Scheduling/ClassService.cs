@@ -10,7 +10,7 @@ namespace GymManagmentApplication.Application.Scheduling;
 /// Group classes: class types, a schedule (with weekly series), member booking with a waitlist
 /// that is promoted automatically when someone cancels, and roster / attendance for staff.
 /// </summary>
-public class ClassService(AppDbContext db, ICurrentUser currentUser)
+public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmentApplication.Application.Engagement.Notifier notifier)
 {
     private const int MaxRepeatWeeks = 26;
 
@@ -126,6 +126,8 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser)
             {
                 b.Status = BookingStatus.Cancelled;
                 b.CancelledAt = DateTime.UtcNow;
+                notifier.Add(t.TenantId, b.ClientId, "Class cancelled",
+                    $"{t.Title ?? "Your class"} on {t.StartsAt:dd MMM HH:mm} UTC was cancelled.{(string.IsNullOrWhiteSpace(r.Reason) ? "" : " " + r.Reason.Trim())}", "booking", t.Id);
             }
             Recount(t);
         }
@@ -217,12 +219,14 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser)
         db.GymClasses.Include(c => c.ClassType).Include(c => c.Branch).Include(c => c.Trainer).Include(c => c.Bookings);
 
     /// <summary>Moves people off the waitlist (first come, first served) while there's room.</summary>
-    private static void PromoteWaitlist(GymClass c)
+    private void PromoteWaitlist(GymClass c)
     {
         foreach (var w in c.Bookings.Where(b => b.Status == BookingStatus.Waitlisted).OrderBy(b => b.BookedAt))
         {
             if (c.MaxCapacity is { } cap && c.Bookings.Count(b => b.Status == BookingStatus.Booked) >= cap) break;
             w.Status = BookingStatus.Booked;
+            notifier.Add(c.TenantId, w.ClientId, "You're in!",
+                $"A spot opened up in {c.Title ?? c.ClassType?.Name ?? "your class"} on {c.StartsAt:dd MMM HH:mm} UTC.", "booking", c.Id);
         }
         Recount(c);
     }

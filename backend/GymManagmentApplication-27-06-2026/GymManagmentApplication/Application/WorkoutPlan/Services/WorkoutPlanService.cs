@@ -9,7 +9,7 @@ using GymManagmentApplication.Infrastructure.Repositories.WorkoutPlan;
 
 namespace GymManagmentApplication.Application.WorkoutPlan.Services;
 
-public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser currentUser, AppDbContext db) : IWorkoutPlanService
+public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser currentUser, AppDbContext db, GymManagmentApplication.Application.Engagement.Notifier notifier) : IWorkoutPlanService
 {
     public async Task<PagedResponse<PlanResponse>> GetAllAsync(PlanListRequest request)
     {
@@ -146,6 +146,8 @@ public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser 
                 TrainerId = trainerId,
                 StartDate = request.StartDate
             };
+            notifier.Add(plan.TenantId, memberId, "New training plan",
+                $"{plan.Name} starts {request.StartDate:dd MMM}.", "training", plan.Id);
             var created = await repository.CreateAssignmentAsync(assignment);
             results.Add(new PlanMemberResponse
             {

@@ -14,7 +14,7 @@ namespace GymManagmentApplication.Application.Scheduling;
 /// staff book sessions without clashing with the trainer's other sessions/classes or time off;
 /// a priced session raises an invoice for the member; completed sessions feed trainer earnings.
 /// </summary>
-public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore billing)
+public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore billing, GymManagmentApplication.Application.Engagement.Notifier notifier)
 {
     // ── Session types ───────────────────────────────────────────────────────
 
@@ -95,6 +95,12 @@ public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore bi
             Status = currentUser.IsClient() ? PtSessionStatus.Booked : PtSessionStatus.Confirmed,
         };
         db.PtSessions.Add(session);
+        if (currentUser.IsClient())
+            notifier.Add(type.TenantId, type.Trainer.UserId ?? 0, "New session request",
+                $"{client.FirstName} {client.LastName} booked {type.Name} on {start:dd MMM HH:mm} UTC.", "pt", null);
+        else
+            notifier.Add(type.TenantId, clientId, "Session booked",
+                $"{type.Name} with {type.Trainer.DisplayName} on {start:dd MMM HH:mm} UTC.", "pt", null);
         await db.SaveChangesAsync();
 
         if (type.Price > 0)
@@ -134,6 +140,9 @@ public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore bi
 
         s.Status = status;
         if (r.TrainerNotes is not null && !currentUser.IsClient()) s.TrainerNotes = r.TrainerNotes.Trim();
+        var other = currentUser.IsClient() ? s.Trainer.UserId ?? 0 : s.ClientId;
+        notifier.Add(s.TenantId, other, $"Session {status.ToString().ToLower()}",
+            $"{s.SessionType.Name} on {s.StartsAt:dd MMM HH:mm} UTC is now {status.ToString().ToLower()}.", "pt", s.Id);
         if (status == PtSessionStatus.Completed)
         {
             s.Trainer.TotalSessions++;
