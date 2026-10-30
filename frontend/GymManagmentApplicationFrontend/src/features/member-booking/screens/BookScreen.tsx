@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, RefreshControl } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { T, SP } from '../../../theme';
@@ -16,13 +16,25 @@ interface Props {
   userId: number;
   onBack?: () => void;
   onOpenBilling?: () => void;
+  /** Tab to open on (e.g. "mine"); falls back to the first granted tab. */
+  initialTab?: string;
 }
 
-export default function BookScreen({ userId, onBack, onOpenBilling }: Props) {
+// One-shot tab request for callers that can only navigate by route name (e.g. the Home
+// "Next booking" card → "My bookings"). Consumed by the next BookScreen mount.
+let requestedTab: string | null = null;
+export const openBookOn = (tab: string) => { requestedTab = tab; };
+
+export default function BookScreen({ userId, onBack, onOpenBilling, initialTab }: Props) {
   const { hPad } = useLayout();
   const qc = useQueryClient();
   // Tabs come from the access list (member.book.*).
-  const { items: tabs, tab, setTab } = usePageTabs('member.book');
+  const { items: tabs, tab, setTab, has } = usePageTabs('member.book');
+  useEffect(() => {
+    const wanted = initialTab ?? requestedTab;
+    requestedTab = null;
+    if (wanted && has(wanted)) setTab(wanted);
+  }, []);
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {

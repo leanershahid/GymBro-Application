@@ -66,6 +66,11 @@ import NewInvoicePage    from '../../billing/pages/NewInvoicePage';
 import NewMembershipPage from '../../billing/pages/NewMembershipPage';
 import ClassSchedulePage from '../../classes/pages/ClassSchedulePage';
 import PtSessionsPage    from '../../classes/pages/PtSessionsPage';
+import MemberPickerSheet from '../components/MemberPickerSheet';
+import QuickCreateSheet, { QuickAction } from '../components/QuickCreateSheet';
+import { useCheckInMember } from '../../attendance/api/attendanceQueries';
+import { useToast } from '../../common/components/Toast';
+import { apiErrorText } from '../../../api/apiError';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 type Screen =
@@ -88,7 +93,7 @@ type Screen =
   | 'live-coaching-admin'
   | 'ai-coach-admin'
   | 'attendance'
-  | 'attendance-log'
+  | 'attendance-log' | 'attendance-settings'
   | 'more-actions'
   | 'profile-details';
 
@@ -105,7 +110,7 @@ function buildTodayItems({ stats, branches, recentMembers }: DashboardData, go: 
     onPress: () => go('members'),
   });
 
-  const pending = recentMembers.filter(m => m.status === 'pending');
+  const pending = recentMembers.filter(m => m.status?.toLowerCase() === 'pending');
   if (pending.length > 0) items.push({
     key: 'pending', icon: 'clock', tone: 'warn', badge: `${pending.length}`,
     title: `${plural(pending.length, 'member', 'members')} pending`,
@@ -176,7 +181,7 @@ const OWNER_ROUTE: Partial<Record<Screen, string>> = {
   'add-plan': 'plans',
   'new-invoice': 'billing',
   'module-access': 'roles',
-  'attendance-log': 'attendance',
+  'attendance-log': 'attendance', 'attendance-settings': 'attendance',
 };
 /** Always open, whatever the access list says. */
 const ALWAYS_OPEN = new Set<Screen>(['more-actions', 'profile-details']);
@@ -237,11 +242,45 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout, open: op
   const canViewAttendance = attendance.canView;
   const canViewLeads    = leads.canView;
 
+  // Front-desk tools: member search, quick actions, check-in.
+  type PickFor = 'search' | 'check-in' | 'sell' | 'invoice';
+  const [pickFor, setPickFor] = useState<PickFor | null>(null);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [invoiceFor, setInvoiceFor] = useState<number | null>(null);
+  const [sellName, setSellName] = useState<string | undefined>(undefined);
+  const checkIn = useCheckInMember();
+  const { show: showToast } = useToast();
+
+  const checkInMember = (userId: number) => checkIn.mutate(userId, {
+    onSuccess: (r) => showToast({ type: r.success ? 'success' : 'error', message: r.message }),
+    onError: (e) => showToast({ type: 'error', message: apiErrorText(e) }),
+  });
+
   const go = useCallback((s: Screen) => setScreen(s), []);
   const open = useCallback((s: Screen, id: number) => { setSelectedId(id); setScreen(s); }, []);
   const goHome = useCallback(() => setScreen(landing), [landing]);
 
   useEffect(() => { if (openRequest) go(openRequest.route as Screen); }, [openRequest, go]);
+
+  const onPicked = (m: { id: number; firstName: string; lastName: string }) => {
+    const name = `${m.firstName} ${m.lastName}`.trim();
+    const purpose = pickFor;
+    if (purpose === 'check-in') { checkInMember(m.id); setPickFor(null); return; }
+    setPickFor(null);
+    if (purpose === 'search') open('member-detail', m.id);
+    if (purpose === 'sell') { setSellName(name); open('new-membership', m.id); }
+    if (purpose === 'invoice') { setInvoiceFor(m.id); go('new-invoice'); }
+  };
+
+  // Everyday actions for the "+" button — each only with the matching create permission.
+  const quickActions: QuickAction[] = [
+    attendance.canCreate && { key: 'check-in', label: 'Check in a member', hint: 'Record a visit at the front desk', icon: 'log-in', onPress: () => setPickFor('check-in') },
+    canAddMember && { key: 'add-member', label: 'Add member', hint: 'Create a new member profile', icon: 'user-plus', onPress: () => go('add-member') },
+    billingAccess.canCreate && { key: 'sell', label: 'Sell membership', hint: 'Pick a member, then a plan', icon: 'award', onPress: () => setPickFor('sell') },
+    billingAccess.canCreate && { key: 'invoice', label: 'New invoice', hint: 'Bill a member for anything', icon: 'file-plus', onPress: () => setPickFor('invoice') },
+    ptAccess.canCreate && { key: 'pt', label: 'Book PT session', hint: 'Schedule personal training', icon: 'clock', onPress: () => go('pt-sessions') },
+    leads.canCreate && { key: 'lead', label: 'Add lead', hint: 'Log a walk-in or enquiry', icon: 'target', onPress: () => go('add-lead') },
+  ].filter(Boolean) as QuickAction[];
   // A detail or add screen reports the module it belongs to, so that module's tab stays lit.
   useEffect(() => { onRouteChange?.(ownerOf(screen)); }, [screen]);
 
@@ -257,13 +296,18 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout, open: op
     if (screen === 'member-detail') return canViewMembers
       ? <MemberDetailPage memberId={selectedId} onBack={() => go('members')} canEdit={members.canEdit}
           onEdit={members.canEdit ? () => go('edit-member') : undefined}
-          onNewMembership={billingAccess.canCreate ? () => go('new-membership') : undefined} />
+          onNewMembership={billingAccess.canCreate ? () => { setSellName(undefined); go('new-membership'); } : undefined}
+          onNewInvoice={billingAccess.canCreate ? () => { setInvoiceFor(selectedId); go('new-invoice'); } : undefined}
+          onCheckIn={attendance.canCreate ? () => checkInMember(selectedId) : undefined}
+          checkingIn={checkIn.isPending} />
       : <NoModuleAccess onBack={() => go('members')} />;
     if (screen === 'edit-member') return members.canEdit
       ? <EditMemberPage memberId={selectedId} onBack={() => go('member-detail')} onSaved={() => go('member-detail')} />
       : <NoModuleAccess onBack={() => go('member-detail')} />;
     if (screen === 'add-member') return canAddMember
-      ? <AddMemberPage onBack={() => go('members')} />
+      ? <AddMemberPage onBack={() => go('members')}
+          onOpenMember={(id) => open('member-detail', id)}
+          onSellMembership={billingAccess.canCreate ? (id, name) => { setSellName(name); open('new-membership', id); } : undefined} />
       : <NoModuleAccess onBack={() => go('members')} />;
     if (screen === 'trainers') return canViewTrainers
       ? <ViewTrainersPage onBack={goHome} onAddTrainer={canAddTrainer ? () => go('add-trainer') : undefined} />
@@ -324,13 +368,13 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout, open: op
       : <NoModuleAccess onBack={goHome} />;
     if (screen === 'billing') return billingAccess.canView
       ? <BillingHomePage onBack={goHome} onOpenMember={canViewMembers ? (id) => open('member-detail', id) : undefined}
-          onNewInvoice={billingAccess.canCreate ? () => go('new-invoice') : undefined} />
+          onNewInvoice={billingAccess.canCreate ? () => { setInvoiceFor(null); go('new-invoice'); } : undefined} />
       : <NoModuleAccess onBack={goHome} />;
     if (screen === 'new-invoice') return billingAccess.canCreate
-      ? <NewInvoicePage onBack={() => go('billing')} />
+      ? <NewInvoicePage key={invoiceFor ?? 0} memberId={invoiceFor ?? undefined} onBack={() => go(invoiceFor ? 'member-detail' : 'billing')} />
       : <NoModuleAccess onBack={() => go('billing')} />;
     if (screen === 'new-membership') return billingAccess.canCreate
-      ? <NewMembershipPage memberId={selectedId} onBack={() => go('member-detail')} />
+      ? <NewMembershipPage memberId={selectedId} memberName={sellName} onBack={() => go('member-detail')} />
       : <NoModuleAccess onBack={() => go('member-detail')} />;
     if (screen === 'roles') return roles.canView
       ? <RolesPage onBack={goHome} onOpenRoleAccess={(id) => open('module-access', id)} />
@@ -344,9 +388,13 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout, open: op
     if (screen === 'live-coaching-admin') return <LiveCoachingAdminPage onBack={goHome} />;
     if (screen === 'ai-coach-admin')     return <AiCoachSettingsPage   onBack={goHome} />;
     if (screen === 'attendance') return canViewAttendance
-      ? <AttendanceSettingsPage onBack={goHome} onOpenLog={() => go('attendance-log')} />
+      ? <AttendanceLogPage onBack={goHome}
+          onCheckIn={attendance.canCreate ? () => setPickFor('check-in') : undefined}
+          onOpenSettings={attendance.canEdit ? () => go('attendance-settings') : undefined}
+          onOpenMember={canViewMembers ? (id) => open('member-detail', id) : undefined} />
       : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'attendance-log')     return <AttendanceLogPage     onBack={() => go('attendance')} />;
+    if (screen === 'attendance-log')      return <AttendanceLogPage onBack={goHome} onOpenMember={canViewMembers ? (id) => open('member-detail', id) : undefined} />;
+    if (screen === 'attendance-settings') return <AttendanceSettingsPage onBack={() => go('attendance')} onOpenLog={() => go('attendance')} />;
     if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} onLogout={confirmLogout} />;
     if (screen === 'profile-details')    return <AdminProfileDetailsPage onBack={goHome} roleLabel={roleLabel} />;
     return null;
@@ -369,6 +417,14 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout, open: op
         onViewMore={() => { setProfileOpen(false); go('profile-details'); }}
         onChangePassword={() => { setProfileOpen(false); setPwOpen(true); }}
       />
+      <MemberPickerSheet
+        visible={pickFor !== null}
+        title={pickFor === 'check-in' ? 'Check in a member' : pickFor === 'sell' ? 'Sell membership to…' : pickFor === 'invoice' ? 'Invoice for…' : 'Find a member'}
+        onClose={() => setPickFor(null)}
+        onPick={onPicked}
+        busyId={checkIn.isPending ? checkIn.variables ?? null : null}
+      />
+      <QuickCreateSheet visible={quickOpen} actions={quickActions} onClose={() => setQuickOpen(false)} />
       <ChangePasswordSheet visible={pwOpen} onClose={() => setPwOpen(false)} onChanged={() => onLogout?.()} />
     </View>
   );
@@ -425,6 +481,8 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout, open: op
             avatarUrl={me?.avatarUrl ?? undefined}
             roleLabel={roleLabel}
             onPressAvatar={() => setProfileOpen(true)}
+            onSearch={canViewMembers ? () => setPickFor('search') : undefined}
+            onQuickCreate={quickActions.length > 0 ? () => setQuickOpen(true) : undefined}
           />
         </View>
 
@@ -433,6 +491,15 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout, open: op
           <View style={{ marginBottom: SECTION }}>
             <SectionHeader title="Today" />
             <ActionList items={todayItems} />
+          </View>
+        )}
+
+        {/* Shortcuts — the first eight modules; "All" lists every one. */}
+        {actions.length > 0 && (
+          <View style={{ marginBottom: SECTION }}>
+            <SectionHeader title="Shortcuts" actionLabel={actions.length > 8 ? 'All' : undefined}
+              onPressAction={actions.length > 8 ? () => go('more-actions') : undefined} />
+            <QuickAccessGrid actions={actions.slice(0, 8)} onPress={(s) => go(s as Screen)} />
           </View>
         )}
 
@@ -507,14 +574,6 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout, open: op
             </View>
           )}
         </View>
-
-        {/* 7. Quick access — lighter, below the data */}
-        {actions.length > 0 && (
-          <View style={{ marginBottom: SECTION }}>
-            <SectionHeader title="Quick access" />
-            <QuickAccessGrid actions={actions} onPress={(s) => go(s as Screen)} />
-          </View>
-        )}
 
         {/* 8. Recent sign-ups */}
         <View style={{ marginBottom: 24 }}>

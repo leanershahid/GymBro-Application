@@ -17,6 +17,10 @@ public interface IAttendanceService
     Task<MyAttendanceStatusResponse> GetMyStatusAsync();
     Task<CheckInResultResponse> CheckInByLocationAsync(LocationCheckRequest request);
     Task<AttendanceRecordResponse?> CheckOutAsync(LocationCheckRequest? request);
+    /// <summary>Front desk: checks a member in by hand (no location needed), at their branch.</summary>
+    Task<CheckInResultResponse> CheckInMemberAsync(ulong userId);
+    /// <summary>Front desk: closes a member's open visit; null when they aren't checked in.</summary>
+    Task<AttendanceRecordResponse?> CheckOutMemberAsync(ulong userId);
     Task<List<AttendanceRecordResponse>> GetMyHistoryAsync(int days);
     Task<PagedResponse<AttendanceRecordResponse>> GetAllAsync(DateOnly? date, ulong? branchId, int page, int size, ulong? userId = null);
     /// <summary>Records a biometric (face/fingerprint) entry as attendance when that method is enabled.</summary>
@@ -203,6 +207,47 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
     public async Task<AttendanceRecordResponse?> CheckOutAsync(LocationCheckRequest? request)
     {
         var open = await OpenVisitAsync(Me);
+        if (open is null) return null;
+        open.CheckOutAt = DateTime.UtcNow;
+        open.DurationMin = (short)Math.Clamp((open.CheckOutAt.Value - open.CheckInAt).TotalMinutes, 0, short.MaxValue);
+        await db.SaveChangesAsync();
+        return Map(open);
+    }
+
+    public async Task<CheckInResultResponse> CheckInMemberAsync(ulong userId)
+    {
+        var tenantId = currentUser.ResolveTenantId();
+        // Tenant-filtered, so staff can only check in people of their own gym.
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId)
+            ?? throw new KeyNotFoundException($"Member {userId} not found.");
+
+        var open = await OpenVisitAsync(userId);
+        if (open is not null)
+            return new CheckInResultResponse { CheckedIn = true, Message = $"Already checked in at {open.Branch.Name}.", Visit = Map(open) };
+
+        if (await MembershipBlockReasonAsync(userId) is { } blocked)
+            return new CheckInResultResponse { CheckedIn = false, Message = blocked };
+
+        // The member's branch, else the desk's, else the gym's first branch.
+        var branchId = user.BranchId ?? currentUser.BranchId
+            ?? await db.Branches.OrderBy(b => b.Id).Select(b => (ulong?)b.Id).FirstOrDefaultAsync()
+            ?? throw new ArgumentException("This gym has no branch to check in at yet.");
+
+        var visit = new AttendanceEntity
+        {
+            TenantId = tenantId, BranchId = branchId, UserId = userId,
+            CheckInAt = DateTime.UtcNow, Method = AttendanceMethod.Manual, GateDevice = "front-desk",
+        };
+        db.Attendances.Add(visit);
+        await db.SaveChangesAsync();
+        await db.Entry(visit).Reference(v => v.Branch).LoadAsync();
+        return new CheckInResultResponse { CheckedIn = true, Message = $"Checked in at {visit.Branch.Name}.", Visit = Map(visit) };
+    }
+
+    public async Task<AttendanceRecordResponse?> CheckOutMemberAsync(ulong userId)
+    {
+        if (!await db.Users.AnyAsync(u => u.Id == userId)) throw new KeyNotFoundException($"Member {userId} not found.");
+        var open = await OpenVisitAsync(userId);
         if (open is null) return null;
         open.CheckOutAt = DateTime.UtcNow;
         open.DurationMin = (short)Math.Clamp((open.CheckOutAt.Value - open.CheckInAt).TotalMinutes, 0, short.MaxValue);

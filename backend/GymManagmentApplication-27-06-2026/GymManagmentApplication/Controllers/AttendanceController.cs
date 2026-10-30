@@ -78,6 +78,28 @@ public class AttendanceController(IAttendanceService service) : ControllerBase
             : Ok(ApiResponse<object>.Ok(result, "Checked out."));
     }
 
+    // ── Front desk ─────────────────────────────────────────────────────────
+
+    [HttpPost("members/{userId:long}/check-in")]
+    [AuthorizeRoles(RoleNames.Admin)]
+    [RequireModule("attendance")]
+    public async Task<ActionResult<ApiResponse<object>>> CheckInMember(ulong userId)
+    {
+        var result = await service.CheckInMemberAsync(userId);
+        return Ok(new ApiResponse<object> { Success = result.CheckedIn, Message = result.Message, Data = result });
+    }
+
+    [HttpPost("members/{userId:long}/check-out")]
+    [AuthorizeRoles(RoleNames.Admin)]
+    [RequireModule("attendance")]
+    public async Task<ActionResult<ApiResponse<object>>> CheckOutMember(ulong userId)
+    {
+        var result = await service.CheckOutMemberAsync(userId);
+        return result is null
+            ? NotFound(ApiResponse<object>.Fail("This member isn't checked in."))
+            : Ok(ApiResponse<object>.Ok(result, "Checked out."));
+    }
+
     [HttpGet("me")]
     [AuthorizeRoles(RoleNames.Client, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> MyHistory([FromQuery] int days = 30)

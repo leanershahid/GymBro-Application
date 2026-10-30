@@ -19,7 +19,18 @@ const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 /** Admin/trainer: who checked in on a given day, how, and where. */
-export default function AttendanceLogPage({ onBack }: { onBack?: () => void }) {
+interface Props {
+  onBack?: () => void;
+  /** Front desk: check someone in (shows a "Check in" button). */
+  onCheckIn?: () => void;
+  /** Opens attendance settings (check-in methods, branch geofences). */
+  onOpenSettings?: () => void;
+  /** Tapping a row opens that member. */
+  onOpenMember?: (userId: number) => void;
+}
+
+/** Today's check-ins — the attendance module's first screen; settings sit behind the gear. */
+export default function AttendanceLogPage({ onBack, onCheckIn, onOpenSettings, onOpenMember }: Props) {
   const [day, setDay] = useState(() => new Date());
   const date = isoDate(day);
   const { data, isLoading, isError, refetch, isRefetching } = useAttendanceLog(date);
@@ -32,8 +43,10 @@ export default function AttendanceLogPage({ onBack }: { onBack?: () => void }) {
   );
 
   const renderItem = ({ item }: { item: AttendanceRecord }) => (
-    <View
-      accessible
+    <Pressable
+      disabled={!onOpenMember}
+      onPress={() => onOpenMember?.(item.userId)}
+      accessibilityRole={onOpenMember ? 'button' : undefined}
       accessibilityLabel={`${item.userName ?? 'Member'}, ${item.branchName ?? ''}, checked in ${time(item.checkInAt)}${item.checkOutAt ? `, out ${time(item.checkOutAt)}` : ', still in'}, ${METHOD_LABEL[item.method] ?? item.method}`}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: R.lg, backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line }}
     >
@@ -45,12 +58,33 @@ export default function AttendanceLogPage({ onBack }: { onBack?: () => void }) {
         </Text>
       </View>
       <StatusPill label={METHOD_LABEL[item.method] ?? item.method} tone={item.method === 'Location' ? 'info' : 'brand'} />
-    </View>
+    </Pressable>
   );
 
   return (
     <Screen>
-      <ScreenHeader eyebrow="Attendance" title="Check-in log" onBack={onBack} />
+      <ScreenHeader
+        eyebrow="Attendance"
+        title="Check-ins"
+        onBack={onBack}
+        right={(onCheckIn || onOpenSettings) && (
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {onOpenSettings && (
+              <Pressable onPress={onOpenSettings} hitSlop={6} accessibilityRole="button" accessibilityLabel="Attendance settings"
+                style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line }}>
+                <Feather name="settings" size={18} color={T.text} />
+              </Pressable>
+            )}
+            {onCheckIn && (
+              <Pressable onPress={onCheckIn} accessibilityRole="button" accessibilityLabel="Check in a member"
+                style={{ minHeight: 44, paddingHorizontal: 16, borderRadius: 22, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: T.brand }}>
+                <Feather name="log-in" size={16} color={T.onBrand} />
+                <Text style={{ color: T.onBrand, fontSize: 14, fontWeight: '800' }}>Check in</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+      />
 
       {/* Day switcher */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SP.xl, marginBottom: 12 }}>

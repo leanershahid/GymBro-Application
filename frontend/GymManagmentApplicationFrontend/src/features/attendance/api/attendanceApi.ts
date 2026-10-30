@@ -24,6 +24,13 @@ export const fetchAttendanceLog = async (date?: string, branchId?: number, pageN
     params: { date, branchId, pageNumber, pageSize },
   })).data;
 
+/** Front desk: checks a member in by hand. A blocked membership comes back as success:false with the reason. */
+export const checkInMember = async (userId: number) =>
+  (await axiosInstance.post<ApiResponse<CheckInResult>>(`/attendance/members/${userId}/check-in`)).data;
+
+export const checkOutMember = async (userId: number) =>
+  (await axiosInstance.post<ApiResponse<AttendanceRecord>>(`/attendance/members/${userId}/check-out`)).data;
+
 // ── Member / trainer ────────────────────────────────────────────────────
 export const fetchMyAttendanceStatus = async () =>
   (await axiosInstance.get<ApiResponse<MyAttendanceStatus>>(ENDPOINTS.ATTENDANCE_STATUS)).data;

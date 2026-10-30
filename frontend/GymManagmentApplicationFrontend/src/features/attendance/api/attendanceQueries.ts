@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../api/queryKeys';
 import {
-  checkIn, checkOut, clearBranchGeofence, fetchAttendanceLog, fetchAttendanceSettings,
+  checkIn, checkInMember, checkOut, checkOutMember, clearBranchGeofence, fetchAttendanceLog, fetchAttendanceSettings,
   fetchMyAttendance, fetchMyAttendanceStatus, setBranchGeofence, updateAttendanceSettings,
 } from './attendanceApi';
 import { AttendanceSettings, LocationFix, SetBranchGeofencePayload } from '../types/attendance.types';
@@ -43,6 +43,23 @@ export const useAttendanceLog = (date?: string, branchId?: number) =>
     queryFn: () => fetchAttendanceLog(date, branchId),
     select: r => r.data,
   });
+
+/** Front desk check-in / check-out of a member; refreshes the attendance log. */
+export const useCheckInMember = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: number) => checkInMember(userId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['attendance-log'] }),
+  });
+};
+
+export const useCheckOutMember = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: number) => checkOutMember(userId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['attendance-log'] }),
+  });
+};
 
 // ── Member / trainer ────────────────────────────────────────────────────
 export const useMyAttendanceStatus = () =>

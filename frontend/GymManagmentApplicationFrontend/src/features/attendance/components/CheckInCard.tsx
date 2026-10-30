@@ -13,8 +13,8 @@ const sinceLabel = (iso: string) => {
 };
 
 /**
- * Member/trainer location check-in. Shown only when at least one branch of the gym has
- * location check-in turned on. The phone's GPS position is sent to the server, which decides
+ * Member/trainer location check-in. Renders nothing unless at least one branch of the gym has
+ * location check-in turned on (or the user still has an open visit to check out of). The phone's GPS position is sent to the server, which decides
  * whether it's inside the branch radius.
  */
 export default function CheckInCard() {
@@ -35,8 +35,9 @@ export default function CheckInCard() {
   if (isLoading || !status) return null;
 
   const open = status.openVisit;
+  // Nothing to do here until the gym switches location check-in on (an open visit can still be closed).
+  if (!status.locationEnabled && !open) return null;
   const busy = locating || checkIn.isPending || checkOut.isPending;
-  const locationOff = !status.locationEnabled && !open;
 
   const doCheckIn = async () => {
     setMessage(null);
@@ -86,9 +87,7 @@ export default function CheckInCard() {
           <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 12, marginTop: 2 }}>
             {open
               ? sinceLabel(open.checkInAt)
-              : locationOff
-                ? 'Location check-in isn\'t set up yet'
-                : `Check in with your location · ${status.visitsThisMonth} visit${status.visitsThisMonth === 1 ? '' : 's'} this month`}
+              : `Check in with your location · ${status.visitsThisMonth} visit${status.visitsThisMonth === 1 ? '' : 's'} this month`}
           </Text>
         </View>
       </View>
@@ -105,9 +104,7 @@ export default function CheckInCard() {
           icon="map-pin"
           onPress={doCheckIn}
           loading={busy}
-          accessibilityHint={locationOff
-            ? 'Ask your gym admin to turn on location check-in first'
-            : 'Uses your current location to record attendance at the nearest branch'}
+          accessibilityHint="Uses your current location to record attendance at the nearest branch"
         />
       )}
     </View>

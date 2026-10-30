@@ -3,6 +3,7 @@ import { ScrollView, View, Text } from 'react-native';
 import { BranchPayload } from '../types/branch.types';
 import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
 import { T } from '../../../theme';
+import UploadField from '../../common/components/UploadField';
 
 export type BranchBasicInfoErrors = {
   name?: string;
@@ -78,13 +79,12 @@ export default function StepBranchBasicInfo({ data, onChange, errors = {}, codeL
       />
 
       <Section title="Media" />
-      <Field
-        label="Logo URL"
-        value={data.logoUrl ?? ''}
-        onChangeText={(v) => onChange({ logoUrl: v })}
-        placeholder="https://…"
-        autoCapitalize="none"
-        autoCorrect={false}
+      <UploadField
+        label="Logo"
+        value={data.logoUrl}
+        onChange={(url) => onChange({ logoUrl: url })}
+        folder="logos"
+        hint="Square image, PNG or JPG"
         error={errors.logoUrl}
       />
     </ScrollView>

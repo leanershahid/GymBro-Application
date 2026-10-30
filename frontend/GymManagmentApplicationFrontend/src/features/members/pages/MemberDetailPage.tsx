@@ -403,9 +403,34 @@ interface Props {
   canEdit?: boolean;
   /** Opens the "new membership" flow for this member (billing access only). */
   onNewMembership?: () => void;
+  /** Opens a new invoice for this member (billing access only). */
+  onNewInvoice?: () => void;
+  /** Checks this member in at the front desk (attendance access only). */
+  onCheckIn?: () => void;
+  /** Busy state for onCheckIn. */
+  checkingIn?: boolean;
 }
 
-export default function MemberDetailPage({ memberId, onBack, onEdit, canEdit = false, onNewMembership }: Props) {
+/** One round action under the member's name — the profile is the hub for the front desk's tasks. */
+function HubAction({ icon, label, onPress, busy }: { icon: React.ComponentProps<typeof Feather>['name']; label: string; onPress: () => void; busy?: boolean }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={busy}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ busy }}
+      style={({ pressed }) => ({ flex: 1, alignItems: 'center', gap: 6, minHeight: 64, opacity: busy ? 0.6 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] })}
+    >
+      <View style={{ width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: T.brandDim, borderWidth: 1, borderColor: T.brandBorder }}>
+        <Feather name={busy ? 'loader' : icon} size={19} color={T.brand} />
+      </View>
+      <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 11, fontWeight: '700' }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+export default function MemberDetailPage({ memberId, onBack, onEdit, canEdit = false, onNewMembership, onNewInvoice, onCheckIn, checkingIn }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
   const [assignOpen, setAssignOpen] = useState(false);
   const [manageAccess, setManageAccess] = useState(false);
@@ -441,7 +466,7 @@ export default function MemberDetailPage({ memberId, onBack, onEdit, canEdit = f
   const fullName = `${member.firstName} ${member.lastName}`;
 
   if (manageAccess) {
-    return <ManageUserAccessPage userId={member.id} userName={fullName} onBack={() => setManageAccess(false)} />;
+    return <ManageUserAccessPage userId={member.id} userName={fullName} currentRoleSlug="client" onBack={() => setManageAccess(false)} />;
   }
 
   const initials = `${member.firstName[0] ?? ''}${member.lastName[0] ?? ''}`.toUpperCase();
@@ -517,6 +542,16 @@ export default function MemberDetailPage({ memberId, onBack, onEdit, canEdit = f
             </View>
           )}
         </View>
+
+        {/* Quick actions — each shows only with the matching permission. */}
+        {(onCheckIn || onNewMembership || onNewInvoice || member.phone) && (
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: SP.lg }}>
+            {onCheckIn && <HubAction icon="log-in" label="Check in" onPress={onCheckIn} busy={checkingIn} />}
+            {onNewMembership && <HubAction icon="award" label="Sell plan" onPress={onNewMembership} />}
+            {onNewInvoice && <HubAction icon="file-plus" label="Invoice" onPress={onNewInvoice} />}
+            {!!member.phone && <HubAction icon="phone" label="Call" onPress={() => Linking.openURL(`tel:${member.phone}`)} />}
+          </View>
+        )}
 
         <SegmentedTabs<Tab> tabs={TABS} value={tab} onChange={setTab} style={{ marginBottom: SP.lg }} />
 

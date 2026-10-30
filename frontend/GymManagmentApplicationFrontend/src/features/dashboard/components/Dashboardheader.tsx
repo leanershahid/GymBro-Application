@@ -9,6 +9,28 @@ interface DashboardHeaderProps {
   onPressAvatar?: () => void;
   /** Optional role badge shown under the name (e.g. "Administrator"). */
   roleLabel?: string;
+  /** Shows a search button (find a member). */
+  onSearch?: () => void;
+  /** Shows a "+" button (quick actions). */
+  onQuickCreate?: () => void;
+}
+
+function IconButton({ icon, label, onPress, filled }: { icon: React.ComponentProps<typeof Feather>['name']; label: string; onPress: () => void; filled?: boolean }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={6}
+      style={({ pressed }) => ({
+        width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+        backgroundColor: filled ? (pressed ? T.brandDark : T.brand) : pressed ? T.bgInputActive : T.bgInput,
+        borderWidth: filled ? 0 : 1, borderColor: T.line,
+      })}
+    >
+      <Feather name={icon} size={20} color={filled ? T.onBrand : T.text} />
+    </Pressable>
+  );
 }
 
 function getInitials(name: string): string {
@@ -20,6 +42,8 @@ export default function DashboardHeader({
   avatarUrl,
   onPressAvatar,
   roleLabel,
+  onSearch,
+  onQuickCreate,
 }: DashboardHeaderProps) {
   return (
     <View style={{
@@ -79,6 +103,12 @@ export default function DashboardHeader({
           )}
         </View>
       </Pressable>
+
+      {/* Right — find a member, quick actions */}
+      <View style={{ flexDirection: 'row', gap: 8, marginLeft: 8 }}>
+        {onSearch && <IconButton icon="search" label="Find a member" onPress={onSearch} />}
+        {onQuickCreate && <IconButton icon="plus" label="Quick actions" onPress={onQuickCreate} filled />}
+      </View>
     </View>
   );
 }

@@ -5,6 +5,7 @@ import { Field, RowGrid, GridCell } from './FormFields';
 import { DateField } from './DatePicker';
 import GlassCard from './GlassCard';
 import { T } from '../../../theme';
+import UploadField from '../../common/components/UploadField';
 
 interface Props {
   data: Partial<TrainerPayload>;
@@ -78,7 +79,7 @@ export default function StepCertDocuments({ data, onChange }: Props) {
               <DateField label="Expiry Date" value={cert.expiryDate} onChange={(v) => onChange({ certifications: certs.map((c, idx) => idx === i ? { ...c, expiryDate: v } : c) })} />
             </GridCell>
           </RowGrid>
-          <Field label="Document URL" value={cert.documentUrl} onChangeText={(v) => onChange({ certifications: certs.map((c, idx) => idx === i ? { ...c, documentUrl: v } : c) })} autoCapitalize="none" autoCorrect={false} />
+          <UploadField label="Certificate" kind="document" folder="documents" hint="Photo or scan of the certificate" value={cert.documentUrl} onChange={(v) => onChange({ certifications: certs.map((c, idx) => idx === i ? { ...c, documentUrl: v } : c) })} />
         </GlassCard>
       ))}
 
@@ -130,7 +131,7 @@ export default function StepCertDocuments({ data, onChange }: Props) {
               <Field label="Document Number" value={doc.documentNumber} onChangeText={(v) => onChange({ documents: docs.map((d, idx) => idx === i ? { ...d, documentNumber: v } : d) })} />
             </GridCell>
           </RowGrid>
-          <Field label="Document URL" value={doc.documentUrl} onChangeText={(v) => onChange({ documents: docs.map((d, idx) => idx === i ? { ...d, documentUrl: v } : d) })} autoCapitalize="none" autoCorrect={false} />
+          <UploadField label="Document" kind="document" folder="documents" hint="Photo or scan of the document" value={doc.documentUrl} onChange={(v) => onChange({ documents: docs.map((d, idx) => idx === i ? { ...d, documentUrl: v } : d) })} />
           <DateField label="Expiry Date" value={doc.expiryDate} onChange={(v) => onChange({ documents: docs.map((d, idx) => idx === i ? { ...d, expiryDate: v } : d) })} />
         </GlassCard>
       ))}
