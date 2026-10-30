@@ -58,8 +58,9 @@ interface ProviderProps {
 /**
  * Loads the signed-in user's access list once (GET /access/me + /access/me/tabs) and gives it to
  * every menu, tab and screen below. The last list is restored from storage first, so the app opens
- * at once and still works if the network is slow; it is fetched again when the app comes back to
- * the foreground. Hiding things here is for usability only — the API checks every request itself.
+ * at once and still works if the network is slow; it is fetched again every minute and whenever
+ * the app comes back to the foreground. Hiding things here is for usability only — the API checks
+ * every request itself.
  */
 export function AccessProvider({ userId, onLogout, children }: ProviderProps) {
   const qc = useQueryClient();
@@ -84,7 +85,10 @@ export function AccessProvider({ userId, onLogout, children }: ProviderProps) {
       return list;
     },
     enabled: restored,
-    staleTime: 5 * 60 * 1000,
+    // An admin's change to this user's access shows up within a minute, without signing out.
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {

@@ -1,15 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text } from 'react-native';
-import { T } from '../../../theme';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { T, withAlpha } from '../../../theme';
 import { apiErrorText } from '../../../api/apiError';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import LoadingState from '../../common/components/LoadingState';
-import PrimaryButton from '../../common/components/PrimaryButton';
 import EmptyState from '../../dashboard/components/EmptyState';
 import { useRoles } from '../api/moduleAccessQueries';
 import { useModuleTree, useRoleGrants, useSaveRoleGrants } from '../../access/api/accessQueries';
-import ModuleTreeRowCard, { FlagChip, descendantsOf, orderTree } from '../../access/components/ModuleTreeRowCard';
+import PermissionCard, { BulkButton, SaveBar, descendantsOf, orderTree } from '../../access/components/ModuleTreeRowCard';
 import { ModuleGrant } from '../../access/types/access.types';
 
 interface Props {
@@ -19,8 +18,9 @@ interface Props {
 }
 
 type Draft = Record<string, ModuleGrant>;
-type Flag = 'canCreate' | 'canEdit' | 'canDelete' | 'canExport';
+type Flag = 'canView' | 'canCreate' | 'canEdit' | 'canDelete' | 'canExport';
 const FLAGS: { key: Flag; label: string }[] = [
+  { key: 'canView',   label: 'View' },
   { key: 'canCreate', label: 'Create' },
   { key: 'canEdit',   label: 'Edit' },
   { key: 'canDelete', label: 'Delete' },
@@ -29,13 +29,17 @@ const FLAGS: { key: Flag; label: string }[] = [
 /** The admin role always keeps these, or nobody in the gym could manage access again (the API enforces it too). */
 const ADMIN_LOCKED = new Set(['admin.roles', 'admin.user-access']);
 
-const grantFor = (key: string, on: boolean): ModuleGrant =>
-  ({ moduleKey: key, canView: on, canCreate: on, canEdit: on, canDelete: on, canExport: on });
+const OFF = (key: string): ModuleGrant => ({ moduleKey: key, canView: false, canCreate: false, canEdit: false, canDelete: false, canExport: false });
+const FULL = (key: string): ModuleGrant => ({ moduleKey: key, canView: true, canCreate: true, canEdit: true, canDelete: true, canExport: true });
+const same = (a?: ModuleGrant, b?: ModuleGrant) => FLAGS.every(f => !!a?.[f.key] === !!b?.[f.key]);
+const isFull = (g?: ModuleGrant) => FLAGS.every(f => !!g?.[f.key]);
+const appLabel = (app?: string) => app === 'trainer' ? 'Trainer app' : app === 'member' ? 'Member app' : 'Admin app';
 
 /**
- * Role access: which modules every holder of a role gets. Shows the module tree of the app the
- * role signs in to — Trainer → trainer app, Client → member app, every other role → admin app.
- * Turning a module on or off turns its submenus and tabs with it; each can then be set on its own.
+ * Role access: which modules every holder of a role gets, and what they may do in each. Shows the
+ * module tree of the app the role signs in to — Trainer → trainer app, Client → member app, every
+ * other role → admin app. Every action is always visible; switching a module off switches off
+ * everything under it.
  */
 export default function ModuleAccessPage({ onBack, initialRoleId }: Props) {
   const { data: rawRoles = [], isLoading: rolesLoading, isError: rolesError, refetch: refetchRoles } = useRoles();
@@ -54,61 +58,70 @@ export default function ModuleAccessPage({ onBack, initialRoleId }: Props) {
   const treeQ = useModuleTree(app);
   const save = useSaveRoleGrants(roleId);
   const isAdminRole = grantsQ.data?.roleSlug === 'admin';
+  const locked = (key: string) => isAdminRole && ADMIN_LOCKED.has(key);
 
   const rows = useMemo(
     () => orderTree((treeQ.data ?? []).filter(r => r.app === app && (isAdminRole || !r.adminOnly))),
     [treeQ.data, app, isAdminRole],
   );
 
+  const saved = useMemo<Draft>(
+    () => Object.fromEntries((grantsQ.data?.grants ?? []).map(g => [g.moduleKey, g])),
+    [grantsQ.data],
+  );
   const [draft, setDraft] = useState<Draft>({});
-  const [dirty, setDirty] = useState(false);
-  useEffect(() => {
-    if (!grantsQ.data) return;
-    setDraft(Object.fromEntries(grantsQ.data.grants.map(g => [g.moduleKey, g])));
-    setDirty(false);
-  }, [grantsQ.data]);
+  useEffect(() => { setDraft(saved); }, [saved]);
 
-  const toggle = (key: string, on: boolean) => {
-    setDraft(prev => {
-      const next = { ...prev };
-      for (const k of [key, ...descendantsOf(rows, key)])
-        if (!(isAdminRole && ADMIN_LOCKED.has(k))) next[k] = grantFor(k, on);
-      return next;
-    });
-    setDirty(true);
-  };
-  const setFlag = (key: string, flag: Flag) => {
-    setDraft(prev => ({ ...prev, [key]: { ...prev[key], [flag]: !prev[key]?.[flag] } }));
-    setDirty(true);
-  };
+  const dirtyCount = rows.filter(r => !same(draft[r.key], saved[r.key])).length;
+  const onCount = rows.filter(r => draft[r.key]?.canView).length;
+
+  const update = (fn: (next: Draft) => void) => setDraft(prev => { const next = { ...prev }; fn(next); return next; });
+
+  /** View off switches the module and everything under it off; any action switches View on. */
+  const setFlag = (key: string, flag: Flag, value: boolean) => update(next => {
+    if (flag === 'canView' && !value) {
+      for (const k of [key, ...descendantsOf(rows, key)]) if (!locked(k)) next[k] = OFF(k);
+      return;
+    }
+    next[key] = { ...(next[key] ?? OFF(key)), [flag]: value, canView: true };
+  });
+  /** "All" on a module: everything on (for it and what is under it), or everything off when already full. */
+  const toggleAll = (key: string) => update(next => {
+    const on = !isFull(next[key]);
+    for (const k of [key, ...descendantsOf(rows, key)]) if (!locked(k)) next[k] = on ? FULL(k) : OFF(k);
+  });
+  const setEverything = (make: (k: string) => ModuleGrant) => update(next => {
+    for (const r of rows) if (!locked(r.key)) next[r.key] = make(r.key);
+  });
 
   const onSave = () => save.mutate(Object.values(draft).filter(g => g.canView), {
-    onSuccess: () => setDirty(false),
     onError: (e) => Alert.alert('Could not save', apiErrorText(e)),
   });
 
+  const pickRole = (id: number) => {
+    if (id === roleId) return;
+    if (!dirtyCount) { setPickedRoleId(id); return; }
+    Alert.alert('Discard changes?', 'Your unsaved changes to this role will be lost.', [
+      { text: 'Keep editing', style: 'cancel' },
+      { text: 'Discard', style: 'destructive', onPress: () => setPickedRoleId(id) },
+    ]);
+  };
+
   const loading = rolesLoading || grantsQ.isLoading || treeQ.isLoading;
-  const appLabel = app === 'trainer' ? 'trainer app' : app === 'member' ? 'member app' : 'admin app';
 
   return (
     <Screen>
       <ScreenHeader eyebrow="Role access" title={grantsQ.data?.roleName ?? 'Module access'} onBack={onBack} />
 
       {/* Role picker */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 8, paddingBottom: 12 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}
+        contentContainerStyle={{ paddingHorizontal: 20, gap: 8, paddingBottom: 12 }}>
         {roles.map(r => {
           const active = r.id === roleId;
           return (
             <Pressable
               key={r.id}
-              onPress={() => {
-                if (r.id === roleId) return;
-                if (!dirty) { setPickedRoleId(r.id); return; }
-                Alert.alert('Discard changes?', 'Your unsaved changes to this role will be lost.', [
-                  { text: 'Keep editing', style: 'cancel' },
-                  { text: 'Discard', style: 'destructive', onPress: () => setPickedRoleId(r.id) },
-                ]);
-              }}
+              onPress={() => pickRole(r.id)}
               accessibilityRole="radio"
               accessibilityState={{ checked: active }}
               accessibilityLabel={r.name}
@@ -128,43 +141,74 @@ export default function ModuleAccessPage({ onBack, initialRoleId }: Props) {
       ) : loading ? (
         <LoadingState label="Loading access" />
       ) : grantsQ.isError || treeQ.isError ? (
-        <EmptyState icon="wifi-off" tone="error" title="Couldn't load access" action={{ label: 'Retry', onPress: () => { grantsQ.refetch(); treeQ.refetch(); } }} />
+        <EmptyState icon="wifi-off" tone="error" title="Couldn't load access"
+          action={{ label: 'Retry', onPress: () => { grantsQ.refetch(); treeQ.refetch(); } }} />
       ) : (
-        <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
-          <Text style={{ color: T.textSub, fontSize: 13, lineHeight: 19, marginBottom: 14 }}>
-            Everyone with this role sees what is switched on here in the {appLabel}. A person can still be
-            given more or less from their own access screen.
-          </Text>
+        <>
+          <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+            {/* Summary */}
+            <View style={{
+              padding: 14, borderRadius: 16, marginBottom: 12, gap: 6,
+              backgroundColor: withAlpha(T.brand, 0.06), borderWidth: 1, borderColor: withAlpha(T.brand, 0.2),
+            }}>
+              <Text style={{ color: T.text, fontSize: 15, fontWeight: '800' }}>
+                {appLabel(app)} · {onCount} of {rows.length} modules on
+              </Text>
+              <Text style={{ color: T.textSub, fontSize: 13, lineHeight: 19 }}>
+                Everyone with this role gets what is ticked here. A person can still be given more or less from
+                their own access screen.
+              </Text>
+            </View>
 
-          {rows.map(row => {
-            const g = draft[row.key];
-            const on = !!g?.canView;
-            const locked = isAdminRole && ADMIN_LOCKED.has(row.key);
-            return (
-              <ModuleTreeRowCard
-                key={row.key}
-                row={row}
-                active={on}
-                note={locked ? 'Always on for admins' : undefined}
-                toggle={locked ? undefined : { value: on, onChange: v => toggle(row.key, v) }}
-                control={locked ? <Text style={{ color: T.brand, fontSize: 12, fontWeight: '700' }}>On</Text> : undefined}
-              >
-                {!locked && FLAGS.map(f => (
-                  <FlagChip key={f.key} label={f.label} value={!!g?.[f.key]} onPress={() => setFlag(row.key, f.key)} />
-                ))}
-              </ModuleTreeRowCard>
-            );
-          })}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+              <BulkButton label="Allow everything" icon="check-square" onPress={() => setEverything(FULL)} />
+              <BulkButton label="View only" icon="eye" onPress={() => setEverything(k => ({ ...OFF(k), canView: true }))} />
+              <BulkButton label="Clear all" icon="x-square" onPress={() => setEverything(OFF)} />
+            </View>
 
-          <PrimaryButton
-            label={save.isPending ? 'Saving…' : dirty ? 'Save changes' : 'Saved'}
-            onPress={onSave}
-            loading={save.isPending}
-            disabled={!dirty}
-            accessibilityHint="Saves the module access for this role"
-            style={{ marginTop: 8 }}
-          />
-        </ScrollView>
+            {rows.map(row => {
+              const g = draft[row.key];
+              const isLocked = locked(row.key);
+              return (
+                <PermissionCard
+                  key={row.key}
+                  row={row}
+                  active={!!g?.canView}
+                  note={isLocked ? 'Always on for admins' : undefined}
+                  control={!isLocked && (
+                    <Pressable
+                      onPress={() => toggleAll(row.key)}
+                      accessibilityRole="button"
+                      accessibilityLabel={isFull(g) ? `Turn off ${row.name}` : `Allow everything in ${row.name}`}
+                      hitSlop={6}
+                      style={{
+                        minHeight: 36, paddingHorizontal: 12, borderRadius: 999, justifyContent: 'center',
+                        borderWidth: 1, borderColor: isFull(g) ? withAlpha(T.brand, 0.45) : T.line,
+                        backgroundColor: isFull(g) ? withAlpha(T.brand, 0.14) : 'transparent',
+                      }}
+                    >
+                      <Text style={{ color: isFull(g) ? T.brand : T.textSub, fontSize: 12, fontWeight: '800' }}>
+                        {isFull(g) ? 'All ✓' : 'All'}
+                      </Text>
+                    </Pressable>
+                  )}
+                  cells={FLAGS.map(f => ({
+                    key: f.key,
+                    label: f.label,
+                    value: !!g?.[f.key],
+                    disabled: isLocked,
+                    onPress: () => setFlag(row.key, f.key, !g?.[f.key]),
+                  }))}
+                />
+              );
+            })}
+            <Text style={{ color: T.textFaint, fontSize: 12, lineHeight: 18, marginTop: 4 }}>
+              Create, Edit, Delete and Export control the add, edit and delete buttons inside each module, and
+              what the server accepts.
+            </Text>
+          </ScrollView>
+          <SaveBar dirtyCount={dirtyCount} saving={save.isPending} onSave={onSave} onDiscard={() => setDraft(saved)} />
+        </>
       )}
     </Screen>
   );

@@ -27,12 +27,12 @@ public static class ModuleCatalog
     [
         // ── Admin app ──────────────────────────────────────────────────────
         new("admin.home",     AdminApp, null, "Dashboard", "home",         "home",     "analytics,reports", 1),
-        new("admin.members",  AdminApp, null, "Members",   "members",      "users",    "members,onboarding", 2),
+        new("admin.trainers", AdminApp, null, "Trainers",  "trainers",     "award",    "trainers", 2),
         new("admin.hub",      AdminApp, null, "Hub",       "module-hub",   "grid",     null, 3),
         new("admin.workouts", AdminApp, null, "Activity",  "workouts",     "activity", "workouts", 4),
         new("admin.more",     AdminApp, null, "More",      "more-actions", "menu",     null, 5),
 
-        new("admin.trainers",      AdminApp, "admin.more", "Trainers",      "trainers",            "award",       "trainers", 1),
+        new("admin.members",       AdminApp, "admin.more", "Members",       "members",             "users",       "members,onboarding", 1),
         new("admin.branches",      AdminApp, "admin.more", "Branches",      "branches",            "map-pin",     "branches", 2),
         new("admin.tenants",       AdminApp, "admin.more", "Tenants",       "tenants",             "briefcase",   "tenants", 3, AdminOnly: true),
         new("admin.leads",         AdminApp, "admin.more", "Leads",         "leads",               "target",      "leads", 4),

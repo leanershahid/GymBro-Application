@@ -48,11 +48,11 @@ const WORKOUTS = [
 type Row = [string, 'admin' | 'trainer' | 'member', string | null, string, string | null, string, string, number, string];
 const CATALOG: Row[] = [
   ['admin.home', 'admin', null, 'Dashboard', 'home', 'home', 'analytics,reports', 1, ''],
-  ['admin.members', 'admin', null, 'Members', 'members', 'users', 'members,onboarding', 2, ''],
+  ['admin.trainers', 'admin', null, 'Trainers', 'trainers', 'award', 'trainers', 2, ''],
   ['admin.hub', 'admin', null, 'Hub', 'module-hub', 'grid', '', 3, ''],
   ['admin.workouts', 'admin', null, 'Activity', 'workouts', 'activity', 'workouts', 4, ''],
   ['admin.more', 'admin', null, 'More', 'more-actions', 'menu', '', 5, ''],
-  ['admin.trainers', 'admin', 'admin.more', 'Trainers', 'trainers', 'award', 'trainers', 1, ''],
+  ['admin.members', 'admin', 'admin.more', 'Members', 'members', 'users', 'members,onboarding', 1, ''],
   ['admin.branches', 'admin', 'admin.more', 'Branches', 'branches', 'map-pin', 'branches', 2, ''],
   ['admin.tenants', 'admin', 'admin.more', 'Tenants', 'tenants', 'briefcase', 'tenants', 3, 'adminOnly'],
   ['admin.leads', 'admin', 'admin.more', 'Leads', 'leads', 'target', 'leads', 4, ''],
