@@ -111,7 +111,7 @@ export default function TrainerDetailPage({ trainer: summary, onBack, onEdit }: 
         />
       </View>
 
-      {tab === 'access' && <AccessPanel userId={summary.userId} intro={`Choose which feature areas ${fullName} can see and use.`} />}
+      {tab === 'access' && <AccessPanel userId={summary.userId} />}
 
       {tab === 'details' && (
         <>
