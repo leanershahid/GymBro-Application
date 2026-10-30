@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import { useMyTrainerProfileId } from './api/trainerAppQueries';
 import { useLanding, useMenu } from '../access/context/AccessContext';
-import { MORE_TAB, MoreMenuScreen, useRailTabs } from '../access/components/railTabs';
 import NoAccessScreen from '../access/components/NoAccessScreen';
+import { ShellHosted } from '../access/types/access.types';
 import TrainerHomeScreen    from './screens/TrainerHomeScreen';
 import ClientsScreen        from './screens/ClientsScreen';
 import ProgramBuilderScreen from './screens/ProgramBuilderScreen';
@@ -11,7 +11,6 @@ import TrainerProfileScreen from './screens/TrainerProfileScreen';
 import ClassSchedulePage    from '../classes/pages/ClassSchedulePage';
 import PtSessionsPage       from '../classes/pages/PtSessionsPage';
 import { T } from '../../theme';
-import BottomTabBar, { TabItem } from '../common/components/BottomTabBar';
 import LoadingState from '../common/components/LoadingState';
 import Screen from '../common/components/Screen';
 
@@ -22,20 +21,16 @@ type Route =
   | { id: 'profile' }
   | { id: 'classes' }
   | { id: 'sessions' }
-  | { id: typeof MORE_TAB }
   | { id: 'client'; clientId: number };
 
-// Always on, whatever the access list says — so there is always a way to sign out.
-const ALWAYS_TABS: TabItem[] = [{ key: 'profile', label: 'Profile', icon: 'user' }];
-
-interface Props {
+interface Props extends ShellHosted {
   trainerId: number;
   onLogout: () => void;
 }
 
 // Every /trainers/{id} endpoint needs the TrainerProfile id, resolved via /trainers/me; the
 // login account's access list comes from AccessProvider (App.tsx).
-export default function TrainerApp({ onLogout }: { userId: number; onLogout: () => void }) {
+export default function TrainerApp({ onLogout, open, onRouteChange }: { userId: number; onLogout: () => void } & ShellHosted) {
   const { data: trainerId = 0, isLoading, isError } = useMyTrainerProfileId();
 
   if (isLoading) {
@@ -60,26 +55,24 @@ export default function TrainerApp({ onLogout }: { userId: number; onLogout: () 
     );
   }
 
-  return <TrainerAppContent trainerId={trainerId} onLogout={onLogout} />;
+  return <TrainerAppContent trainerId={trainerId} onLogout={onLogout} open={open} onRouteChange={onRouteChange} />;
 }
 
-/** The trainer app. Its tabs and the screens it will open come from the access list. */
-function TrainerAppContent({ trainerId, onLogout }: Props) {
+/** The trainer screens, hosted by the app shell; which screens open comes from the access list. */
+function TrainerAppContent({ trainerId, onLogout, open, onRouteChange }: Props) {
   const { routes } = useMenu();
-  const { tabs, overflow } = useRailTabs(ALWAYS_TABS);
   const landing = useLanding('home', 'profile') as Route['id'];
 
-  const [screen,    setScreen]    = useState<Route>({ id: landing } as Route);
-  const [activeTab, setActiveTab] = useState<string>(landing);
+  const [screen, setScreen] = useState<Route>({ id: (open?.route ?? landing) } as Route);
 
-  // One client's page belongs to Clients; profile and the More list are always there.
+  // One client's page belongs to Clients; profile is always there.
   const canOpen = (id: Route['id']) =>
-    id === 'profile' || id === MORE_TAB || routes.has(id) || (id === 'client' && routes.has('clients'));
+    id === 'profile' || routes.has(id) || (id === 'client' && routes.has('clients'));
 
-  const goTo = (id: string) => {
-    setActiveTab(tabs.some(t => t.key === id) ? id : MORE_TAB);
-    setScreen({ id: id as any });
-  };
+  const goTo = (id: string) => setScreen({ id: id as any });
+
+  useEffect(() => { if (open) goTo(open.route); }, [open]);
+  useEffect(() => { onRouteChange?.(screen.id); }, [screen.id]);
 
   const navigateFrom = (target: string) => {
     if (target.startsWith('client-')) {
@@ -117,12 +110,8 @@ function TrainerAppContent({ trainerId, onLogout }: Props) {
           {screen.id === 'profile' && (
             <TrainerProfileScreen trainerId={trainerId} onLogout={onLogout} />
           )}
-          {screen.id === MORE_TAB && <MoreMenuScreen items={overflow} onOpen={goTo} />}
         </>)}
       </View>
-
-      {/* ── Bottom tab bar ── */}
-      <BottomTabBar tabs={tabs} active={activeTab} onChange={goTo} />
     </View>
   );
 }

@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { T } from '../../theme';
-import BottomTabBar, { TabItem } from '../common/components/BottomTabBar';
 import { useLanding, useMenu } from '../access/context/AccessContext';
-import { MORE_TAB, MoreMenuScreen, useRailTabs } from '../access/components/railTabs';
 import NoAccessScreen      from '../access/components/NoAccessScreen';
+import { ShellHosted } from '../access/types/access.types';
 import HomeScreen          from './screens/HomeScreen';
 import TrainScreen         from './screens/TrainScreen';
 import PlansScreen         from './screens/PlansScreen';
@@ -26,36 +25,33 @@ type Screen =
   | { id: 'plans'; planId?: number }
   | { id: 'billing'   }
   | { id: 'book'      }
-  | { id: typeof MORE_TAB }
   // `from` is the screen Back returns to (defaults to Train, or the landing screen without it)
   | { id: 'workout'; workoutId: number; from?: Screen };
 
-// Always on, whatever the access list says — so there is always a way to sign out.
-const ALWAYS_TABS: TabItem[] = [{ key: 'profile', label: 'Profile', icon: 'user' }];
-
-interface Props {
+interface Props extends ShellHosted {
   userId: number;
   onLogout: () => void;
 }
 
-/** The member app. Its tabs and the screens it will open come from the access list (AccessProvider). */
-export default function MemberApp({ userId, onLogout }: Props) {
+/**
+ * The member screens. The app shell (AppShell) hosts them and owns the tab bar; which screens open
+ * comes from the access list.
+ */
+export default function MemberApp({ userId, onLogout, open, onRouteChange }: Props) {
   const { routes } = useMenu();
-  const { tabs, overflow } = useRailTabs(ALWAYS_TABS);
   const landing = useLanding('home', 'profile') as Screen['id'];
 
-  const [screen, setScreen]       = useState<Screen>({ id: landing } as Screen);
-  const [activeTab, setActiveTab] = useState<string>(landing);
+  const [screen, setScreen] = useState<Screen>({ id: (open?.route ?? landing) } as Screen);
 
-  // A workout opens from Train or from a plan day; profile and the More list are always there.
+  // A workout opens from Train or from a plan day; profile is always there.
   const canOpen = (id: Screen['id']) =>
-    id === 'profile' || id === MORE_TAB || routes.has(id) ||
+    id === 'profile' || routes.has(id) ||
     (id === 'workout' && (routes.has('train') || routes.has('plans')));
 
-  const goTo = (id: string) => {
-    setActiveTab(tabs.some(t => t.key === id) ? id : MORE_TAB);
-    setScreen({ id: id as any });
-  };
+  const goTo = (id: string) => setScreen({ id: id as any });
+
+  useEffect(() => { if (open) goTo(open.route); }, [open]);
+  useEffect(() => { onRouteChange?.(screen.id); }, [screen.id]);
   const goLanding = () => goTo(landing);
   const openBilling = canOpen('billing') ? () => setScreen({ id: 'billing' }) : undefined;
 
@@ -119,12 +115,8 @@ export default function MemberApp({ userId, onLogout }: Props) {
           {screen.id === 'profile' && (
             <ProfileScreen userId={userId} onLogout={onLogout} onOpenBilling={openBilling} />
           )}
-          {screen.id === MORE_TAB && <MoreMenuScreen items={overflow} onOpen={goTo} />}
         </>)}
       </View>
-
-      {/* ── Bottom tab bar — fixed on every member screen ── */}
-      <BottomTabBar tabs={tabs} active={activeTab} onChange={goTo} />
     </View>
   );
 }

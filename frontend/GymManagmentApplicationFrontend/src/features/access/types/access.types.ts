@@ -28,6 +28,20 @@ export interface AccessList {
 
 export type AccessApp = 'admin' | 'trainer' | 'member';
 
+/** The shell asking an area's screens to open `route`; `at` makes a repeat tap reopen it. */
+export interface OpenRequest {
+  route: string;
+  at: number;
+}
+
+/** Props every area's screens take when the shell hosts them. */
+export interface ShellHosted {
+  /** Screen the shell wants open. */
+  open?: OpenRequest;
+  /** Reports the screen showing, so the shell can highlight its tab. */
+  onRouteChange?: (route: string) => void;
+}
+
 /** A module master row, for the admin screens that grant access. */
 export interface ModuleTreeRow {
   key: string;

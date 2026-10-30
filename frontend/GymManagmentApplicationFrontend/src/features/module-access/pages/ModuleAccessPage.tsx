@@ -34,7 +34,7 @@ const OFF = (key: string): ModuleGrant => ({ moduleKey: key, canView: false, can
 const FULL = (key: string): ModuleGrant => ({ moduleKey: key, canView: true, canCreate: true, canEdit: true, canDelete: true, canExport: true });
 const same = (a?: ModuleGrant, b?: ModuleGrant) => FLAGS.every(f => !!a?.[f.key] === !!b?.[f.key]);
 const isFull = (g?: ModuleGrant) => FLAGS.every(f => !!g?.[f.key]);
-const appLabel = (app?: string) => app === 'trainer' ? 'Trainer app' : app === 'member' ? 'Member app' : 'Admin app';
+const appLabel = (app?: string) => app === 'trainer' ? 'Training' : app === 'member' ? 'Member' : 'Management';
 
 /**
  * Role access: which modules every holder of a role gets, and what they may do in each. Shows the
