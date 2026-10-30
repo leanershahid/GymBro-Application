@@ -6,6 +6,7 @@ import { useLayout } from '../../../utils/useLayout';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import { useVisibleAdminActions } from '../adminActions';
+import AppSwitcher from '../../access/components/AppSwitcher';
 
 interface Props {
   onBack?: () => void;
@@ -48,6 +49,8 @@ export default function MoreActionsPage({ onBack, onNavigate, onLogout }: Props)
             </Pressable>
           ))}
         </View>
+
+        <AppSwitcher />
 
         {onLogout && (
           <Pressable

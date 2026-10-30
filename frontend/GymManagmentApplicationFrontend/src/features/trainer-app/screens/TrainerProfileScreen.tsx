@@ -18,6 +18,7 @@ import StatusPill from '../../common/components/StatusPill';
 import EmptyState from '../../dashboard/components/EmptyState';
 import { Field, SwitchRow } from '../../trainers/components/FormFields';
 import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
+import AppSwitcher from '../../access/components/AppSwitcher';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -187,6 +188,8 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
               onPress={() => setPwOpen(true)}
             />
             <ChangePasswordSheet visible={pwOpen} onClose={() => setPwOpen(false)} onChanged={onLogout} />
+
+            <AppSwitcher />
 
             {/* Logout */}
             <PrimaryButton

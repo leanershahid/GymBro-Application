@@ -14,8 +14,11 @@ public interface IAccessService
     Task<List<AccessModuleResponse>> GetMyModulesAsync(string? lang);
     /// <summary>The signed-in user's granted tabs — under one page, or all of them when <paramref name="parentKey"/> is null.</summary>
     Task<List<AccessModuleResponse>> GetMyTabsAsync(string? parentKey, string? lang);
-    /// <summary>Whether a user may perform <paramref name="action"/> on an API permission key.</summary>
-    Task<bool> CanAsync(ulong userId, string roleSlug, string apiModule, string action);
+    /// <summary>
+    /// Whether a user may perform <paramref name="action"/> on an API permission key — through a
+    /// granted module of any app, or only of <paramref name="apps"/> when given.
+    /// </summary>
+    Task<bool> CanAsync(ulong userId, string roleSlug, string apiModule, string action, IReadOnlyCollection<string>? apps = null);
 
     Task<List<ModuleTreeRow>> GetModuleTreeAsync(string? app);
     Task<RoleGrantsResponse> GetRoleGrantsAsync(ulong roleId);
@@ -33,7 +36,8 @@ public interface IAccessService
 /// <item>Their primary role plus every additional role.</item>
 /// <item>The union of those roles' grants (flags OR-ed).</item>
 /// <item>Their per-user overrides on top — Allow sets the module with exactly its flags, Deny removes it.</item>
-/// <item>Only modules of the app their primary role signs in to.</item>
+/// <item>Modules of every app: any role can be granted any module. The primary role's app is where
+/// the person signs in; the other apps they hold modules in can be switched to.</item>
 /// <item>Every granted module's ancestors, so menus have no orphans. Ancestors pulled in this way
 /// open no API — only real grants do.</item>
 /// </list>
@@ -66,12 +70,13 @@ public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCac
             .Select(e => ToResponse(e, lang))
             .ToList();
 
-    public async Task<bool> CanAsync(ulong userId, string roleSlug, string apiModule, string action)
+    public async Task<bool> CanAsync(ulong userId, string roleSlug, string apiModule, string action, IReadOnlyCollection<string>? apps = null)
     {
         if (roleSlug.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase)) return true;
 
         var granted = (await GetEffectiveAsync(userId)).Any(e =>
             !e.Implied &&
+            (apps == null || apps.Contains(e.Module.App)) &&
             ModuleCatalog.SplitApiModules(e.Module.ApiModules).Contains(apiModule) &&
             action switch
             {
@@ -108,15 +113,14 @@ public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCac
             .FirstOrDefaultAsync();
         if (user?.Slug is null) return [];
 
-        var app = ModuleCatalog.AppForRole(user.Slug);
         // No tracking: these rows are cached and outlive this request's context.
-        var modules = await db.Modules.AsNoTracking().Include(m => m.Parent).Where(m => m.App == app).ToListAsync();
+        var modules = await db.Modules.AsNoTracking().Include(m => m.Parent).ToListAsync();
         var byId = modules.ToDictionary(m => m.Id);
 
         var granted = new Dictionary<ulong, Flags>();
         if (user.Slug == RoleNames.SuperAdmin)
         {
-            foreach (var m in modules) granted[m.Id] = new Flags(true, true, true, true, true);
+            foreach (var m in modules.Where(m => m.App == ModuleCatalog.AdminApp)) granted[m.Id] = new Flags(true, true, true, true, true);
         }
         else
         {
@@ -162,7 +166,7 @@ public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCac
     }
 
     private static AccessModuleResponse ToResponse(Effective e, string? lang) => new(
-        e.Module.Key, LocalizedName(e.Module, lang), e.Module.Level, e.Module.Parent?.Key, e.Module.SortOrder,
+        e.Module.Key, e.Module.App, LocalizedName(e.Module, lang), e.Module.Level, e.Module.Parent?.Key, e.Module.SortOrder,
         e.Module.Icon, e.Module.Route, e.Module.HideFromMenu, e.Module.IsTab,
         // A parent shown only so its granted children aren't orphaned opens no API.
         e.Implied ? [] : ModuleCatalog.SplitApiModules(e.Module.ApiModules),
@@ -205,15 +209,14 @@ public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCac
     public async Task<RoleGrantsResponse> SetRoleGrantsAsync(ulong roleId, SetRoleGrantsRequest request)
     {
         var role = await FindManageableRoleAsync(roleId);
-        var app = ModuleCatalog.AppForRole(role.Slug);
         var isAdminRole = role.Slug == RoleNames.Admin;
-        var modules = await db.Modules.Where(m => m.App == app).ToDictionaryAsync(m => m.Key);
+        var modules = await db.Modules.ToDictionaryAsync(m => m.Key);
 
         var wanted = new Dictionary<ulong, ModuleGrantDto>();
         foreach (var g in request.Grants.Where(g => g.CanView))
         {
             if (!modules.TryGetValue(g.ModuleKey, out var module))
-                throw new ArgumentException($"'{g.ModuleKey}' is not a module of the {app} app.");
+                throw new ArgumentException($"'{g.ModuleKey}' is not a module.");
             if (module.AdminOnly && !isAdminRole)
                 throw new ArgumentException($"'{module.Name}' can only be granted to the Admin role.");
             wanted[module.Id] = g;
@@ -256,7 +259,7 @@ public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCac
         var roleIds = await db.UserRoles.Where(ur => ur.UserId == userId).Select(ur => ur.RoleId).ToListAsync();
         roleIds.Add(user.RoleId);
         var fromRoles = (await db.RoleModuleGrants
-                .Where(g => roleIds.Contains(g.RoleId) && g.Module.App == app && g.CanView)
+                .Where(g => roleIds.Contains(g.RoleId) && g.CanView)
                 .Select(g => new { g.Module.Key, g.CanCreate, g.CanEdit, g.CanDelete, g.CanExport })
                 .ToListAsync())
             .GroupBy(g => g.Key)
@@ -264,7 +267,7 @@ public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCac
                 x.Any(g => g.CanCreate), x.Any(g => g.CanEdit), x.Any(g => g.CanDelete), x.Any(g => g.CanExport)))
             .ToList();
 
-        var overrides = await db.UserModuleAccesses.Where(a => a.UserId == userId && a.Module.App == app)
+        var overrides = await db.UserModuleAccesses.Where(a => a.UserId == userId)
             .Select(a => new UserOverrideDto(a.Module.Key, a.IsEnabled, a.CanAdd, a.CanEdit, a.CanDelete))
             .ToListAsync();
 
@@ -279,14 +282,13 @@ public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCac
     public async Task<UserAccessResponse> SetUserOverridesAsync(ulong userId, ulong adminId, SetUserOverridesRequest request)
     {
         var user = await FindManageableUserAsync(userId);
-        var app = ModuleCatalog.AppForRole(user.Role.Slug);
-        var modules = await db.Modules.Where(m => m.App == app).ToDictionaryAsync(m => m.Key);
+        var modules = await db.Modules.ToDictionaryAsync(m => m.Key);
 
         var wanted = new Dictionary<ulong, UserOverrideDto>();
         foreach (var o in request.Overrides)
         {
             if (!modules.TryGetValue(o.ModuleKey, out var module))
-                throw new ArgumentException($"'{o.ModuleKey}' is not a module of the {app} app.");
+                throw new ArgumentException($"'{o.ModuleKey}' is not a module.");
             if (module.AdminOnly && o.IsEnabled && user.Role.Slug != RoleNames.Admin)
                 throw new ArgumentException($"'{module.Name}' can only be granted to admins.");
             wanted[module.Id] = o;

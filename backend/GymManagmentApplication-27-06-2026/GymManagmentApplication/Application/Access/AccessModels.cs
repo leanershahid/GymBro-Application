@@ -4,7 +4,7 @@ namespace GymManagmentApplication.Application.Access;
 
 /// <summary>One granted module, as the apps build menus, tabs and screens from it.</summary>
 public record AccessModuleResponse(
-    string Key, string Name, int Level, string? ParentKey, int SortOrder, string? Icon, string? Route,
+    string Key, string App, string Name, int Level, string? ParentKey, int SortOrder, string? Icon, string? Route,
     bool HideFromMenu, bool IsTab, string[] ApiModules,
     bool CanCreate, bool CanEdit, bool CanDelete, bool CanExport);
 
@@ -15,6 +15,7 @@ public record ModuleTreeRow(
 
 public record ModuleGrantDto(string ModuleKey, bool CanView, bool CanCreate, bool CanEdit, bool CanDelete, bool CanExport);
 
+/// <param name="App">The app the role signs in to; its grants may cover modules of any app.</param>
 public record RoleGrantsResponse(ulong RoleId, string RoleName, string RoleSlug, string App, List<ModuleGrantDto> Grants);
 
 public record UserOverrideDto(string ModuleKey, bool IsEnabled, bool CanAdd, bool CanEdit, bool CanDelete);

@@ -107,21 +107,24 @@ const treeRow = ([key, app, parentKey, name, route, icon, api, sortOrder, flag]:
 const fullGrant = (key: string) => ({ moduleKey: key, canView: true, canCreate: true, canEdit: true, canDelete: true, canExport: true });
 
 /**
- * The preview user's access list: every module of their app, minus `?deny=key1,key2` (and what
- * sits under those) — so a preview can show what someone without those modules sees.
+ * The preview user's access list: every module of their app (plus `?also=` apps), minus
+ * `?deny=key1,key2` (and what sits under those) — so a preview can show what someone sees.
  */
 function previewAccess(tabs: boolean) {
   const role = getSession()?.role;
   const app = role === 'client' ? 'member' : role === 'trainer' ? 'trainer' : 'admin';
-  const denied = (new URLSearchParams(window.location.search).get('deny') ?? '').split(',').filter(Boolean);
+  const params = new URLSearchParams(window.location.search);
+  const denied = (params.get('deny') ?? '').split(',').filter(Boolean);
+  // `?also=admin` adds another app's modules, to preview someone granted modules in two apps.
+  const apps = [app, ...(params.get('also') ?? '').split(',').filter(Boolean)];
   const isDenied = (key: string): boolean => {
     const parent = CATALOG.find(r => r[0] === key)?.[2];
     return denied.includes(key) || (!!parent && isDenied(parent));
   };
   return CATALOG
-    .filter(r => r[1] === app && !isDenied(r[0]) && (r[8] === 'tab') === tabs)
+    .filter(r => apps.includes(r[1]) && !isDenied(r[0]) && (r[8] === 'tab') === tabs)
     .map(treeRow)
-    .map(({ app: _app, adminOnly: _adminOnly, ...m }) => ({ ...m, canCreate: true, canEdit: true, canDelete: true, canExport: true }));
+    .map(({ adminOnly: _adminOnly, ...m }) => ({ ...m, canCreate: true, canEdit: true, canDelete: true, canExport: true }));
 }
 
 function route(method: string, url: string): unknown {
