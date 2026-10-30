@@ -11,7 +11,6 @@ import { useModuleAccess } from '../../module-access/context/ModuleAccessContext
 import EmptyState from '../../dashboard/components/EmptyState';
 import Screen from '../../common/components/Screen';
 import Skeleton from '../../common/components/Skeleton';
-import PhotoHero from '../../common/components/dashboard/PhotoHero';
 import CheckInCard from '../../attendance/components/CheckInCard';
 import MembershipStatusCard from '../../member-billing/components/MembershipStatusCard';
 import NextBookingCard from '../../member-booking/components/NextBookingCard';
@@ -23,9 +22,9 @@ import WorkoutPhotoCard from '../components/WorkoutPhotoCard';
 import HomeSectionHeader from '../components/HomeSectionHeader';
 import ChallengeCard from '../components/ChallengeCard';
 import CoachCard from '../components/CoachCard';
-import { useHasModule } from '../../access/context/AccessContext';
+import { useHasModule, useMenu } from '../../access/context/AccessContext';
+import { openBookOn } from '../../member-booking/screens/BookScreen';
 
-const IMG_HERO = require('../../../assets/dashboard/hero-athlete.jpg');
 const WORKOUT_IMAGES = [
   require('../../../assets/dashboard/workout-1.jpg'),
   require('../../../assets/dashboard/workout-2.jpg'),
@@ -53,6 +52,11 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
   const canChallenges   = useModuleAccess('challenges');
   const canLiveCoaching = useModuleAccess('live-coaching');
   const canPlans        = useModuleAccess('plans');
+  // A card is only shown when the screen it opens is granted (no dead ends).
+  const { routes } = useMenu();
+  const canOpenBook     = canBook && routes.has('book');
+  const canOpenBilling  = canBilling && routes.has('billing');
+  const canOpenWorkout  = routes.has('train') || routes.has('plans');
 
   const { data: profile } = useMyProfile(userId);
   const workoutsQ   = useMyWorkouts(userId, 1);
@@ -67,47 +71,8 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
   const challenges = challengesQ.data ?? [];
   const trainers   = trainersQ.data?.items ?? [];
   const firstName  = profile?.firstName?.trim() || null;
-  const today      = workouts[0];
   const openWorkout = (id: number) => onNavigate(`workout-${id}`);
-
-  // ── Hero: today's workout, or a motivational card ─────────────
-  const heroH = Math.max(220, Math.min(280, Math.round(contentW * 0.72)));
-  let hero: React.ReactNode;
-  if (canWorkouts && workoutsQ.isLoading) {
-    hero = <Skeleton rows={1} height={heroH} borderRadius={20} gap={0} />;
-  } else if (canWorkouts && workoutsQ.isError) {
-    hero = (
-      <EmptyState
-        icon="wifi-off" tone="error" title="Couldn't load today's workout"
-        action={{ label: 'Retry', onPress: () => workoutsQ.refetch() }}
-      />
-    );
-  } else if (canWorkouts && today) {
-    hero = (
-      <PhotoHero
-        image={IMG_HERO}
-        height={heroH}
-        eyebrow="Today's workout"
-        title={today.name}
-        value={today.durationMin != null ? `${today.durationMin} min` : undefined}
-        valueCaption={[today.difficulty, `${today.exercises?.length ?? 0} exercises`].filter(Boolean).join(' · ')}
-        cta={{ label: 'Start', icon: 'play', onPress: () => openWorkout(today.id) }}
-      />
-    );
-  } else {
-    const streak = canStats ? health?.streakDays ?? 0 : 0;
-    hero = (
-      <PhotoHero
-        image={IMG_HERO}
-        height={heroH}
-        eyebrow={canWorkouts ? 'No session scheduled' : 'Today'}
-        title={canWorkouts ? 'Ask your coach for today’s plan — or pick your own.' : 'Every rep counts. Show up today.'}
-        value={streak > 0 ? `${streak} days` : undefined}
-        valueCaption={streak > 0 ? 'Current streak — keep it alive' : undefined}
-        cta={canWorkouts ? { label: 'Browse', icon: 'search', onPress: () => onNavigate('train') } : undefined}
-      />
-    );
-  }
+  const openBookings = () => { openBookOn('mine'); onNavigate('book'); };
 
   // ── Up next (action-first) ────────────────────────────────────
   const joined    = challenges.filter(c => c.isJoined).sort((a, b) => b.progressPct - a.progressPct);
@@ -175,14 +140,15 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
           onOpenProfile={() => onNavigate('profile')}
         />
 
-        {/* Location check-in (only when the gym has it switched on at a branch) */}
-        {canBilling && <View style={{ marginTop: SP.xl }}><MembershipStatusCard userId={userId} onPress={() => onNavigate('billing')} /></View>}
-        <View style={{ marginTop: SP.xl }}><TodayWorkoutCard userId={userId} onOpenWorkout={openWorkout} /></View>
-        {canBook && <View style={{ marginTop: SP.xl }}><NextBookingCard userId={userId} onPress={() => onNavigate('book')} /></View>}
-        <View style={{ marginTop: SP.xl }}><CheckInCard /></View>
-
-        {/* 2 · Today's workout hero */}
-        <View style={{ marginTop: SP.xl }}>{hero}</View>
+        {/* 2 · Today: next booking · today's workout · check-in · membership.
+            Cards render directly in the gap column so one that returns null leaves no hole. */}
+        <View style={{ marginTop: SP.xl, gap: SP.xl }}>
+          {canOpenBook && <NextBookingCard userId={userId} onPress={openBookings} />}
+          {canOpenWorkout && <TodayWorkoutCard userId={userId} onOpenWorkout={openWorkout} />}
+          {/* Renders nothing unless the gym has location check-in switched on */}
+          <CheckInCard />
+          {canOpenBilling && <MembershipStatusCard userId={userId} onPress={() => onNavigate('billing')} />}
+        </View>
 
         {/* 3 · Activity rings + vitals (stats module) */}
         {canStats && (

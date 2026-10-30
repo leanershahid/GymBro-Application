@@ -3,6 +3,7 @@ import { ScrollView, Text } from 'react-native';
 import { TenantPayload, TenantPlan } from '../types/tenant.types';
 import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
 import { T } from '../../../theme';
+import UploadField from '../../common/components/UploadField';
 
 export type TenantBasicInfoErrors = {
   name?: string;
@@ -61,13 +62,12 @@ export default function StepTenantBasicInfo({ data, onChange, errors = {}, slugL
       />
 
       <Section title="Branding" />
-      <Field
-        label="Logo URL"
-        value={data.logoUrl ?? ''}
-        onChangeText={(v) => onChange({ logoUrl: v })}
-        placeholder="https://…"
-        autoCapitalize="none"
-        autoCorrect={false}
+      <UploadField
+        label="Logo"
+        value={data.logoUrl}
+        onChange={(url) => onChange({ logoUrl: url })}
+        folder="logos"
+        hint="Square image, PNG or JPG"
         error={errors.logoUrl}
       />
       <Field

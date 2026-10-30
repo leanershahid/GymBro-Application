@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View, Text, ScrollView, Pressable, TextInput,
   Platform, Alert, ImageBackground, KeyboardAvoidingView, useWindowDimensions,
@@ -37,7 +37,16 @@ const SECTION_TONE: Record<string, PillTone> = {
 const slotKey = (si: number, ei: number) => `${si}-${ei}`;
 const setCount = (ex: StructureExercise, s: WorkoutSection) => Math.max(1, ex.sets ?? s.rounds ?? 1);
 const isTimed = (ex: StructureExercise) => !ex.reps && ex.durationSeconds != null;
-const emptyRows = (n: number): SetRowState[] => Array.from({ length: n }, () => ({ reps: '', weight: '', rpe: '', done: false }));
+/** First whole number in a prescription ("8-12" → "8", "40 kg" → "40"); '' when there is none (e.g. "AMRAP"). */
+const firstNumber = (v: string | null | undefined) => v?.match(/\d+(\.\d+)?/)?.[0] ?? '';
+/** Set rows prefilled from the prescription so a member can just tick "done". */
+const prefilledRows = (ex: StructureExercise, n: number): SetRowState[] => {
+  const reps = isTimed(ex) ? String(ex.durationSeconds ?? '') : firstNumber(ex.reps);
+  const weight = /kg|lb/i.test(ex.weightSuggestion ?? '') ? firstNumber(ex.weightSuggestion) : '';
+  return Array.from({ length: n }, () => ({ reps, weight, rpe: '', done: false }));
+};
+
+interface FinishSummary { sets: number; exercises: number; volumeKg: number; minutes: number; }
 
 function prescription(ex: StructureExercise, s: WorkoutSection): string {
   const n = ex.sets ?? (s.rounds > 1 ? s.rounds : null);
@@ -61,6 +70,9 @@ export default function WorkoutDetailScreen({ workoutId, userId, onBack }: Props
   const [notes, setNotes] = useState('');
   const [mood, setMood]   = useState('');
   const [started] = useState(new Date().toISOString());
+  const [summary, setSummary] = useState<FinishSummary | null>(null);
+  // Ref guard: two quick taps land before `isPending` re-renders the button.
+  const submitting = useRef(false);
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
   const heroH = Math.min(240, Math.round(winH * 0.3));
@@ -68,9 +80,9 @@ export default function WorkoutDetailScreen({ workoutId, userId, onBack }: Props
   const sections = structureQ.data?.sections ?? [];
   const exerciseCount = sections.reduce((n, s) => n + s.exercises.length, 0);
 
-  const updateSet = (key: string, count: number, idx: number, field: keyof SetRowState, val: string | boolean) => {
+  const updateSet = (key: string, base: SetRowState[], idx: number, field: keyof SetRowState, val: string | boolean) => {
     setSets(prev => {
-      const rows = [...(prev[key] ?? emptyRows(count))];
+      const rows = [...(prev[key] ?? base)];
       rows[idx] = { ...rows[idx], [field]: val };
       return { ...prev, [key]: rows };
     });
@@ -82,6 +94,7 @@ export default function WorkoutDetailScreen({ workoutId, userId, onBack }: Props
   });
 
   const handleComplete = () => {
+    if (submitting.current || isPending || summary) return;
     const allSets: WorkoutSetLog[] = [];
     sections.forEach((s, si) => s.exercises.forEach((ex, ei) => {
       const timed = isTimed(ex);
@@ -104,21 +117,34 @@ export default function WorkoutDetailScreen({ workoutId, userId, onBack }: Props
       return;
     }
 
+    submitting.current = true;
+    const endedAt = new Date().toISOString();
     complete({
       id: workoutId,
       payload: {
         clientId:   userId,
         startedAt:  started,
-        endedAt:    new Date().toISOString(),
+        endedAt,
         notes:      notes || undefined,
         moodBefore: mood ? Number(mood) : undefined,
         sets:       allSets,
       },
     }, {
-      onSuccess: res => res.success
-        ? toast.show({ type: 'success', message: res.message || 'Workout logged!' })
-        : toast.show({ type: 'error', message: res.message || 'Could not log workout.' }),
-      onError: e => toast.show({ type: 'error', message: apiErrorText(e) }),
+      onSuccess: res => {
+        if (!res.success) {
+          submitting.current = false;
+          toast.show({ type: 'error', message: res.message || 'Could not log workout.' });
+          return;
+        }
+        toast.show({ type: 'success', message: res.message || 'Workout logged!' });
+        setSummary({
+          sets: allSets.length,
+          exercises: new Set(allSets.map(x => x.exerciseId)).size,
+          volumeKg: Math.round(allSets.reduce((v, x) => v + (x.reps || 0) * (x.weightKg || 0), 0)),
+          minutes: Math.max(1, Math.round((new Date(endedAt).getTime() - new Date(started).getTime()) / 60000)),
+        });
+      },
+      onError: e => { submitting.current = false; toast.show({ type: 'error', message: apiErrorText(e) }); },
     });
   };
 
@@ -231,7 +257,8 @@ export default function WorkoutDetailScreen({ workoutId, userId, onBack }: Props
                 const key = slotKey(si, ei);
                 const count = setCount(ex, s);
                 const timed = isTimed(ex);
-                const rows = sets[key] ?? emptyRows(count);
+                const base = prefilledRows(ex, count);
+                const rows = sets[key] ?? base;
                 const name = ex.exerciseName ?? `Exercise #${ex.exerciseId}`;
                 return (
                   <View key={key} style={{ backgroundColor: T.bgInput, borderRadius: R.xl, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: T.bgInputActive }}>
@@ -273,14 +300,15 @@ export default function WorkoutDetailScreen({ workoutId, userId, onBack }: Props
                             accessibilityLabel={`${name} set ${ri + 1} ${field === 'reps' ? (timed ? 'seconds' : 'reps') : field === 'weight' ? 'kilograms' : 'RPE'}`}
                             style={{ flex: 1, minWidth: 0, backgroundColor: T.bgInputActive, borderRadius: 10, height: 36, textAlign: 'center', color: row.done ? T.brand : T.text, fontSize: 13, fontWeight: '600', marginHorizontal: 3, borderWidth: 1, borderColor: row.done ? withAlpha(T.brand, 0.30) : T.line }}
                             value={row[field]}
-                            onChangeText={v => updateSet(key, count, ri, field, v)}
+                            onChangeText={v => updateSet(key, base, ri, field, v)}
                             keyboardType="numeric"
                             placeholder={field === 'rpe' ? '—' : field === 'reps' && timed && ex.durationSeconds != null ? String(ex.durationSeconds) : '0'}
                             placeholderTextColor={T.textDisabled}
-                            editable={!row.done}
+                            editable={!row.done && !summary}
                           />
                         ))}
-                        <Pressable onPress={() => updateSet(key, count, ri, 'done', !row.done)}
+                        <Pressable onPress={() => updateSet(key, base, ri, 'done', !row.done)}
+                          disabled={!!summary}
                           hitSlop={8}
                           accessibilityRole="checkbox"
                           accessibilityLabel={`Mark set ${ri + 1} of ${name} done`}
@@ -320,7 +348,30 @@ export default function WorkoutDetailScreen({ workoutId, userId, onBack }: Props
 
       {/* ── Sticky bottom CTA ── */}
       <View style={{ padding: 20, paddingBottom: Math.max(insets.bottom, 20), backgroundColor: T.bg, borderTopWidth: 1, borderTopColor: T.bgInput }}>
-        <PrimaryButton label="Finish Workout" onPress={handleComplete} loading={isPending} disabled={exerciseCount === 0} />
+        {summary ? (
+          <View accessibilityLiveRegion="polite">
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <Feather name="check-circle" size={18} color={T.brand} />
+              <Text style={{ color: T.text, fontSize: 16, fontWeight: '800' }}>Workout logged</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+              {[
+                { l: 'Sets', v: String(summary.sets) },
+                { l: 'Exercises', v: String(summary.exercises) },
+                { l: 'Volume', v: summary.volumeKg > 0 ? `${summary.volumeKg.toLocaleString('en-IN')} kg` : '—' },
+                { l: 'Time', v: `${summary.minutes} min` },
+              ].map(x => (
+                <View key={x.l} accessible accessibilityLabel={`${x.l}: ${x.v}`} style={{ flex: 1, minWidth: 0, backgroundColor: T.bgInput, borderRadius: R.md, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: T.line }}>
+                  <Text numberOfLines={1} style={{ color: T.brand, fontSize: 15, fontWeight: '800' }}>{x.v}</Text>
+                  <Text style={{ color: T.textSub, fontSize: 11, marginTop: 2 }}>{x.l}</Text>
+                </View>
+              ))}
+            </View>
+            <PrimaryButton label="Done" icon="check" onPress={onBack} />
+          </View>
+        ) : (
+          <PrimaryButton label="Finish Workout" onPress={handleComplete} loading={isPending} disabled={exerciseCount === 0 || isPending} />
+        )}
       </View>
       </KeyboardAvoidingView>
     </Screen>

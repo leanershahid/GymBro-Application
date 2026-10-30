@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform,
+  View, Text, ScrollView, Pressable, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,9 +25,49 @@ const GENDERS: { label: string; value: MemberGender }[] = [
   { label: 'Other',  value: 'other'  },
 ];
 
-interface Props { onBack?: () => void; }
+interface Props {
+  onBack?: () => void;
+  /** Opens the new member's profile — offered once they're created. */
+  onOpenMember?: (memberId: number) => void;
+  /** Starts selling a membership to the new member. */
+  onSellMembership?: (memberId: number, name: string) => void;
+}
 
-export default function AddMemberPage({ onBack }: Props) {
+type Created = { id: number; name: string; message: string; password?: string };
+
+/** What to do next once a member exists — the usual next step is selling them a membership. */
+function CreatedScreen({ created, onBack, onOpenMember, onSellMembership, onAddAnother }: {
+  created: Created; onBack?: () => void; onAddAnother: () => void;
+  onOpenMember?: (id: number) => void; onSellMembership?: (id: number, name: string) => void;
+}) {
+  return (
+    <Screen>
+      <ScreenHeader eyebrow="Members" title="Member created" onBack={onBack} />
+      <ScrollView contentContainerStyle={{ paddingHorizontal: SP.xl, paddingBottom: 48, gap: 12 }}>
+        <View style={{ alignItems: 'center', gap: 10, paddingVertical: 12 }}>
+          <View style={{ width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: withAlpha(T.ok, 0.14), borderWidth: 1, borderColor: withAlpha(T.ok, 0.35) }}>
+            <Feather name="check" size={30} color={T.ok} />
+          </View>
+          <Text style={{ color: T.text, fontSize: 20, fontWeight: '800' }}>{created.name}</Text>
+          <Text style={{ color: T.textSub, fontSize: 14, textAlign: 'center', lineHeight: 20 }}>{created.message}</Text>
+        </View>
+        {!!created.password && (
+          <View style={{ padding: 14, borderRadius: 14, gap: 6, backgroundColor: withAlpha(T.brand, 0.08), borderWidth: 1, borderColor: withAlpha(T.brand, 0.3) }}>
+            <Text style={{ color: T.textSub, fontSize: 12, fontWeight: '700' }}>TEMPORARY PASSWORD — SHOWN ONLY ONCE</Text>
+            <Text selectable style={{ color: T.text, fontSize: 20, fontWeight: '800', letterSpacing: 1 }}>{created.password}</Text>
+            <Text style={{ color: T.textSub, fontSize: 12 }}>Share it with the member; they can change it after signing in.</Text>
+          </View>
+        )}
+        {onSellMembership && <PrimaryButton label="Sell a membership" icon="award" onPress={() => onSellMembership(created.id, created.name)} />}
+        {onOpenMember && <PrimaryButton label="Open profile" icon="user" variant="secondary" onPress={() => onOpenMember(created.id)} />}
+        <PrimaryButton label="Add another member" icon="user-plus" variant="secondary" onPress={onAddAnother} />
+      </ScrollView>
+    </Screen>
+  );
+}
+
+export default function AddMemberPage({ onBack, onOpenMember, onSellMembership }: Props) {
+  const [created, setCreated] = useState<Created | null>(null);
   const [form, setForm] = useState({
     email: '', firstName: '', lastName: '',
     phone: '', dob: '', notes: '',
@@ -85,18 +125,13 @@ export default function AddMemberPage({ onBack }: Props) {
           ? ` ${trainerName ?? 'The selected trainer'} has been assigned.`
           : '';
         const pwd = (res.data as { defaultPassword?: string } | undefined)?.defaultPassword;
-        if (pwd) {
-          // A one-time secret needs an explicit acknowledgment, not an auto-dismissing toast —
-          // redirect only once the admin has seen and dismissed it.
-          Alert.alert(
-            'Member created',
-            `${res.message ?? 'Member created.'}${assigned}\n\nTemporary password: ${pwd}\nShare it with the member — it is shown only once.`,
-            [{ text: 'OK', onPress: () => onBack?.() }],
-          );
-        } else {
-          showToast({ type: 'success', message: (res.message ?? 'Member created.') + assigned });
-          onBack?.();
-        }
+        // A one-time password needs a screen that stays until the admin moves on, not a toast.
+        setCreated({
+          id: res.data?.id ?? 0,
+          name: `${form.firstName} ${form.lastName}`.trim(),
+          message: (res.message ?? 'Member created.') + assigned,
+          password: pwd,
+        });
       },
       onError: (err) => {
         // Show the server's reasons under the matching fields, plus a summary.
@@ -109,6 +144,21 @@ export default function AddMemberPage({ onBack }: Props) {
       },
     });
   };
+
+  if (created) {
+    return (
+      <CreatedScreen
+        created={created}
+        onBack={onBack}
+        onOpenMember={created.id ? onOpenMember : undefined}
+        onSellMembership={created.id ? onSellMembership : undefined}
+        onAddAnother={() => {
+          setCreated(null);
+          setForm(f => ({ ...f, email: '', firstName: '', lastName: '', phone: '', dob: '', notes: '' }));
+        }}
+      />
+    );
+  }
 
   return (
     <Screen>

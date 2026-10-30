@@ -29,6 +29,18 @@ const MEMBERS = [
   ['Meera Nair', 'Harbour', 2], ['Kabir Shah', 'Westside', 3], ['Ananya Iyer', 'Harbour', 4],
 ] as const;
 
+/** A member row of the preview data, as GET /members/{id} returns it. */
+const previewMember = (i: number) => {
+  const [name, branchName] = MEMBERS[i % MEMBERS.length];
+  const [firstName, lastName] = name.split(' ');
+  return {
+    id: 100 + i, tenantId: 1, email: `${firstName.toLowerCase()}@example.com`, firstName, lastName,
+    phone: `+91 98765 4321${i}`, gender: null, dob: null, avatarUrl: null, notes: null,
+    status: i === 4 ? 'Pending' : 'Active', trainerId: null, branchId: 1, branchName,
+    needsNewTrainer: false, createdAt: daysAgo(i * 3),
+  };
+};
+
 const WORKOUTS = [
   { id: 1, name: 'Upper Body Power', goal: 'MuscleGain', difficulty: 'Intermediate', durationMin: 45 },
   { id: 2, name: 'HIIT Fat Burner', goal: 'WeightLoss', difficulty: 'Advanced', durationMin: 30 },
@@ -47,27 +59,26 @@ const WORKOUTS = [
 // [key, app, parentKey, name, route, icon, apiModules, sortOrder, 'tab' | 'hidden' | 'adminOnly' | '']
 type Row = [string, 'admin' | 'trainer' | 'member', string | null, string, string | null, string, string, number, string];
 const CATALOG: Row[] = [
-  ['admin.home', 'admin', null, 'Dashboard', 'home', 'home', 'analytics,reports', 1, ''],
-  ['admin.trainers', 'admin', null, 'Trainers', 'trainers', 'award', 'trainers', 2, ''],
-  ['admin.hub', 'admin', null, 'Hub', 'module-hub', 'grid', '', 3, ''],
-  ['admin.workouts', 'admin', null, 'Activity', 'workouts', 'activity', 'workouts', 4, ''],
+  ['admin.home', 'admin', null, 'Home', 'home', 'home', 'analytics,reports', 1, ''],
+  ['admin.members', 'admin', null, 'Members', 'members', 'users', 'members,onboarding', 2, ''],
+  ['admin.classes', 'admin', null, 'Schedule', 'classes', 'calendar', 'classes', 3, ''],
+  ['admin.billing', 'admin', null, 'Billing', 'billing', 'credit-card', 'billing,invoices,payments,subscriptions,corporate', 4, ''],
   ['admin.more', 'admin', null, 'More', 'more-actions', 'menu', '', 5, ''],
-  ['admin.members', 'admin', 'admin.more', 'Members', 'members', 'users', 'members,onboarding', 1, ''],
-  ['admin.branches', 'admin', 'admin.more', 'Branches', 'branches', 'map-pin', 'branches', 2, ''],
-  ['admin.tenants', 'admin', 'admin.more', 'Tenants', 'tenants', 'briefcase', 'tenants', 3, 'adminOnly'],
+  ['admin.trainers', 'admin', 'admin.more', 'Trainers', 'trainers', 'user-check', 'trainers', 1, ''],
+  ['admin.pt-sessions', 'admin', 'admin.more', 'PT sessions', 'pt-sessions', 'clock', 'pt-sessions', 2, ''],
+  ['admin.attendance', 'admin', 'admin.more', 'Attendance', 'attendance', 'check-circle', 'attendance', 3, ''],
   ['admin.leads', 'admin', 'admin.more', 'Leads', 'leads', 'target', 'leads', 4, ''],
-  ['admin.billing', 'admin', 'admin.more', 'Billing', 'billing', 'credit-card', 'billing,invoices,payments,subscriptions,corporate', 5, ''],
-  ['admin.classes', 'admin', 'admin.more', 'Classes', 'classes', 'calendar', 'classes', 6, ''],
-  ['admin.pt-sessions', 'admin', 'admin.more', 'PT', 'pt-sessions', 'clock', 'pt-sessions', 7, ''],
-  ['admin.exercises', 'admin', 'admin.more', 'Exercises', 'exercises', 'zap', 'exercises', 8, ''],
-  ['admin.plans', 'admin', 'admin.more', 'Plans', 'plans', 'book-open', 'plans,workout-automation', 9, ''],
-  ['admin.challenges', 'admin', 'admin.more', 'Challenges', 'challenges-admin', 'award', 'challenges,gamification', 10, ''],
-  ['admin.stats', 'admin', 'admin.more', 'Stats', 'stats-admin', 'bar-chart-2', 'stats', 11, ''],
-  ['admin.live-coaching', 'admin', 'admin.more', 'Live Coaching', 'live-coaching-admin', 'video', 'live-coaching', 12, ''],
-  ['admin.ai-coach', 'admin', 'admin.more', 'AI Coach', 'ai-coach-admin', 'cpu', 'ai-insights', 13, ''],
-  ['admin.attendance', 'admin', 'admin.more', 'Attendance', 'attendance', 'map-pin', 'attendance', 14, ''],
-  ['admin.roles', 'admin', 'admin.more', 'Roles', 'roles', 'shield', 'roles', 15, 'adminOnly'],
-  ['admin.user-access', 'admin', 'admin.more', 'Access', 'user-access', 'lock', 'access', 16, 'adminOnly'],
+  ['admin.workouts', 'admin', 'admin.more', 'Workouts', 'workouts', 'activity', 'workouts', 5, ''],
+  ['admin.plans', 'admin', 'admin.more', 'Plans', 'plans', 'book-open', 'plans,workout-automation', 6, ''],
+  ['admin.exercises', 'admin', 'admin.more', 'Exercises', 'exercises', 'zap', 'exercises', 7, ''],
+  ['admin.challenges', 'admin', 'admin.more', 'Challenges', 'challenges-admin', 'award', 'challenges,gamification', 8, ''],
+  ['admin.live-coaching', 'admin', 'admin.more', 'Live Coaching', 'live-coaching-admin', 'video', 'live-coaching', 9, ''],
+  ['admin.stats', 'admin', 'admin.more', 'Stats', 'stats-admin', 'bar-chart-2', 'stats', 10, ''],
+  ['admin.ai-coach', 'admin', 'admin.more', 'AI Coach', 'ai-coach-admin', 'cpu', 'ai-insights', 11, ''],
+  ['admin.branches', 'admin', 'admin.more', 'Branches', 'branches', 'map-pin', 'branches', 12, ''],
+  ['admin.tenants', 'admin', 'admin.more', 'Tenants', 'tenants', 'briefcase', 'tenants', 13, 'adminOnly'],
+  ['admin.roles', 'admin', 'admin.more', 'Roles', 'roles', 'shield', 'roles', 14, 'adminOnly'],
+  ['admin.user-access', 'admin', 'admin.more', 'Access', 'user-access', 'lock', 'access', 15, 'adminOnly'],
   ['trainer.home', 'trainer', null, 'Today', 'home', 'home', '', 1, ''],
   ['trainer.clients', 'trainer', null, 'Clients', 'clients', 'users', 'members', 2, ''],
   ['trainer.sessions', 'trainer', null, 'PT', 'sessions', 'clock', 'pt-sessions', 3, ''],
@@ -79,21 +90,21 @@ const CATALOG: Row[] = [
   ['trainer.programs.exercises', 'trainer', 'trainer.programs', 'Exercises', 'exercises', 'zap', 'exercises', 3, 'tab'],
   ['member.home', 'member', null, 'Home', 'home', 'home', '', 1, ''],
   ['member.book', 'member', null, 'Book', 'book', 'calendar', '', 2, ''],
-  ['member.community', 'member', null, 'Community', 'community', 'users', '', 3, ''],
-  ['member.stats', 'member', null, 'Stats', 'stats', 'bar-chart-2', 'stats', 4, ''],
-  ['member.progress', 'member', null, 'Progress', 'progress', 'trending-up', 'plans', 5, ''],
-  ['member.profile', 'member', null, 'Profile', 'profile', 'user', '', 6, ''],
+  ['member.train', 'member', null, 'Train', 'train', 'activity', '', 3, ''],
+  ['member.progress', 'member', null, 'Progress', 'progress', 'trending-up', 'plans', 4, ''],
+  ['member.community', 'member', null, 'Community', 'community', 'users', '', 5, ''],
+  ['member.stats', 'member', null, 'Stats', 'stats', 'bar-chart-2', 'stats', 6, ''],
+  ['member.billing', 'member', null, 'Membership', 'billing', 'credit-card', 'billing', 7, ''],
+  ['member.profile', 'member', null, 'Profile', 'profile', 'user', '', 8, ''],
   ['member.book.classes', 'member', 'member.book', 'Classes', 'classes', 'calendar', 'classes', 1, 'tab'],
   ['member.book.mine', 'member', 'member.book', 'My bookings', 'mine', 'list', 'classes,pt-sessions', 2, 'tab'],
   ['member.book.pt', 'member', 'member.book', 'Personal training', 'pt', 'clock', 'pt-sessions', 3, 'tab'],
-  ['member.community.coaches', 'member', 'member.community', 'Live coaching', 'coaches', 'video', 'live-coaching', 1, 'tab'],
-  ['member.community.challenges', 'member', 'member.community', 'Challenges', 'challenges', 'award', 'challenges', 2, 'tab'],
-  ['member.train', 'member', 'member.home', 'Train', 'train', 'activity', '', 1, 'hidden'],
-  ['member.plans', 'member', 'member.home', 'Plans', 'plans', 'book-open', 'plans', 2, 'hidden'],
-  ['member.billing', 'member', 'member.home', 'Billing', 'billing', 'credit-card', 'billing', 3, 'hidden'],
-  ['member.ai-coach', 'member', 'member.home', 'AI Coach', null, 'cpu', 'ai-coach', 4, 'hidden'],
   ['member.train.workouts', 'member', 'member.train', 'Workouts', 'workouts', 'activity', 'workouts', 1, 'tab'],
   ['member.train.exercises', 'member', 'member.train', 'Exercises', 'exercises', 'zap', 'exercises', 2, 'tab'],
+  ['member.community.coaches', 'member', 'member.community', 'Live coaching', 'coaches', 'video', 'live-coaching', 1, 'tab'],
+  ['member.community.challenges', 'member', 'member.community', 'Challenges', 'challenges', 'award', 'challenges', 2, 'tab'],
+  ['member.plans', 'member', 'member.home', 'Plans', 'plans', 'book-open', 'plans', 1, 'hidden'],
+  ['member.ai-coach', 'member', 'member.home', 'AI Coach', null, 'cpu', 'ai-coach', 2, 'hidden'],
 ];
 const levelOf = (key: string): number => {
   const parent = CATALOG.find(r => r[0] === key)?.[2];
@@ -152,8 +163,17 @@ function route(method: string, url: string): unknown {
       })),
     });
   if (path === '/me/training') return ok({ workouts: [], plans: [] });
+  if (path === '/membership-plans')
+    return ok([
+      { id: 1, tenantId: 1, name: 'Monthly Unlimited', description: 'All classes and open gym', price: 2499, currency: 'INR', billingCycle: 'Monthly', durationDays: 30, features: [], isPublic: true, isActive: true, createdAt: daysAgo(90) },
+      { id: 2, tenantId: 1, name: 'Quarterly', description: 'Three months, save 10%', price: 6799, currency: 'INR', billingCycle: 'Quarterly', durationDays: 90, features: [], isPublic: true, isActive: true, createdAt: daysAgo(90) },
+    ]);
+  // Members: a list, and each one's profile.
+  if (path === '/members' || path === '/members/search') return page(MEMBERS.map((_, i) => previewMember(i)));
+  if (/^\/members\/\d+$/.test(path)) return ok(previewMember(Math.max(0, Number(path.split('/')[2]) - 100)));
   // These return plain arrays, not pages.
-  if (['/classes', '/classes/me', '/pt/types', '/pt/sessions'].includes(path)) return ok([]);
+  if (['/classes', '/classes/me', '/classes/types', '/pt/types', '/pt/sessions'].includes(path)) return ok([]);
+  if (/^\/classes\/\d+\/roster$/.test(path)) return ok([]);
   if (path === '/access/me') return ok(previewAccess(false));
   if (path === '/access/me/tabs') return ok(previewAccess(true));
   if (path === '/access/modules') return ok(CATALOG.map(treeRow));

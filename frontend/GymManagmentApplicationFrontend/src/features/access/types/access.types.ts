@@ -75,6 +75,30 @@ export interface RoleGrants {
   grants: ModuleGrant[];
 }
 
+/** A preset set of grants offered when creating a role (GET /access/templates). */
+export interface RoleTemplate {
+  key: string;
+  name: string;
+  description: string;
+  grants: ModuleGrant[];
+}
+
+/** People holding a role (main or additional) and modules it grants. */
+export interface RoleSummary {
+  roleId: number;
+  people: number;
+  modules: number;
+}
+
+/** Someone whose main role is admin, staff or a custom role. */
+export interface StaffMember {
+  userId: number;
+  name: string;
+  email: string | null;
+  roleName: string;
+  roleSlug: string;
+}
+
 /** A per-user override: Allow (isEnabled) with these flags, or Deny. */
 export interface UserOverride {
   moduleKey: string;

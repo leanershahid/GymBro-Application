@@ -8,6 +8,7 @@ import { BasicInfoErrors } from '../pages/AddTrainerPage';
 import { T, withAlpha } from '../../../theme';
 import BranchDropdown from '../../branches/components/BranchDropdown';
 import { Branch } from '../../branches/types/branch.types';
+import UploadField from '../../common/components/UploadField';
 
 interface Props {
   data: Partial<TrainerPayload>;
@@ -18,60 +19,6 @@ interface Props {
   branchError?: string;
 }
 
-function ProfileImagePicker({ value, onChange }: { value: string; onChange: (uri: string) => void }) {
-  const pick = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission required', 'Please allow access to your photo library.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]?.uri) {
-      onChange(result.assets[0].uri);
-    }
-  };
-
-  return (
-    <View className="items-center mb-6">
-      <TouchableOpacity
-        onPress={pick}
-        activeOpacity={0.8}
-        accessibilityRole="button"
-        accessibilityLabel="Choose profile photo"
-        accessibilityHint={value ? 'Replaces the current photo' : undefined}
-      >
-        {value ? (
-          <Image
-            source={{ uri: value }}
-            className="w-24 h-24 rounded-full"
-            style={{ borderWidth: 2, borderColor: withAlpha(T.brand, 0.35) }}
-          />
-        ) : (
-          <View
-            className="w-24 h-24 rounded-full bg-input items-center justify-center"
-            style={{ borderWidth: 2, borderColor: withAlpha(T.text, 0.08) }}
-          >
-            <Text className="text-3xl">📷</Text>
-          </View>
-        )}
-        <View
-          className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-brand items-center justify-center"
-          style={{ borderWidth: 2, borderColor: T.bg }}
-        >
-          <Text className="text-white text-xs font-bold">+</Text>
-        </View>
-      </TouchableOpacity>
-      <Text className="text-xs text-sub mt-2">
-        {value ? 'Tap to change photo' : 'Tap to add photo'}
-      </Text>
-    </View>
-  );
-}
 
 function Section({ title }: { title: string }) {
   return <Text className="text-[13px] font-semibold text-sub mb-3 mt-1">{title}</Text>;
@@ -199,7 +146,7 @@ export default function StepBasicInfo({ data, onChange, errors = {}, selectedBra
       <Field label="Address" value={data.address ?? ''} onChangeText={(v) => onChange({ address: v })} error={errors.address} />
 
       <Section title="Profile" />
-      <ProfileImagePicker value={data.profileImage ?? ''} onChange={(uri) => onChange({ profileImage: uri })} />
+      <UploadField label="Profile photo" value={data.profileImage} onChange={(url) => onChange({ profileImage: url })} folder="avatars" shape="circle" hint="Square photo works best" />
       <Field label="Bio" value={data.bio ?? ''} onChangeText={(v) => onChange({ bio: v })} multiline error={errors.bio} />
       <TagInput label="Specializations" value={data.specializations ?? []} onChange={(arr) => onChange({ specializations: arr })} placeholder="e.g. Yoga, CrossFit…" />
       <TagInput label="Languages Known"  value={data.languagesKnown ?? []}  onChange={(arr) => onChange({ languagesKnown: arr })}  placeholder="e.g. English, Hindi…" />

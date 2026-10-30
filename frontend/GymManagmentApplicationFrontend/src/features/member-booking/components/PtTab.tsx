@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, Pressable, TextInput, Alert } from 'react-native';
+import { View, Text, Pressable, TextInput, Alert, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { T, R, SP, withAlpha } from '../../../theme';
 import { apiErrorText } from '../../../api/apiError';
 import Skeleton from '../../common/components/Skeleton';
+import BottomSheet from '../../common/components/BottomSheet';
 import EmptyState from '../../dashboard/components/EmptyState';
 import { useToast } from '../../common/components/Toast';
 import { usePtTypes, useBookPtSession } from '../api/bookingQueries';
@@ -98,7 +99,7 @@ function BookedCard({ session, type, onOpenBilling, onDone }: {
       )}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SP.sm, justifyContent: 'center', marginTop: SP.lg }}>
         {priced && onOpenBilling && <ActionButton label="Go to Billing" icon="credit-card" onPress={onOpenBilling} />}
-        <ActionButton label="Book another" variant="ghost" onPress={onDone} />
+        <ActionButton label="Done" variant="ghost" onPress={onDone} />
       </View>
     </Card>
   );
@@ -129,7 +130,7 @@ export default function PtTab({ userId, onOpenBilling }: Props) {
   const slots = useMemo(() => timeSlots(day).filter(s => s.getTime() > now), [day, now]);
 
   const pickType = (t: PtType) => {
-    setTypeId(prev => (prev === t.id ? null : t.id));
+    setTypeId(t.id);
     setSlot(null);
   };
 
@@ -138,17 +139,16 @@ export default function PtTab({ userId, onOpenBilling }: Props) {
   };
 
   const confirm = async () => {
-    if (!type || !slot) return;
+    if (!type || !slot || bookM.isPending) return;
     try {
       const session = await bookM.mutateAsync({ sessionTypeId: type.id, startsAt: slot.toISOString(), notes: note.trim() || null });
       setBooked({ session, type });
-      toast.show({ type: 'success', message: 'Session booked.' });
+      toast.show({ type: 'success', message: 'Session requested.' });
     } catch (e) {
       Alert.alert("Couldn't book", apiErrorText(e));
     }
   };
 
-  if (booked) return <BookedCard session={booked.session} type={booked.type} onOpenBilling={onOpenBilling} onDone={reset} />;
   if (typesQ.isLoading) return <Skeleton rows={3} height={90} borderRadius={R.xl} gap={SP.md} />;
   if (typesQ.isError) return <InlineError error={typesQ.error} onRetry={() => typesQ.refetch()} />;
   if (!types.length) {
@@ -172,51 +172,59 @@ export default function PtTab({ userId, onOpenBilling }: Props) {
         </View>
       ))}
 
-      {type && (
-        <Card accent={T.brand} style={{ marginTop: SP.sm }}>
-          <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase' }}>Booking</Text>
-          <Text style={{ color: T.text, fontSize: 17, fontWeight: '800', marginTop: 2 }}>{type.name}</Text>
-          <Text style={{ color: T.textSub, fontSize: 13, marginTop: 2 }}>
-            {type.trainerName ? `with ${type.trainerName} · ` : ''}{type.durationMin} min
-            {type.price > 0 ? ` · ${formatMoney(type.price, type.currency)}` : ''}
-          </Text>
+      {/* The booking form opens in a sheet so it's never far below the list. */}
+      <BottomSheet
+        visible={!!type}
+        onClose={reset}
+        title={booked ? 'Requested' : type?.name ?? 'Book session'}
+        rightAction={{ label: booked ? 'Done' : 'Cancel', onPress: reset }}
+      >
+        <ScrollView style={{ maxHeight: 620 }} contentContainerStyle={{ padding: SP.xl }} keyboardShouldPersistTaps="handled">
+          {booked ? (
+            <BookedCard session={booked.session} type={booked.type} onOpenBilling={onOpenBilling && (() => { reset(); onOpenBilling(); })} onDone={reset} />
+          ) : type && (
+            <View>
+              <Text style={{ color: T.textSub, fontSize: 13 }}>
+                {type.trainerName ? `with ${type.trainerName} · ` : ''}{type.durationMin} min
+                {type.price > 0 ? ` · ${formatMoney(type.price, type.currency)}` : ''}
+              </Text>
 
-          <Text style={{ color: T.text, fontSize: 14, fontWeight: '700', marginTop: SP.lg, marginBottom: SP.sm }}>Date</Text>
-          <DayStrip value={day} onChange={d => { setDay(d); setSlot(null); }} />
+              <Text style={{ color: T.text, fontSize: 14, fontWeight: '700', marginTop: SP.lg, marginBottom: SP.sm }}>Date</Text>
+              <DayStrip value={day} onChange={d => { setDay(d); setSlot(null); }} />
 
-          <Text style={{ color: T.text, fontSize: 14, fontWeight: '700', marginTop: SP.lg, marginBottom: SP.sm }}>Start time</Text>
-          <SlotGrid slots={slots} value={slot} onChange={setSlot} />
+              <Text style={{ color: T.text, fontSize: 14, fontWeight: '700', marginTop: SP.lg, marginBottom: SP.sm }}>Start time</Text>
+              <SlotGrid slots={slots} value={slot} onChange={setSlot} />
 
-          <Text style={{ color: T.text, fontSize: 14, fontWeight: '700', marginTop: SP.lg, marginBottom: SP.sm }}>Note (optional)</Text>
-          <TextInput
-            value={note}
-            onChangeText={setNote}
-            placeholder="Anything your trainer should know?"
-            placeholderTextColor={T.textFaint}
-            multiline
-            maxLength={500}
-            accessibilityLabel="Note for your trainer"
-            style={{
-              minHeight: 72, color: T.text, fontSize: 14, padding: SP.md, borderRadius: R.md,
-              borderWidth: 1, borderColor: T.line, backgroundColor: T.bg, textAlignVertical: 'top',
-            }}
-          />
+              <Text style={{ color: T.text, fontSize: 14, fontWeight: '700', marginTop: SP.lg, marginBottom: SP.sm }}>Note (optional)</Text>
+              <TextInput
+                value={note}
+                onChangeText={setNote}
+                placeholder="Anything your trainer should know?"
+                placeholderTextColor={T.textFaint}
+                multiline
+                maxLength={500}
+                accessibilityLabel="Note for your trainer"
+                style={{
+                  minHeight: 72, color: T.text, fontSize: 14, padding: SP.md, borderRadius: R.md,
+                  borderWidth: 1, borderColor: T.line, backgroundColor: T.bg, textAlignVertical: 'top',
+                }}
+              />
 
-          <ActionButton
-            label={slot ? `Confirm · ${formatTime(slot)}` : 'Pick a time'}
-            icon="check"
-            onPress={confirm}
-            busy={bookM.isPending}
-            disabled={!slot}
-            style={{ marginTop: SP.lg, minHeight: 48 }}
-          />
-          {type.price > 0 && (
-            <Text style={{ color: T.textFaint, fontSize: 12, marginTop: SP.sm, textAlign: 'center' }}>
-              An invoice for {formatMoney(type.price, type.currency)} will be added to your billing.
-            </Text>
+              <ActionButton
+                label={slot ? `Request · ${formatTime(slot)}` : 'Pick a time'}
+                icon="check"
+                onPress={confirm}
+                busy={bookM.isPending}
+                disabled={!slot || bookM.isPending}
+                style={{ marginTop: SP.lg, minHeight: 48 }}
+              />
+              <Text style={{ color: T.textFaint, fontSize: 12, marginTop: SP.sm, textAlign: 'center' }}>
+                Your trainer confirms the request{type.price > 0 ? ` · an invoice for ${formatMoney(type.price, type.currency)} is added to your billing` : ''}.
+              </Text>
+            </View>
           )}
-        </Card>
-      )}
+        </ScrollView>
+      </BottomSheet>
     </View>
   );
 }

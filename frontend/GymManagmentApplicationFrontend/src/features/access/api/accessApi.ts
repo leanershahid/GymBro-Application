@@ -2,7 +2,7 @@ import axiosInstance from '../../../api/axios';
 import { ApiResponse } from '../../../api/types';
 import {
   AccessApp, AccessList, AccessModule, ExtraRole, ModuleGrant, ModuleTreeRow,
-  RoleGrants, UserAccess, UserOverride,
+  RoleGrants, RoleSummary, RoleTemplate, StaffMember, UserAccess, UserOverride,
 } from '../types/access.types';
 
 const unwrap = <T,>(r: { data: ApiResponse<T> }) => r.data.data as T;
