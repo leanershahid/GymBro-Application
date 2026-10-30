@@ -10,6 +10,7 @@ namespace GymManagmentApplication.Controllers;
 [ApiController]
 [PermissionModule("classes")]
 [Route("api/classes")]
+[RequireModule("classes")]
 public class ClassesController(ClassService service) : ControllerBase
 {
     [HttpGet("types")]

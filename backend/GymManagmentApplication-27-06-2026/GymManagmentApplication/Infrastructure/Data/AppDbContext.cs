@@ -75,6 +75,8 @@ public class AppDbContext : DbContext
     public DbSet<SsoProvider> SsoProviders => Set<SsoProvider>();
     public DbSet<Module> Modules => Set<Module>();
     public DbSet<UserModuleAccess> UserModuleAccesses => Set<UserModuleAccess>();
+    public DbSet<RoleModuleGrant> RoleModuleGrants => Set<RoleModuleGrant>();
+    public DbSet<UserRole> UserRoles => Set<UserRole>();
 
     // Membership
     public DbSet<MembershipPlan> MembershipPlans => Set<MembershipPlan>();
@@ -261,6 +263,26 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(m => m.RoleId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Module master — one row per menu item/page/tab; grants point at rows by FK.
+        modelBuilder.Entity<Module>().HasIndex(m => m.Key).IsUnique();
+        modelBuilder.Entity<Module>()
+            .HasOne(m => m.Parent).WithMany().HasForeignKey(m => m.ParentId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<UserModuleAccess>().HasIndex(a => new { a.UserId, a.ModuleId }).IsUnique();
+
+        modelBuilder.Entity<RoleModuleGrant>().HasIndex(g => new { g.TenantId, g.RoleId, g.ModuleId }).IsUnique();
+        modelBuilder.Entity<RoleModuleGrant>()
+            .HasOne(g => g.Role).WithMany().HasForeignKey(g => g.RoleId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<RoleModuleGrant>()
+            .HasOne(g => g.Module).WithMany().HasForeignKey(g => g.ModuleId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<RoleModuleGrant>()
+            .HasOne<Tenant>().WithMany().HasForeignKey(g => g.TenantId).OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<UserRole>().HasIndex(ur => new { ur.UserId, ur.RoleId }).IsUnique();
+        modelBuilder.Entity<UserRole>()
+            .HasOne(ur => ur.User).WithMany().HasForeignKey(ur => ur.UserId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<UserRole>()
+            .HasOne(ur => ur.Role).WithMany().HasForeignKey(ur => ur.RoleId).OnDelete(DeleteBehavior.Cascade);
 
         // Indexes
         // Email stays globally unique on purpose: it is the login key, and login happens

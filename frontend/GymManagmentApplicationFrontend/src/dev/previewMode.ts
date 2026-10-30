@@ -10,7 +10,7 @@
 import { Platform } from 'react-native';
 import type { AxiosAdapter, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import axiosInstance from '../api/axios';
-import { setSession } from '../api/session';
+import { getSession, setSession } from '../api/session';
 
 export type PreviewRole = 'admin' | 'superadmin' | 'trainer' | 'member';
 
@@ -43,7 +43,86 @@ const WORKOUTS = [
   ],
 }));
 
-const ALL_MODULES = ['workouts', 'exercises', 'plans', 'challenges', 'live-coaching', 'stats', 'ai-coach'];
+// Mirror of the backend's ModuleCatalog (Application/Access/ModuleCatalog.cs), for previews only:
+// [key, app, parentKey, name, route, icon, apiModules, sortOrder, 'tab' | 'hidden' | 'adminOnly' | '']
+type Row = [string, 'admin' | 'trainer' | 'member', string | null, string, string | null, string, string, number, string];
+const CATALOG: Row[] = [
+  ['admin.home', 'admin', null, 'Dashboard', 'home', 'home', 'analytics,reports', 1, ''],
+  ['admin.members', 'admin', null, 'Members', 'members', 'users', 'members,onboarding', 2, ''],
+  ['admin.hub', 'admin', null, 'Hub', 'module-hub', 'grid', '', 3, ''],
+  ['admin.workouts', 'admin', null, 'Activity', 'workouts', 'activity', 'workouts', 4, ''],
+  ['admin.more', 'admin', null, 'More', 'more-actions', 'menu', '', 5, ''],
+  ['admin.trainers', 'admin', 'admin.more', 'Trainers', 'trainers', 'award', 'trainers', 1, ''],
+  ['admin.branches', 'admin', 'admin.more', 'Branches', 'branches', 'map-pin', 'branches', 2, ''],
+  ['admin.tenants', 'admin', 'admin.more', 'Tenants', 'tenants', 'briefcase', 'tenants', 3, 'adminOnly'],
+  ['admin.leads', 'admin', 'admin.more', 'Leads', 'leads', 'target', 'leads', 4, ''],
+  ['admin.billing', 'admin', 'admin.more', 'Billing', 'billing', 'credit-card', 'billing,invoices,payments,subscriptions,corporate', 5, ''],
+  ['admin.classes', 'admin', 'admin.more', 'Classes', 'classes', 'calendar', 'classes', 6, ''],
+  ['admin.pt-sessions', 'admin', 'admin.more', 'PT', 'pt-sessions', 'clock', 'pt-sessions', 7, ''],
+  ['admin.exercises', 'admin', 'admin.more', 'Exercises', 'exercises', 'zap', 'exercises', 8, ''],
+  ['admin.plans', 'admin', 'admin.more', 'Plans', 'plans', 'book-open', 'plans,workout-automation', 9, ''],
+  ['admin.challenges', 'admin', 'admin.more', 'Challenges', 'challenges-admin', 'award', 'challenges,gamification', 10, ''],
+  ['admin.stats', 'admin', 'admin.more', 'Stats', 'stats-admin', 'bar-chart-2', 'stats', 11, ''],
+  ['admin.live-coaching', 'admin', 'admin.more', 'Live Coaching', 'live-coaching-admin', 'video', 'live-coaching', 12, ''],
+  ['admin.ai-coach', 'admin', 'admin.more', 'AI Coach', 'ai-coach-admin', 'cpu', 'ai-insights', 13, ''],
+  ['admin.attendance', 'admin', 'admin.more', 'Attendance', 'attendance', 'map-pin', 'attendance', 14, ''],
+  ['admin.roles', 'admin', 'admin.more', 'Roles', 'roles', 'shield', 'roles', 15, 'adminOnly'],
+  ['admin.user-access', 'admin', 'admin.more', 'Access', 'user-access', 'lock', 'access', 16, 'adminOnly'],
+  ['trainer.home', 'trainer', null, 'Today', 'home', 'home', '', 1, ''],
+  ['trainer.clients', 'trainer', null, 'Clients', 'clients', 'users', 'members', 2, ''],
+  ['trainer.sessions', 'trainer', null, 'PT', 'sessions', 'clock', 'pt-sessions', 3, ''],
+  ['trainer.classes', 'trainer', null, 'Classes', 'classes', 'calendar', 'classes', 4, ''],
+  ['trainer.programs', 'trainer', null, 'Programs', 'builder', 'activity', '', 5, ''],
+  ['trainer.profile', 'trainer', null, 'Profile', 'profile', 'user', '', 6, ''],
+  ['trainer.programs.workouts', 'trainer', 'trainer.programs', 'Workouts', 'workouts', 'activity', 'workouts', 1, 'tab'],
+  ['trainer.programs.plans', 'trainer', 'trainer.programs', 'Plans', 'plans', 'book-open', 'plans,workout-automation', 2, 'tab'],
+  ['trainer.programs.exercises', 'trainer', 'trainer.programs', 'Exercises', 'exercises', 'zap', 'exercises', 3, 'tab'],
+  ['member.home', 'member', null, 'Home', 'home', 'home', '', 1, ''],
+  ['member.book', 'member', null, 'Book', 'book', 'calendar', '', 2, ''],
+  ['member.community', 'member', null, 'Community', 'community', 'users', '', 3, ''],
+  ['member.stats', 'member', null, 'Stats', 'stats', 'bar-chart-2', 'stats', 4, ''],
+  ['member.progress', 'member', null, 'Progress', 'progress', 'trending-up', 'plans', 5, ''],
+  ['member.profile', 'member', null, 'Profile', 'profile', 'user', '', 6, ''],
+  ['member.book.classes', 'member', 'member.book', 'Classes', 'classes', 'calendar', 'classes', 1, 'tab'],
+  ['member.book.mine', 'member', 'member.book', 'My bookings', 'mine', 'list', 'classes,pt-sessions', 2, 'tab'],
+  ['member.book.pt', 'member', 'member.book', 'Personal training', 'pt', 'clock', 'pt-sessions', 3, 'tab'],
+  ['member.community.coaches', 'member', 'member.community', 'Live coaching', 'coaches', 'video', 'live-coaching', 1, 'tab'],
+  ['member.community.challenges', 'member', 'member.community', 'Challenges', 'challenges', 'award', 'challenges', 2, 'tab'],
+  ['member.train', 'member', 'member.home', 'Train', 'train', 'activity', '', 1, 'hidden'],
+  ['member.plans', 'member', 'member.home', 'Plans', 'plans', 'book-open', 'plans', 2, 'hidden'],
+  ['member.billing', 'member', 'member.home', 'Billing', 'billing', 'credit-card', 'billing', 3, 'hidden'],
+  ['member.ai-coach', 'member', 'member.home', 'AI Coach', null, 'cpu', 'ai-coach', 4, 'hidden'],
+  ['member.train.workouts', 'member', 'member.train', 'Workouts', 'workouts', 'activity', 'workouts', 1, 'tab'],
+  ['member.train.exercises', 'member', 'member.train', 'Exercises', 'exercises', 'zap', 'exercises', 2, 'tab'],
+];
+const levelOf = (key: string): number => {
+  const parent = CATALOG.find(r => r[0] === key)?.[2];
+  return parent ? levelOf(parent) + 1 : 1;
+};
+const treeRow = ([key, app, parentKey, name, route, icon, api, sortOrder, flag]: Row) => ({
+  key, app, name, level: levelOf(key), parentKey, sortOrder, icon, route,
+  hideFromMenu: flag === 'hidden', isTab: flag === 'tab', adminOnly: flag === 'adminOnly',
+  apiModules: api ? api.split(',') : [],
+});
+const fullGrant = (key: string) => ({ moduleKey: key, canView: true, canCreate: true, canEdit: true, canDelete: true, canExport: true });
+
+/**
+ * The preview user's access list: every module of their app, minus `?deny=key1,key2` (and what
+ * sits under those) — so a preview can show what someone without those modules sees.
+ */
+function previewAccess(tabs: boolean) {
+  const role = getSession()?.role;
+  const app = role === 'client' ? 'member' : role === 'trainer' ? 'trainer' : 'admin';
+  const denied = (new URLSearchParams(window.location.search).get('deny') ?? '').split(',').filter(Boolean);
+  const isDenied = (key: string): boolean => {
+    const parent = CATALOG.find(r => r[0] === key)?.[2];
+    return denied.includes(key) || (!!parent && isDenied(parent));
+  };
+  return CATALOG
+    .filter(r => r[1] === app && !isDenied(r[0]) && (r[8] === 'tab') === tabs)
+    .map(treeRow)
+    .map(({ app: _app, adminOnly: _adminOnly, ...m }) => ({ ...m, canCreate: true, canEdit: true, canDelete: true, canExport: true }));
+}
 
 function route(method: string, url: string): unknown {
   const path = url.replace(/^https?:\/\/[^/]+/, '').replace(/^\/api/, '').split('?')[0];
@@ -69,10 +148,27 @@ function route(method: string, url: string): unknown {
         id: 100 + i, name, avatarUrl: null, branchName, joinedAt: daysAgo(d), status: i === 4 ? 'Pending' : 'Active',
       })),
     });
-  if (path === '/module-access/me') return ok([]);
-  if (path === '/module-access/modules') return ok(ALL_MODULES);
-  if (path === '/module-access') return ok([]);
-  if (path === '/module-access/matrix') return ok({ tenantId: 1, matrix: {} });
+  if (path === '/me/training') return ok({ workouts: [], plans: [] });
+  // These return plain arrays, not pages.
+  if (['/classes', '/classes/me', '/pt/types', '/pt/sessions'].includes(path)) return ok([]);
+  if (path === '/access/me') return ok(previewAccess(false));
+  if (path === '/access/me/tabs') return ok(previewAccess(true));
+  if (path === '/access/modules') return ok(CATALOG.map(treeRow));
+  if (/^\/access\/roles\/\d+\/grants$/.test(path)) {
+    const roleId = Number(path.split('/')[3]);
+    const slug = ['', 'superadmin', 'admin', 'trainer', 'client', 'staff'][roleId] ?? 'custom';
+    const app = slug === 'trainer' ? 'trainer' : slug === 'client' ? 'member' : 'admin';
+    const grants = CATALOG.filter(r => r[1] === app && (slug !== 'staff' || r[0] === 'admin.members')).map(r => fullGrant(r[0]));
+    return ok({ roleId, roleName: slug[0].toUpperCase() + slug.slice(1), roleSlug: slug, app, grants });
+  }
+  if (/^\/access\/users\/\d+$/.test(path)) {
+    const fromRoles = ['member.home', 'member.book', 'member.book.classes', 'member.billing', 'member.profile'].map(fullGrant);
+    return ok({
+      userId: Number(path.split('/')[3]), app: 'member', fromRoles, effective: fromRoles,
+      overrides: [{ moduleKey: 'member.stats', isEnabled: true, canAdd: true, canEdit: false, canDelete: false }],
+    });
+  }
+  if (/^\/access\/users\/\d+\/extra-roles/.test(path)) return ok([]);
   if (path === '/roles')
     return ok([
       { id: '1', name: 'Super Admin', slug: 'superadmin', isSystem: true },
@@ -144,8 +240,6 @@ function route(method: string, url: string): unknown {
   if (/^\/workouts\/\d+$/.test(path)) return ok(WORKOUTS[0]);
   if (path === '/plans')
     return page([{ id: 1, name: '12-Week Strength Base', goal: 'MuscleGain', difficulty: 'Intermediate', durationWeeks: 12, isActive: true }]);
-  if (/^\/users\/\d+\/modules$/.test(path))
-    return ok(ALL_MODULES.map((key, i) => ({ moduleId: i + 1, key, name: key, description: null, icon: null, isEnabled: true, grantedAt: null })));
 
   // ── Attendance ──
   if (path === '/attendance/settings')

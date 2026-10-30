@@ -23,6 +23,7 @@ import WorkoutPhotoCard from '../components/WorkoutPhotoCard';
 import HomeSectionHeader from '../components/HomeSectionHeader';
 import ChallengeCard from '../components/ChallengeCard';
 import CoachCard from '../components/CoachCard';
+import { useHasModule } from '../../access/context/AccessContext';
 
 const IMG_HERO = require('../../../assets/dashboard/hero-athlete.jpg');
 const WORKOUT_IMAGES = [
@@ -45,6 +46,8 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
   const { hPad, contentW } = useLayout();
 
   const canWorkouts     = useModuleAccess('workouts');
+  const canBilling      = useModuleAccess('billing');
+  const canBook         = useHasModule('member.book');
   const canStats        = useModuleAccess('stats');
   const canAiCoach      = useModuleAccess('ai-coach');
   const canChallenges   = useModuleAccess('challenges');
@@ -173,9 +176,9 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
         />
 
         {/* Location check-in (only when the gym has it switched on at a branch) */}
-        <View style={{ marginTop: SP.xl }}><MembershipStatusCard userId={userId} onPress={() => onNavigate('billing')} /></View>
+        {canBilling && <View style={{ marginTop: SP.xl }}><MembershipStatusCard userId={userId} onPress={() => onNavigate('billing')} /></View>}
         <View style={{ marginTop: SP.xl }}><TodayWorkoutCard userId={userId} onOpenWorkout={openWorkout} /></View>
-        <View style={{ marginTop: SP.xl }}><NextBookingCard userId={userId} onPress={() => onNavigate('book')} /></View>
+        {canBook && <View style={{ marginTop: SP.xl }}><NextBookingCard userId={userId} onPress={() => onNavigate('book')} /></View>}
         <View style={{ marginTop: SP.xl }}><CheckInCard /></View>
 
         {/* 2 · Today's workout hero */}

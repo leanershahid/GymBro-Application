@@ -6,7 +6,7 @@ import { T, SP, R } from '../../../theme';
 import { useLayout } from '../../../utils/useLayout';
 import ScreenRoot             from '../../common/components/Screen';
 import LoadingState           from '../../common/components/LoadingState';
-import BottomTabBar           from '../../common/components/BottomTabBar';
+import BottomTabBar, { TabItem } from '../../common/components/BottomTabBar';
 import ActionList, { ActionItem } from '../../common/components/dashboard/ActionList';
 import KpiTile                from '../../common/components/dashboard/KpiTile';
 import BarList                from '../../common/components/dashboard/BarList';
@@ -29,6 +29,8 @@ import MoreActionsPage        from './MoreActionsPage';
 import { useVisibleAdminActions } from '../adminActions';
 import { getSession, isSuperAdmin, isAdminRole } from '../../../api/session';
 import { useRoleModuleAccess } from '../../module-access/hooks/useRoleModuleAccess';
+import { useLanding, useMenu } from '../../access/context/AccessContext';
+import { MORE_TAB, useRailTabs } from '../../access/components/railTabs';
 
 // ─── Feature pages ────────────────────────────────────────────────
 import ViewMembersPage   from '../../members/pages/ViewMembersPage';
@@ -163,22 +165,35 @@ function NoModuleAccess({ onBack }: { onBack: () => void }) {
 
 const SECTION = SP.xxl; // 28px between home sections
 
-// Labels match the reference (Dashboard/Members/+/Activity/More); destinations are
-// unchanged from before — "Activity" still opens Workouts, "More" replaces the old
-// direct "Leads" shortcut with the full action list (Leads included) since the
-// reference has no per-feature nav slot beyond these five.
-const NAV_ITEMS: { icon: FeatherIconName; label: string; key: string }[] = [
-  { icon: 'home',       label: 'Dashboard', key: 'home'    },
-  { icon: 'users',      label: 'Members',   key: 'members' },
-  { icon: 'plus-circle',label: 'Hub',       key: 'hub'     },
-  { icon: 'activity',   label: 'Activity',  key: 'workouts'},
-  { icon: 'grid',       label: 'More',      key: 'more'    },
-];
+// The bottom bar is the granted main-menu modules (see useRailTabs). More is always there:
+// it lists every granted tile and holds Sign out, so no user is ever left with an empty app.
+const ALWAYS_TABS: TabItem[] = [{ key: 'more-actions', label: 'More', icon: 'menu' }];
+
+/** Screens reached from inside another module's page — open only when that module is granted. */
+const OWNER_ROUTE: Partial<Record<Screen, string>> = {
+  'add-member': 'members', 'member-detail': 'members', 'edit-member': 'members', 'new-membership': 'members',
+  'add-trainer': 'trainers',
+  'add-branch': 'branches', 'edit-branch': 'branches',
+  'add-tenant': 'tenants', 'edit-tenant': 'tenants',
+  'add-lead': 'leads',
+  'add-exercise': 'exercises',
+  'add-workout': 'workouts',
+  'add-plan': 'plans',
+  'new-invoice': 'billing',
+  'module-access': 'roles',
+  'attendance-log': 'attendance',
+};
+/** Always open, whatever the access list says. */
+const ALWAYS_OPEN = new Set<Screen>(['more-actions', 'profile-details']);
+const ownerOf = (screen: Screen) => OWNER_ROUTE[screen] ?? screen;
 
 interface AdminDashboardProps { adminName?: string; onLogout?: () => void; }
 
 export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminDashboardProps) {
-  const { data, loading, refreshing, error, refresh } = useDashboardStats();
+  const { routes } = useMenu();
+  const { tabs } = useRailTabs(ALWAYS_TABS);
+  const landing = useLanding('home', 'more-actions') as Screen;
+  const { data, loading, refreshing, error, refresh } = useDashboardStats(routes.has('home'));
   const actions = useVisibleAdminActions();
   const role = getSession()?.role;
   const superAdmin = isSuperAdmin(role);
@@ -191,16 +206,17 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
     { text: 'Cancel', style: 'cancel' },
     { text: 'Log out', style: 'destructive', onPress: onLogout },
   ]));
-  const [screen, setScreen] = useState<Screen>('home');
+  const [screen, setScreen] = useState<Screen>(landing);
   // Record the current detail/edit screen is about (member, branch, tenant, role).
   const [selectedId, setSelectedId] = useState<number>(0);
-  const activeTab = tabForScreen(screen);
+  const tabKeys = tabs.map(t => t.key);
+  const activeTab = tabKeys.includes(ownerOf(screen)) ? ownerOf(screen) : tabKeys.includes('more-actions') ? 'more-actions' : MORE_TAB;
+  const canOpen = (s: Screen) => ALWAYS_OPEN.has(s) || routes.has(ownerOf(s));
   const { tileW } = useLayout();
   const kpiW = tileW(2, 12);
 
-  // Every module's view/create flags come from the per-role Module Access matrix — the same
-  // "Role Access" screen the admin uses to configure custom roles — so it works dynamically
-  // for every role, including the signed-in admin's own.
+  // Every module's view/create flags come from the signed-in user's access list (their role
+  // grants plus their own overrides), so it works dynamically for every role.
   const members  = useRoleModuleAccess('members');
   const trainers = useRoleModuleAccess('trainers');
   const branches = useRoleModuleAccess('branches');
@@ -227,18 +243,16 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
 
   const go = useCallback((s: Screen) => setScreen(s), []);
   const open = useCallback((s: Screen, id: number) => { setSelectedId(id); setScreen(s); }, []);
-  const goHome = useCallback(() => setScreen('home'), []);
+  const goHome = useCallback(() => setScreen(landing), [landing]);
 
-  const handleTab = useCallback((key: string) => {
-    if (key === 'hub')      go('module-hub');
-    else if (key === 'members')  go('members');
-    else if (key === 'workouts') go('workouts');
-    else if (key === 'more')     go('more-actions');
-    else                         go('home');
-  }, []);
+  // Rail keys are screen routes; the overflow "More" slot opens the More page, which lists everything.
+  const handleTab = useCallback((key: string) => go((key === MORE_TAB ? 'more-actions' : key) as Screen), [go]);
 
   // ── Sub-page routing — rendered above the persistent bottom nav ──
   const subPage = (() => {
+    // Only screens of granted modules (and their own sub-screens) open — even when reached some other way.
+    if (!canOpen(screen)) return <NoModuleAccess onBack={goHome} />;
+    if (screen === 'home') return null;
     if (screen === 'module-hub')  return <AdminModuleDevelopmentDashboard onBack={goHome} onNavigate={(k) => go(k as Screen)} stats={data?.stats} />;
     if (screen === 'members') return canViewMembers
       ? <ViewMembersPage onBack={goHome} onAddMember={canAddMember ? () => go('add-member') : undefined} onOpenMember={(id) => open('member-detail', id)} />
@@ -348,7 +362,7 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
         {subPage ?? renderHome()}
       </View>
       {/* Bottom nav stays fixed on every admin screen */}
-      <BottomTabBar tabs={NAV_ITEMS} active={activeTab} onChange={handleTab} />
+      <BottomTabBar tabs={tabs} active={activeTab} onChange={handleTab} />
       <ProfileSheet
         visible={profileOpen}
         onClose={() => setProfileOpen(false)}
@@ -522,13 +536,4 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout }: AdminD
     </ScreenRoot>
   );
   }
-}
-
-/** Which bottom tab is highlighted for each screen. */
-function tabForScreen(screen: Screen): string {
-  if (screen === 'home') return 'home';
-  if (screen === 'members' || screen === 'add-member') return 'members';
-  if (screen === 'workouts') return 'workouts';
-  if (screen === 'module-hub') return 'hub';
-  return 'more';
 }

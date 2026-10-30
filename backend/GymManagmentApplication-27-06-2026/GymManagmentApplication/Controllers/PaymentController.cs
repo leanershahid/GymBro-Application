@@ -10,6 +10,7 @@ namespace GymManagmentApplication.Controllers;
 [ApiController]
 [PermissionModule("payments")]
 [Route("api/payments")]
+[RequireModule("payments")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class PaymentController(IPaymentService service) : ControllerBase
 {

@@ -32,10 +32,6 @@ export const ENDPOINTS = {
   // AI Coach
   AI_COACH_SETTINGS: '/ai-coach/settings',
 
-  // Per-user feature modules (distinct from the role-based MODULE_ACCESS matrix above)
-  USER_MODULES: '/modules',
-  userModulesFor: (userId: number) => `/users/${userId}/modules`,
-
   // Roles & Permissions
   ROLES:           '/roles',
   PERMISSIONS:     '/permissions',
@@ -81,11 +77,4 @@ export const ENDPOINTS = {
   AUTOMATION_RULES:  '/workout-automation/rules',
   AUTOMATION_LOGS:   '/workout-automation/logs',
 
-  // Module Access
-  MODULE_ACCESS:         '/module-access',
-  MODULE_ACCESS_BULK:    '/module-access/bulk',
-  MODULE_ACCESS_CHECK:   '/module-access/check',
-  MODULE_ACCESS_MATRIX:  '/module-access/matrix',
-  MODULE_ACCESS_MODULES: '/module-access/modules',
-  MODULE_ACCESS_ROLE:    '/module-access/role',
 };

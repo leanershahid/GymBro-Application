@@ -1,150 +1,140 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Switch } from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { T, R, withAlpha } from '../../../theme';
-import { useUserModules, useSetUserModules } from '../api/userModulesQueries';
-import { ModuleToggle } from '../types/userModules.types';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { T, withAlpha } from '../../../theme';
+import { apiErrorText } from '../../../api/apiError';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
+import EmptyState from '../../dashboard/components/EmptyState';
+import { useModuleTree, useSaveUserOverrides, useUserAccess } from '../../access/api/accessQueries';
+import ModuleTreeRowCard, { FlagChip, orderTree } from '../../access/components/ModuleTreeRowCard';
+import { UserOverride } from '../../access/types/access.types';
 
 interface Props {
   userId: number;
-  /** Extra content above the module list (e.g. a page-level intro). Defaults to the standard copy. */
+  /** Text above the module list. Defaults to the standard copy. */
   intro?: string;
 }
 
-type Draft = Record<string, ModuleToggle>;
+type Mode = 'role' | 'allow' | 'deny';
+type Draft = Record<string, UserOverride>;
+type Flag = 'canAdd' | 'canEdit' | 'canDelete';
+const FLAGS: { key: Flag; label: string }[] = [
+  { key: 'canAdd', label: 'Create' }, { key: 'canEdit', label: 'Edit' }, { key: 'canDelete', label: 'Delete' },
+];
+const MODES: { key: Mode; label: string }[] = [
+  { key: 'role', label: 'Role' }, { key: 'allow', label: 'Allow' }, { key: 'deny', label: 'Deny' },
+];
 
-function MiniSwitch({
-  label, value, disabled, onChange,
-}: { label: string; value: boolean; disabled?: boolean; onChange: () => void }) {
+function ModeSwitch({ value, name, onChange }: { value: Mode; name: string; onChange: (m: Mode) => void }) {
   return (
-    <View style={{
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingVertical: 6, opacity: disabled ? 0.4 : 1,
-    }}>
-      <Text style={{ color: T.textSub, fontSize: 12 }}>{label}</Text>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        disabled={disabled}
-        accessibilityLabel={label}
-        trackColor={{ false: T.line, true: T.brandDim }}
-        thumbColor={value ? T.brand : T.textFaint}
-        style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-      />
+    <View style={{ flexDirection: 'row', borderRadius: 999, borderWidth: 1, borderColor: T.line, overflow: 'hidden' }}>
+      {MODES.map(m => {
+        const active = m.key === value;
+        return (
+          <Pressable
+            key={m.key}
+            onPress={() => onChange(m.key)}
+            accessibilityRole="radio"
+            accessibilityLabel={`${name}: ${m.label}`}
+            accessibilityState={{ checked: active }}
+            style={{
+              minHeight: 36, minWidth: 48, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center',
+              backgroundColor: active ? (m.key === 'deny' ? withAlpha(T.err, 0.2) : withAlpha(T.brand, 0.2)) : 'transparent',
+            }}
+          >
+            <Text style={{ color: active ? (m.key === 'deny' ? T.err : T.brand) : T.textSub, fontSize: 12, fontWeight: '700' }}>{m.label}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
 /**
- * The module access toggle list + save button — the reusable body shared by
- * ManageUserAccessPage (its own screen) and TrainerDetailPage's "Access" tab.
- * Each module has a master "enabled" switch plus Add/Edit/Delete sub-permissions,
- * which only take effect while the module itself is enabled.
+ * One person's access — the reusable body shared by ManageUserAccessPage and TrainerDetailPage's
+ * "Access" tab. Each module follows their roles by default ("Role", showing what the roles give),
+ * or is overridden for this person only: Allow (with its own create/edit/delete) or Deny.
  */
 export default function AccessPanel({ userId, intro }: Props) {
-  const { data: modules, isLoading } = useUserModules(userId);
-  const { mutate: save, isPending } = useSetUserModules(userId);
+  const accessQ = useUserAccess(userId);
+  const app = accessQ.data?.app;
+  const treeQ = useModuleTree(app);
+  const save = useSaveUserOverrides(userId);
+
+  const rows = useMemo(() => orderTree((treeQ.data ?? []).filter(r => r.app === app)), [treeQ.data, app]);
+  const fromRoles = useMemo(() => new Set((accessQ.data?.fromRoles ?? []).map(g => g.moduleKey)), [accessQ.data]);
 
   const [draft, setDraft] = useState<Draft>({});
-  const [saved, setSaved] = useState(false);
-
+  const [dirty, setDirty] = useState(false);
   useEffect(() => {
-    if (modules) {
-      setDraft(Object.fromEntries(modules.map(m => [
-        m.key,
-        { key: m.key, isEnabled: m.isEnabled, canAdd: m.canAdd, canEdit: m.canEdit, canDelete: m.canDelete },
-      ])));
-    }
-  }, [modules]);
+    if (!accessQ.data) return;
+    setDraft(Object.fromEntries(accessQ.data.overrides.map(o => [o.moduleKey, o])));
+    setDirty(false);
+  }, [accessQ.data]);
 
-  const update = (key: string, patch: Partial<ModuleToggle>) => {
-    setDraft(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }));
-    setSaved(false);
+  const setMode = (key: string, mode: Mode) => {
+    setDraft(prev => {
+      const next = { ...prev };
+      if (mode === 'role') delete next[key];
+      else next[key] = { moduleKey: key, isEnabled: mode === 'allow', canAdd: mode === 'allow', canEdit: mode === 'allow', canDelete: mode === 'allow' };
+      return next;
+    });
+    setDirty(true);
+  };
+  const setFlag = (key: string, flag: Flag) => {
+    setDraft(prev => ({ ...prev, [key]: { ...prev[key], [flag]: !prev[key][flag] } }));
+    setDirty(true);
   };
 
-  const handleSave = () => {
-    save(Object.values(draft), { onSuccess: () => setSaved(true) });
-  };
+  const onSave = () => save.mutate(Object.values(draft), {
+    onSuccess: () => setDirty(false),
+    onError: (e) => Alert.alert('Could not save', apiErrorText(e)),
+  });
+
+  if (accessQ.isLoading || treeQ.isLoading) return <LoadingState label="Loading access" />;
+  if (accessQ.isError || treeQ.isError) {
+    return <EmptyState icon="wifi-off" tone="error" title="Couldn't load access" action={{ label: 'Retry', onPress: () => { accessQ.refetch(); treeQ.refetch(); } }} />;
+  }
 
   return (
     <>
       <View className="px-5 pb-4">
         <Text style={{ color: T.textSub, fontSize: 13, lineHeight: 19 }}>
-          {intro ?? 'Choose which feature areas this account can see and use, and what they can add, edit or delete within each one. This is in addition to their role — it can only narrow access, never grant permissions their role doesn\'t already allow.'}
+          {intro ?? 'Each module follows this person\'s roles unless you override it here. "Allow" gives it to them even if their roles don\'t; "Deny" hides it even if their roles give it.'}
         </Text>
       </View>
 
       <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
-        {isLoading ? (
-          <LoadingState label="Loading modules" />
-        ) : (
-          (modules ?? []).map(m => {
-            const entry = draft[m.key] ?? { key: m.key, isEnabled: false, canAdd: true, canEdit: true, canDelete: true };
-            return (
-              <View
-                key={m.key}
-                style={{
-                  backgroundColor: T.bgInput, borderRadius: R.lg, padding: 16, marginBottom: 12,
-                  borderWidth: 1, borderColor: entry.isEnabled ? withAlpha(T.brand, 0.25) : T.line,
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 12 }}>
-                    <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: T.brandDim, borderWidth: 1, borderColor: T.brandBorder, alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-                      <Feather name={(m.icon as any) ?? 'grid'} size={18} color={T.brand} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text numberOfLines={1} style={{ color: T.text, fontSize: 15, fontWeight: '700' }}>{m.name}</Text>
-                      {!!m.description && <Text style={{ color: T.textSub, fontSize: 12, marginTop: 2 }} numberOfLines={2}>{m.description}</Text>}
-                    </View>
-                  </View>
+        {rows.map(row => {
+          const o = draft[row.key];
+          const mode: Mode = o ? (o.isEnabled ? 'allow' : 'deny') : 'role';
+          const viaRole = fromRoles.has(row.key);
+          const note = mode === 'role'
+            ? `From role: ${viaRole ? 'on' : 'off'}`
+            : mode === 'allow' ? 'Allowed for this person' : 'Denied for this person';
+          return (
+            <ModuleTreeRowCard
+              key={row.key}
+              row={row}
+              active={mode === 'allow' || (mode === 'role' && viaRole)}
+              note={note}
+              control={<ModeSwitch value={mode} name={row.name} onChange={m => setMode(row.key, m)} />}
+            >
+              {mode === 'allow' && FLAGS.map(f => (
+                <FlagChip key={f.key} label={f.label} value={!!o?.[f.key]} onPress={() => setFlag(row.key, f.key)} />
+              ))}
+            </ModuleTreeRowCard>
+          );
+        })}
 
-                  <Switch
-                    value={entry.isEnabled}
-                    onValueChange={() => update(m.key, { isEnabled: !entry.isEnabled })}
-                    accessibilityLabel={m.name}
-                    trackColor={{ false: T.line, true: T.brandDim }}
-                    thumbColor={entry.isEnabled ? T.brand : T.textFaint}
-                  />
-                </View>
-
-                {/* Sub-permissions — only meaningful while the module is enabled */}
-                <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: T.lineSubtle, gap: 2 }}>
-                  <MiniSwitch
-                    label="Can add"
-                    value={entry.canAdd}
-                    disabled={!entry.isEnabled}
-                    onChange={() => update(m.key, { canAdd: !entry.canAdd })}
-                  />
-                  <MiniSwitch
-                    label="Can edit"
-                    value={entry.canEdit}
-                    disabled={!entry.isEnabled}
-                    onChange={() => update(m.key, { canEdit: !entry.canEdit })}
-                  />
-                  <MiniSwitch
-                    label="Can delete"
-                    value={entry.canDelete}
-                    disabled={!entry.isEnabled}
-                    onChange={() => update(m.key, { canDelete: !entry.canDelete })}
-                  />
-                </View>
-              </View>
-            );
-          })
-        )}
-
-        {!isLoading && (
-          <PrimaryButton
-            label={isPending ? 'Saving…' : saved ? 'Saved ✓' : 'Save changes'}
-            onPress={handleSave}
-            loading={isPending}
-            accessibilityHint="Saves the access changes for this account"
-            style={{ marginTop: 8 }}
-          />
-        )}
+        <PrimaryButton
+          label={save.isPending ? 'Saving…' : dirty ? 'Save changes' : 'Saved'}
+          onPress={onSave}
+          loading={save.isPending}
+          disabled={!dirty}
+          accessibilityHint="Saves the access changes for this account"
+          style={{ marginTop: 8 }}
+        />
       </ScrollView>
     </>
   );

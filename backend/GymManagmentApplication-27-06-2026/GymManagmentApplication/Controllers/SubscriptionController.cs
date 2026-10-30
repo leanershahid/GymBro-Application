@@ -10,6 +10,7 @@ namespace GymManagmentApplication.Controllers;
 [ApiController]
 [PermissionModule("subscriptions")]
 [Route("api/subscriptions")]
+[RequireModule("subscriptions")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class SubscriptionController(ISubscriptionService service) : ControllerBase
 {

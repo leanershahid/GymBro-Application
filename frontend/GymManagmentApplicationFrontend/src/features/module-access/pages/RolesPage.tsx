@@ -3,7 +3,6 @@ import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator } from 'rea
 import { Feather } from '@expo/vector-icons';
 import { T, withAlpha } from '../../../theme';
 import { apiErrorText, describeApiError, fieldErrorsFrom } from '../../../api/apiError';
-import { isDelegatedRole } from '../../../api/session';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import BottomSheet from '../../common/components/BottomSheet';
@@ -165,7 +164,8 @@ export default function RolesPage({ onBack, onOpenRoleAccess }: Props) {
   const renderRole = (role: Role) => {
     const builtIn = isBuiltInRole(role);
     const roleId = Number(role.id);
-    const canOpenAccess = !!onOpenRoleAccess && isDelegatedRole(role.slug) && Number.isFinite(roleId) && roleId > 0;
+    // Every role but super admin (which always has everything) gets its module access from grants.
+    const canOpenAccess = !!onOpenRoleAccess && role.slug?.toLowerCase() !== 'superadmin' && Number.isFinite(roleId) && roleId > 0;
     return (
       <View
         key={role.id}

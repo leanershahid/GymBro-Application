@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import { useMyTrainerProfileId } from './api/trainerAppQueries';
-import { Feather } from '@expo/vector-icons';
-import { ModuleAccessProvider, useModuleAccess } from '../module-access/context/ModuleAccessContext';
+import { useLanding, useMenu } from '../access/context/AccessContext';
+import { MORE_TAB, MoreMenuScreen, useRailTabs } from '../access/components/railTabs';
+import NoAccessScreen from '../access/components/NoAccessScreen';
 import TrainerHomeScreen    from './screens/TrainerHomeScreen';
 import ClientsScreen        from './screens/ClientsScreen';
 import ProgramBuilderScreen from './screens/ProgramBuilderScreen';
@@ -10,11 +11,9 @@ import TrainerProfileScreen from './screens/TrainerProfileScreen';
 import ClassSchedulePage    from '../classes/pages/ClassSchedulePage';
 import PtSessionsPage       from '../classes/pages/PtSessionsPage';
 import { T } from '../../theme';
-import BottomTabBar from '../common/components/BottomTabBar';
+import BottomTabBar, { TabItem } from '../common/components/BottomTabBar';
 import LoadingState from '../common/components/LoadingState';
 import Screen from '../common/components/Screen';
-
-type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
 type Route =
   | { id: 'home'    }
@@ -23,26 +22,20 @@ type Route =
   | { id: 'profile' }
   | { id: 'classes' }
   | { id: 'sessions' }
+  | { id: typeof MORE_TAB }
   | { id: 'client'; clientId: number };
 
-// moduleKey undefined => always visible, not gated
-const TABS: { key: string; icon: FeatherIconName; label: string; moduleKey?: string }[] = [
-  { key: 'home',     icon: 'home',     label: 'Today'    },
-  { key: 'clients',  icon: 'users',    label: 'Clients'  },
-  { key: 'sessions', icon: 'clock',    label: 'PT'       },
-  { key: 'classes',  icon: 'calendar', label: 'Classes'  },
-  { key: 'builder',  icon: 'activity', label: 'Programs', moduleKey: 'workouts' },
-  { key: 'profile',  icon: 'user',     label: 'Profile'  },
-];
+// Always on, whatever the access list says — so there is always a way to sign out.
+const ALWAYS_TABS: TabItem[] = [{ key: 'profile', label: 'Profile', icon: 'user' }];
 
 interface Props {
   trainerId: number;
   onLogout: () => void;
 }
 
-// `userId` is the login account; per-user module toggles are keyed by it, while every
-// /trainers/{id} endpoint needs the TrainerProfile id, resolved via /trainers/me.
-export default function TrainerApp({ userId, onLogout }: { userId: number; onLogout: () => void }) {
+// Every /trainers/{id} endpoint needs the TrainerProfile id, resolved via /trainers/me; the
+// login account's access list comes from AccessProvider (App.tsx).
+export default function TrainerApp({ onLogout }: { userId: number; onLogout: () => void }) {
   const { data: trainerId = 0, isLoading, isError } = useMyTrainerProfileId();
 
   if (isLoading) {
@@ -67,22 +60,24 @@ export default function TrainerApp({ userId, onLogout }: { userId: number; onLog
     );
   }
 
-  return (
-    <ModuleAccessProvider userId={userId}>
-      <TrainerAppContent trainerId={trainerId} onLogout={onLogout} />
-    </ModuleAccessProvider>
-  );
+  return <TrainerAppContent trainerId={trainerId} onLogout={onLogout} />;
 }
 
+/** The trainer app. Its tabs and the screens it will open come from the access list. */
 function TrainerAppContent({ trainerId, onLogout }: Props) {
-  const [screen,    setScreen]    = useState<Route>({ id: 'home' });
-  const [activeTab, setActiveTab] = useState('home');
+  const { routes } = useMenu();
+  const { tabs, overflow } = useRailTabs(ALWAYS_TABS);
+  const landing = useLanding('home', 'profile') as Route['id'];
 
-  const canWorkouts = useModuleAccess('workouts');
-  const visibleTabs = TABS.filter(t => !t.moduleKey || canWorkouts);
+  const [screen,    setScreen]    = useState<Route>({ id: landing } as Route);
+  const [activeTab, setActiveTab] = useState<string>(landing);
+
+  // One client's page belongs to Clients; profile and the More list are always there.
+  const canOpen = (id: Route['id']) =>
+    id === 'profile' || id === MORE_TAB || routes.has(id) || (id === 'client' && routes.has('clients'));
 
   const goTo = (id: string) => {
-    setActiveTab(id);
+    setActiveTab(tabs.some(t => t.key === id) ? id : MORE_TAB);
     setScreen({ id: id as any });
   };
 
@@ -92,47 +87,42 @@ function TrainerAppContent({ trainerId, onLogout }: Props) {
       setScreen({ id: 'client', clientId: cid });
       return;
     }
-    if (['home', 'clients', 'builder', 'profile', 'performance', 'classes', 'sessions'].includes(target)) {
-      const mapped = target === 'performance' ? 'profile' : target;
-      goTo(mapped);
-      return;
-    }
+    const mapped = target === 'performance' ? 'profile' : target;
+    if (canOpen(mapped as Route['id'])) goTo(mapped);
   };
-
-  if (screen.id === 'builder' && !canWorkouts) {
-    setScreen({ id: 'home' });
-    setActiveTab('home');
-    return null;
-  }
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       <View style={{ flex: 1 }}>
-        {screen.id === 'home' && (
-          <TrainerHomeScreen trainerId={trainerId} onNavigate={navigateFrom} />
-        )}
-        {screen.id === 'clients' && (
-          <ClientsScreen trainerId={trainerId} />
-        )}
-        {screen.id === 'client' && (
-          <ClientsScreen
-            trainerId={trainerId}
-            initialClientId={screen.clientId}
-            onBack={() => goTo('clients')}
-          />
-        )}
-        {screen.id === 'builder' && (
-          <ProgramBuilderScreen trainerId={trainerId} />
-        )}
-        {screen.id === 'classes' && <ClassSchedulePage mode="trainer" />}
-        {screen.id === 'sessions' && <PtSessionsPage mode="trainer" />}
-        {screen.id === 'profile' && (
-          <TrainerProfileScreen trainerId={trainerId} onLogout={onLogout} />
-        )}
+        {!canOpen(screen.id) && <NoAccessScreen onBack={() => goTo(landing)} />}
+        {canOpen(screen.id) && (<>
+          {screen.id === 'home' && (
+            <TrainerHomeScreen trainerId={trainerId} onNavigate={navigateFrom} />
+          )}
+          {screen.id === 'clients' && (
+            <ClientsScreen trainerId={trainerId} />
+          )}
+          {screen.id === 'client' && (
+            <ClientsScreen
+              trainerId={trainerId}
+              initialClientId={screen.clientId}
+              onBack={() => goTo('clients')}
+            />
+          )}
+          {screen.id === 'builder' && (
+            <ProgramBuilderScreen trainerId={trainerId} />
+          )}
+          {screen.id === 'classes' && <ClassSchedulePage mode="trainer" />}
+          {screen.id === 'sessions' && <PtSessionsPage mode="trainer" />}
+          {screen.id === 'profile' && (
+            <TrainerProfileScreen trainerId={trainerId} onLogout={onLogout} />
+          )}
+          {screen.id === MORE_TAB && <MoreMenuScreen items={overflow} onOpen={goTo} />}
+        </>)}
       </View>
 
       {/* ── Bottom tab bar ── */}
-      <BottomTabBar tabs={visibleTabs} active={activeTab} onChange={goTo} />
+      <BottomTabBar tabs={tabs} active={activeTab} onChange={goTo} />
     </View>
   );
 }

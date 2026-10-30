@@ -10,6 +10,7 @@ namespace GymManagmentApplication.Controllers;
 /// <summary>Member app: the signed-in member's own memberships, invoices and payments.</summary>
 [ApiController]
 [Route("api/me/billing")]
+[RequireModule("billing")]
 [AuthorizeRoles(RoleNames.Client)]
 public class MyBillingController(IMyBillingService service) : ControllerBase
 {

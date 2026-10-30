@@ -14,10 +14,12 @@ import { isAdminRole, isDelegatedRole } from './src/api/session';
 import { applyAuth, clearAuth, currentRefreshToken, loadStoredAuth } from './src/api/authStore';
 import { logoutSession, refreshSession } from './src/features/auth/api/authApi';
 import { getPreviewRole, startPreview } from './src/dev/previewMode';
+import { AccessProvider } from './src/features/access/context/AccessContext';
+import { clearStoredAccess } from './src/features/access/api/accessStore';
 
 type AppState =
   | { status: 'unauthenticated'; error?: string }
-  | { status: 'admin' }
+  | { status: 'admin';   userId: number }
   | { status: 'member';  userId: number }
   | { status: 'trainer'; userId: number };
 
@@ -48,20 +50,20 @@ export default function App() {
     const userId = startPreview(preview);
     return preview === 'member' ? { status: 'member', userId }
          : preview === 'trainer' ? { status: 'trainer', userId }
-         : { status: 'admin' };
+         : { status: 'admin', userId };
   });
 
   const [booting, setBooting] = useState(true);
 
   const routeFor = (role: string, userId: number): AppState =>
-    isAdminRole(role) || isDelegatedRole(role) ? { status: 'admin' }
+    isAdminRole(role) || isDelegatedRole(role) ? { status: 'admin', userId }
     : role === 'client'  ? { status: 'member',  userId }
     : role === 'trainer' ? { status: 'trainer', userId }
     : { status: 'unauthenticated', error: `Unsupported account role "${role}". Please contact your administrator.` };
 
   // Ends the session locally: token, persisted refresh token and every cached response.
   const endSession = useCallback(async (error?: string) => {
-    await clearAuth();
+    await Promise.all([clearAuth(), clearStoredAccess()]);
     queryClient.clear();
     setAppState({ status: 'unauthenticated', error });
   }, []);
@@ -89,9 +91,9 @@ export default function App() {
   }, [endSession]);
 
   const handleLoginSuccess = (role: string, userId: number) => {
-    // Admins and super admins get the full admin app. 'staff' and custom roles get the
-    // same app, but AdminDashboard only shows the modules the role/module matrix grants
-    // them — and the backend enforces that matrix on every request.
+    // Admins, super admins, staff and custom roles get the admin app; trainers and members
+    // their own. Every app builds its menus from the user's access list (AccessProvider),
+    // and the backend checks the same grants on every request.
     setAppState(routeFor(role, userId));
   };
 
@@ -112,20 +114,13 @@ export default function App() {
             {appState.status === 'unauthenticated' && (
               <LoginPage onLoginSuccess={handleLoginSuccess} errorMessage={appState.error} />
             )}
-            {appState.status === 'admin' && (
-              <AdminDashboard onLogout={logout} />
-            )}
-            {appState.status === 'member' && (
-              <MemberApp
-                userId={appState.userId}
-                onLogout={logout}
-              />
-            )}
-            {appState.status === 'trainer' && (
-              <TrainerApp
-                userId={appState.userId}
-                onLogout={logout}
-              />
+            {appState.status !== 'unauthenticated' && (
+              // Keyed by user, so a different account never sees the previous one's menu.
+              <AccessProvider key={appState.userId} userId={appState.userId} onLogout={logout}>
+                {appState.status === 'admin' && <AdminDashboard onLogout={logout} />}
+                {appState.status === 'member' && <MemberApp userId={appState.userId} onLogout={logout} />}
+                {appState.status === 'trainer' && <TrainerApp userId={appState.userId} onLogout={logout} />}
+              </AccessProvider>
             )}
           </View>
           <BootSplash loading={booting} />

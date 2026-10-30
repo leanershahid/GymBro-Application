@@ -1,5 +1,21 @@
 # Module Access API Documentation
 
+> **Replaced (2026-10-30).** `/api/module-access/*` and `/api/users/{id}/modules` were removed.
+> Access now comes from one module master (`Application/Access/ModuleCatalog.cs`) with role grants,
+> per-user Allow/Deny overrides and additional roles, served by `/api/access`:
+>
+> | Method | Route | Who |
+> |---|---|---|
+> | GET | `access/me?lang=` | any signed-in user — their granted menu modules (no tabs) |
+> | GET | `access/me/tabs?parent=&lang=` | any signed-in user — their granted page tabs |
+> | GET | `access/modules?app=admin\|trainer\|member` | admin — the module tree |
+> | GET / PUT | `access/roles/{roleId}/grants` | admin — a role's grants (PUT replaces all) |
+> | GET | `access/users/{id}` | admin — a person's role grants, overrides and result |
+> | PUT | `access/users/{id}/overrides` | admin — replaces a person's overrides |
+> | GET / POST / DELETE | `access/users/{id}/extra-roles[/{roleId}]` | admin — additional roles |
+>
+> The rest of this document describes the old API and is kept for history only.
+
 > **Base URL:** `https://<host>/api/module-access`
 > **Access:** Admin only
 > **Auth:** JWT Bearer — `Authorization: Bearer <token>`
