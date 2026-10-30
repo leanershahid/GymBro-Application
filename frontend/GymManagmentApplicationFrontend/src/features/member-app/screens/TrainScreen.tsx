@@ -17,6 +17,7 @@ import StatusPill from '../../common/components/StatusPill';
 import PaginationFooter from '../../common/components/PaginationFooter';
 import EmptyState from '../../dashboard/components/EmptyState';
 import { difficultyTone, goalTone } from '../components/pillTones';
+import { usePageTabs } from '../../access/context/AccessContext';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -30,15 +31,16 @@ const EX_FILTERS = ['All', 'Strength', 'Cardio', 'Flexibility', 'Balance'];
 interface Props { userId: number; onOpenWorkout: (id: number) => void; }
 
 export default function TrainScreen({ userId, onOpenWorkout }: Props) {
-  const [tab, setTab]           = useState<'workouts' | 'exercises'>('workouts');
+  // Tabs come from the access list (member.train.*); each one's data loads only when granted.
+  const { items: tabs, tab, setTab, has } = usePageTabs('member.train');
   const [exPage, setExPage]     = useState(1);
   const [exFilter, setExFilter] = useState('All');
   const [search, setSearch]     = useState('');
   const [wPage, setWPage]       = useState(1);
 
-  const { data: wPaged, isLoading: wLoad, isError: wErr, refetch: wRefetch } = useMyWorkouts(userId, wPage);
+  const { data: wPaged, isLoading: wLoad, isError: wErr, refetch: wRefetch } = useMyWorkouts(userId, wPage, has('workouts'));
   const tagParam = exFilter !== 'All' ? exFilter.toLowerCase() : undefined;
-  const { data: exPaged, isLoading: exLoad, isError: exErr, refetch: exRefetch } = useExerciseList(exPage, tagParam);
+  const { data: exPaged, isLoading: exLoad, isError: exErr, refetch: exRefetch } = useExerciseList(exPage, tagParam, has('exercises'));
 
   const workouts    = wPaged?.items      ?? [];
   const wTotal      = wPaged?.totalPages ?? 1;
@@ -58,11 +60,7 @@ export default function TrainScreen({ userId, onOpenWorkout }: Props) {
         <Text className="text-white text-[28px] font-extrabold tracking-tight mb-4">Train</Text>
 
         {/* Tab switcher */}
-        <SegmentedTabs
-          tabs={[{ key: 'workouts', label: 'Workouts' }, { key: 'exercises', label: 'Exercises' }]}
-          value={tab}
-          onChange={setTab}
-        />
+        {tabs.length > 1 && <SegmentedTabs tabs={tabs} value={tab ?? ''} onChange={setTab} />}
       </View>
 
       {/* ── Workouts tab ── */}

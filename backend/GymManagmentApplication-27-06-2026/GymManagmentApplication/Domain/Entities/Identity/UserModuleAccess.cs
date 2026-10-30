@@ -1,14 +1,16 @@
 namespace GymManagmentApplication.Domain.Entities.Identity;
 
 /// <summary>
-/// Per-user override deciding whether a specific <see cref="Module"/> is
-/// visible/usable for a given Trainer or Client, in addition to their role.
+/// Per-user override on one <see cref="Module"/>. It wins over the user's role grants either way:
+/// <see cref="IsEnabled"/> true grants the module with exactly these flags, false removes it.
+/// No row means the user's roles decide.
 /// </summary>
 public class UserModuleAccess
 {
     public ulong Id { get; set; }
     public ulong UserId { get; set; }
     public ulong ModuleId { get; set; }
+    /// <summary>Allow (true) or deny (false) this module for the user.</summary>
     public bool IsEnabled { get; set; }
     /// <summary>Sub-permissions within the module. Meaningless unless <see cref="IsEnabled"/> is true.</summary>
     public bool CanAdd { get; set; } = true;

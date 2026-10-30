@@ -10,6 +10,7 @@ namespace GymManagmentApplication.Controllers;
 [ApiController]
 [PermissionModule("ai-insights")]
 [Route("api/ai-coach")]
+[RequireModule("ai-insights")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class AiCoachController(IAiCoachSettingsService service) : ControllerBase
 {

@@ -10,6 +10,7 @@ namespace GymManagmentApplication.Controllers;
 [ApiController]
 [PermissionModule("invoices")]
 [Route("api/invoices")]
+[RequireModule("invoices")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class InvoiceController(IInvoiceService service) : ControllerBase
 {

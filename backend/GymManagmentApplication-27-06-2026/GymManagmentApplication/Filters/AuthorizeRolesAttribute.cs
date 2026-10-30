@@ -1,7 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using GymManagmentApplication.Application.Common;
-using GymManagmentApplication.Application.ModuleAccess.Interfaces;
+using GymManagmentApplication.Application.Access;
 using GymManagmentApplication.Domain.Constants;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -11,9 +11,9 @@ namespace GymManagmentApplication.Filters;
 
 /// <summary>
 /// Role gate. Built-in roles (superadmin/admin/trainer/client) pass only when listed.
-/// Any other role — 'staff' or an admin-defined custom role — passes when the role/module
-/// access matrix (or the role's permissions) grants it the action implied by the HTTP method
-/// on the endpoint's <see cref="PermissionModuleAttribute"/> module.
+/// Any other role — 'staff' or an admin-defined custom role — passes when its module grants
+/// (see <see cref="IAccessService.CanAsync"/>) allow the action implied by the HTTP method on the
+/// endpoint's <see cref="PermissionModuleAttribute"/> key.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class AuthorizeRolesAttribute(params string[] roles) : Attribute, IAsyncAuthorizationFilter
@@ -72,9 +72,9 @@ public class AuthorizeRolesAttribute(params string[] roles) : Attribute, IAsyncA
         if (action is null) return false;
 
         var currentUser = context.HttpContext.RequestServices.GetRequiredService<ICurrentUser>();
-        if (currentUser.TenantId is not { } tenantId) return false;
+        if (currentUser.UserId is not { } userId) return false;
 
-        var service = context.HttpContext.RequestServices.GetRequiredService<IModuleAccessService>();
-        return await service.IsAllowedAsync(tenantId, roleSlug, module, action);
+        var service = context.HttpContext.RequestServices.GetRequiredService<IAccessService>();
+        return await service.CanAsync(userId, roleSlug, module, action);
     }
 }

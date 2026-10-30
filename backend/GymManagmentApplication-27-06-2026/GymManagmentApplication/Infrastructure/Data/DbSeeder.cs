@@ -1,3 +1,4 @@
+using GymManagmentApplication.Application.Access;
 using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Domain.Entities.Core;
 using GymManagmentApplication.Domain.Entities.Identity;
@@ -34,6 +35,12 @@ public static class DbSeeder
             });
             await db.SaveChangesAsync();
         }
+
+        // ── Modules ───────────────────────────────────────────────────────────
+        // Before the roles, so a newly created role can be given its default grants.
+        // No grant rows at all means the access data still lives in the old tables.
+        var legacyAccessToMove = !await db.RoleModuleGrants.IgnoreQueryFilters().AnyAsync();
+        await UpsertModulesAsync(db);
 
         // ── Roles ─────────────────────────────────────────────────────────────
         // Every tenant gets its own copy of the system roles (role checks are by slug, but
@@ -77,61 +84,13 @@ public static class DbSeeder
         }
         if (mismatched.Count > 0) await db.SaveChangesAsync();
 
-        // ── Feature modules (per-user gate-able areas) ──────────────────────────
-        // Split into finer-grained toggles than the original 4 — each maps to a
-        // narrower slice of functionality so access can be tuned per person.
-        var seedModules = new[]
-        {
-            ("workouts",      "Workouts",         "Browsing and completing assigned workouts", "activity"),
-            ("exercises",     "Exercise Library",  "Exercise library browsing and management", "zap"),
-            ("plans",         "Plans & Progress",  "Assigned training plans and progress tracking", "book-open"),
-            ("challenges",    "Challenges",        "Community challenges and leaderboards", "award"),
-            ("live-coaching", "Live Coaching",     "Live coach discovery and booking", "video"),
-            ("stats",         "Stats",             "Daily health metrics and streaks", "bar-chart-2"),
-            ("ai-coach",      "AI Coach",          "AI-generated recovery and training tips", "cpu"),
-
-            // Admin-area modules — gate-able per user (including admins themselves) via
-            // RequireModuleAttribute on their controllers. An admin with no explicit row here
-            // defaults to allowed (see IUserModulesService.CanAsync), so adding these keys
-            // never locks out an existing admin; it only takes effect once someone explicitly
-            // restricts a specific user's access.
-            ("members",    "Members",    "Viewing and managing gym members", "users"),
-            ("trainers",   "Trainers",   "Viewing and managing trainers", "award"),
-            ("branches",   "Branches",   "Viewing and managing branches", "map-pin"),
-            ("tenants",    "Tenants",    "Viewing and managing gyms on the platform", "briefcase"),
-            ("attendance", "Attendance", "Attendance settings and branch check-in geofences", "map-pin"),
-            ("leads",      "Leads",      "Lead source reports and bulk lead import", "target"),
-        };
-
-        foreach (var (key, name, desc, icon) in seedModules)
-        {
-            if (await db.Modules.AnyAsync(m => m.Key == key))
-                continue;
-
-            var moduleId = await GetNextIdAsync(db, "Modules");
-            db.Modules.Add(new Module
-            {
-                Id          = moduleId,
-                Key         = key,
-                Name        = name,
-                Description = desc,
-                Icon        = icon,
-                CreatedAt   = DateTime.UtcNow
-            });
-            await db.SaveChangesAsync();
-        }
-
-        // Prune modules from an earlier, coarser seed list that this split replaces.
-        var currentKeys = seedModules.Select(m => m.Item1).ToArray();
-        var staleModules = await db.Modules.Where(m => !currentKeys.Contains(m.Key)).ToListAsync();
-        if (staleModules.Count > 0)
-        {
-            var staleIds = staleModules.Select(m => m.Id).ToList();
-            var staleAccess = await db.UserModuleAccesses.Where(a => staleIds.Contains(a.ModuleId)).ToListAsync();
-            db.UserModuleAccesses.RemoveRange(staleAccess);
-            db.Modules.RemoveRange(staleModules);
-            await db.SaveChangesAsync();
-        }
+        // ── Module master + access grants ───────────────────────────────────────
+        // Modules were upserted before the roles (above), so roles created this boot already
+        // got their default grants. On the first boot after the module master replaced the old
+        // role matrix and per-user module table, move what those held.
+        if (legacyAccessToMove)
+            await MoveLegacyAccessAsync(db);
+        await PruneStaleModulesAsync(db);
     }
 
     /// <summary>Creates any missing system roles for a tenant. Idempotent.</summary>
@@ -146,7 +105,7 @@ public static class DbSeeder
             if (await db.Roles.IgnoreQueryFilters().AnyAsync(r => r.TenantId == tenantId && r.Slug == slug))
                 continue;
 
-            db.Roles.Add(new Role
+            var role = new Role
             {
                 Id          = await GetNextIdAsync(db, "Roles"),
                 TenantId    = tenantId,
@@ -155,9 +114,169 @@ public static class DbSeeder
                 Description = desc,
                 IsSystem    = true,
                 CreatedAt   = DateTime.UtcNow
-            });
+            };
+            db.Roles.Add(role);
+            await db.SaveChangesAsync();
+            await GrantDefaultModulesAsync(db, role);
+        }
+    }
+
+    // ── Module master ─────────────────────────────────────────────────────────
+
+    /// <summary>Inserts or updates every <see cref="ModuleCatalog"/> row by key. Parents come first in the catalog.</summary>
+    private static async Task UpsertModulesAsync(AppDbContext db)
+    {
+        var existing = await db.Modules.ToDictionaryAsync(m => m.Key);
+        var levels = new Dictionary<string, int>();
+
+        foreach (var def in ModuleCatalog.All)
+        {
+            var level = def.ParentKey is null ? 1 : levels[def.ParentKey] + 1;
+            levels[def.Key] = level;
+
+            if (!existing.TryGetValue(def.Key, out var module))
+            {
+                module = new Module { Key = def.Key, CreatedAt = DateTime.UtcNow };
+                db.Modules.Add(module);
+                existing[def.Key] = module;
+            }
+
+            module.App          = def.App;
+            module.Name         = def.Name;
+            module.Icon         = def.Icon;
+            module.Route        = def.Route;
+            module.ApiModules   = def.ApiModules;
+            module.Level        = level;
+            module.SortOrder    = def.SortOrder;
+            module.HideFromMenu = def.HideFromMenu;
+            module.IsTab        = def.IsTab;
+            module.AdminOnly    = def.AdminOnly;
+            module.Parent       = def.ParentKey is null ? null : existing[def.ParentKey];
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>Removes modules no longer in the catalog, deepest first, with their grants.</summary>
+    private static async Task PruneStaleModulesAsync(AppDbContext db)
+    {
+        var currentKeys = ModuleCatalog.All.Select(m => m.Key).ToArray();
+        var stale = await db.Modules.Where(m => !currentKeys.Contains(m.Key)).OrderByDescending(m => m.Level).ToListAsync();
+        if (stale.Count == 0) return;
+
+        var staleIds = stale.Select(m => m.Id).ToList();
+        db.UserModuleAccesses.RemoveRange(db.UserModuleAccesses.Where(a => staleIds.Contains(a.ModuleId)));
+        db.RoleModuleGrants.RemoveRange(db.RoleModuleGrants.IgnoreQueryFilters().Where(g => staleIds.Contains(g.ModuleId)));
+        foreach (var module in stale)
+        {
+            db.Modules.Remove(module);
             await db.SaveChangesAsync();
         }
+    }
+
+    /// <summary>Gives a built-in role its <see cref="ModuleCatalog.DefaultKeysFor"/> modules, with every action allowed.</summary>
+    public static async Task GrantDefaultModulesAsync(AppDbContext db, Role role)
+    {
+        var keys = ModuleCatalog.DefaultKeysFor(role.Slug).ToList();
+        if (keys.Count == 0) return;
+
+        var moduleIds = await db.Modules.Where(m => keys.Contains(m.Key)).Select(m => m.Id).ToListAsync();
+        var granted = await db.RoleModuleGrants.IgnoreQueryFilters()
+            .Where(g => g.RoleId == role.Id).Select(g => g.ModuleId).ToListAsync();
+
+        foreach (var moduleId in moduleIds.Except(granted))
+            db.RoleModuleGrants.Add(new RoleModuleGrant
+            {
+                TenantId = role.TenantId, RoleId = role.Id, ModuleId = moduleId,
+                CanView = true, CanCreate = true, CanEdit = true, CanDelete = true, CanExport = true,
+            });
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// One-time move from the old access tables into the module master's grants, keeping what
+    /// everyone could see:
+    /// <list type="bullet">
+    /// <item>Built-in roles get their default modules.</item>
+    /// <item>Old role-matrix rows (role + API key) become grants on the admin modules that use that
+    /// key. For the admin role, a matrix row replaces the full default (it was a restriction).</item>
+    /// <item>Old per-user switches that were on, for trainers and members, become per-user Allow
+    /// overrides on their app's modules that use that key. Admins' and staff's per-user rows never
+    /// had an effect and are dropped.</item>
+    /// </list>
+    /// The old rows are removed afterwards; the old modules go with <see cref="PruneStaleModulesAsync"/>.
+    /// </summary>
+    private static async Task MoveLegacyAccessAsync(AppDbContext db)
+    {
+        var modules = await db.Modules.Where(m => m.App != "").ToListAsync();
+        var builtIn = new[] { RoleNames.Admin, RoleNames.Trainer, RoleNames.Client };
+        foreach (var role in await db.Roles.IgnoreQueryFilters().Where(r => builtIn.Contains(r.Slug)).ToListAsync())
+            await GrantDefaultModulesAsync(db, role);
+
+        List<Module> AppModulesFor(string app, string apiKey) =>
+            modules.Where(m => m.App == app && ModuleCatalog.SplitApiModules(m.ApiModules).Contains(apiKey)).ToList();
+
+        // Role matrix → role grants.
+        var matrix = await db.ModuleAccesses.IgnoreQueryFilters().Include(m => m.Role).Where(m => m.IsActive).ToListAsync();
+        var grants = await db.RoleModuleGrants.IgnoreQueryFilters().ToListAsync();
+        var replacedForAdmin = new HashSet<(ulong RoleId, ulong ModuleId)>();
+        foreach (var row in matrix.Where(r => r.Role.Slug != RoleNames.SuperAdmin))
+        {
+            var isAdminRole = row.Role.Slug == RoleNames.Admin;
+            foreach (var module in AppModulesFor(ModuleCatalog.AdminApp, row.Module).Where(m => isAdminRole || !m.AdminOnly))
+            {
+                var grant = grants.FirstOrDefault(g => g.RoleId == row.RoleId && g.ModuleId == module.Id);
+                if (grant is null)
+                {
+                    grant = new RoleModuleGrant { TenantId = row.TenantId, RoleId = row.RoleId, ModuleId = module.Id, CanView = false };
+                    db.RoleModuleGrants.Add(grant);
+                    grants.Add(grant);
+                }
+                else if (isAdminRole && replacedForAdmin.Add((row.RoleId, module.Id)))
+                {
+                    grant.CanView = grant.CanCreate = grant.CanEdit = grant.CanDelete = grant.CanExport = false;
+                }
+                grant.CanView   |= row.CanView;
+                grant.CanCreate |= row.CanCreate;
+                grant.CanEdit   |= row.CanEdit;
+                grant.CanDelete |= row.CanDelete;
+                grant.CanExport |= row.CanExport;
+            }
+        }
+        // A grant that ended up with no view is a hidden module — drop it rather than keep an empty row.
+        foreach (var grant in grants.Where(g => !g.CanView))
+            db.RoleModuleGrants.Remove(grant);
+        db.ModuleAccesses.RemoveRange(matrix);
+
+        // Per-user switches → per-user overrides (trainers and members only).
+        var legacyRows = await db.UserModuleAccesses
+            .Where(a => a.IsEnabled && a.Module.App == "")
+            .Select(a => new { Access = a, a.Module.Key, RoleSlug = db.Roles.IgnoreQueryFilters().Where(r => r.Id == a.User.RoleId).Select(r => r.Slug).FirstOrDefault() })
+            .ToListAsync();
+        var overrides = await db.UserModuleAccesses.Where(a => a.Module.App != "").ToListAsync();
+        foreach (var row in legacyRows.Where(r => r.RoleSlug is RoleNames.Trainer or RoleNames.Client))
+        {
+            foreach (var module in AppModulesFor(ModuleCatalog.AppForRole(row.RoleSlug!), row.Key))
+            {
+                var existing = overrides.FirstOrDefault(o => o.UserId == row.Access.UserId && o.ModuleId == module.Id);
+                if (existing is null)
+                {
+                    existing = new UserModuleAccess
+                    {
+                        UserId = row.Access.UserId, ModuleId = module.Id, IsEnabled = true,
+                        CanAdd = false, CanEdit = false, CanDelete = false,
+                        GrantedByAdminId = row.Access.GrantedByAdminId, GrantedAt = row.Access.GrantedAt,
+                    };
+                    db.UserModuleAccesses.Add(existing);
+                    overrides.Add(existing);
+                }
+                existing.CanAdd    |= row.Access.CanAdd;
+                existing.CanEdit   |= row.Access.CanEdit;
+                existing.CanDelete |= row.Access.CanDelete;
+            }
+        }
+
+        await db.SaveChangesAsync();
     }
 
     /// <summary>

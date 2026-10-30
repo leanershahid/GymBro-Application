@@ -32,6 +32,7 @@ import PlanScheduleEditor from '../components/PlanScheduleEditor';
 import AssignPage from '../components/AssignPage';
 import DetailsPage from '../components/DetailsPage';
 import IconButton from '../components/IconButton';
+import { usePageTabs } from '../../access/context/AccessContext';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -65,7 +66,9 @@ interface Props { trainerId: number; onBack?: () => void; }
 
 export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
   const toast = useToast();
-  const [tab, setTab]           = useState<Tab>('workouts');
+  // Tabs come from the access list (trainer.programs.*).
+  const { items: tabs, tab: pageTab, setTab } = usePageTabs('trainer.programs');
+  const tab = pageTab as Tab | null;
   const [sub, setSub]           = useState<Sub | null>(null);
   const [menu, setMenu]         = useState<Menu | null>(null);
   const [exPage, setExPage]     = useState(1);
@@ -183,15 +186,7 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
       {/* Header */}
       <ScreenHeader eyebrow="Trainer" title="Program Builder" onBack={onBack} />
       <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
-        <SegmentedTabs<Tab>
-          tabs={[
-            { key: 'workouts',  label: 'Workouts' },
-            { key: 'plans',     label: 'Plans' },
-            { key: 'exercises', label: 'Exercises' },
-          ]}
-          value={tab}
-          onChange={setTab}
-        />
+        {tabs.length > 1 && <SegmentedTabs tabs={tabs} value={tab ?? ''} onChange={setTab} />}
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

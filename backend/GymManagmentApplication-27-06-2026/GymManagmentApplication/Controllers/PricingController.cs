@@ -10,6 +10,7 @@ namespace GymManagmentApplication.Controllers;
 [ApiController]
 [PermissionModule("billing")]
 [Route("api/pricing")]
+[RequireModule("billing")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class PricingController(IPricingService service) : ControllerBase
 {

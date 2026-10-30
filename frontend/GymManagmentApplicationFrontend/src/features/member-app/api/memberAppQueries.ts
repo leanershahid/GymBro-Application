@@ -24,14 +24,14 @@ export const useMyTimeline    = (id: number) =>
 export const useMyDocuments   = (id: number) =>
   useQuery({ queryKey: K.documents(id), queryFn: () => fetchMyDocuments(id),  select: r => r.data ?? [], enabled: id > 0 });
 
-export const useMyWorkouts    = (memberId: number, page = 1) =>
-  useQuery({ queryKey: K.workouts(memberId, page), queryFn: () => fetchMyWorkouts(memberId, page), select: r => r.data, enabled: memberId > 0 });
+export const useMyWorkouts    = (memberId: number, page = 1, enabled = true) =>
+  useQuery({ queryKey: K.workouts(memberId, page), queryFn: () => fetchMyWorkouts(memberId, page), select: r => r.data, enabled: enabled && memberId > 0 });
 
 export const useWorkoutDetail = (id: number) =>
   useQuery({ queryKey: K.workout(id),   queryFn: () => fetchWorkoutDetail(id), select: r => r.data, enabled: id > 0 });
 
-export const useExerciseList  = (page = 1, tag?: string) =>
-  useQuery({ queryKey: K.exercises(page, tag), queryFn: () => fetchExercises(page, 20, tag), select: r => r.data });
+export const useExerciseList  = (page = 1, tag?: string, enabled = true) =>
+  useQuery({ queryKey: K.exercises(page, tag), queryFn: () => fetchExercises(page, 20, tag), select: r => r.data, enabled });
 
 export const useMyPlans       = (page = 1) =>
   useQuery({ queryKey: K.plans(page), queryFn: () => fetchMyPlans(page), select: r => r.data });

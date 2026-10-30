@@ -10,6 +10,7 @@ namespace GymManagmentApplication.Controllers;
 [ApiController]
 [PermissionModule("pt-sessions")]
 [Route("api/pt")]
+[RequireModule("pt-sessions")]
 [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
 public class PtController(PtService service) : ControllerBase
 {

@@ -10,8 +10,9 @@ interface UseDashboardStatsResult {
   refresh: () => void;
 }
 
-export function useDashboardStats(): UseDashboardStatsResult {
-  const { data, isLoading, isRefetching, error, refetch } = useDashboardOverview();
+/** `enabled` false skips the request — for users who aren't granted the dashboard. */
+export function useDashboardStats(enabled = true): UseDashboardStatsResult {
+  const { data, isLoading, isRefetching, error, refetch } = useDashboardOverview(enabled);
 
   const refresh = useCallback(() => {
     refetch();

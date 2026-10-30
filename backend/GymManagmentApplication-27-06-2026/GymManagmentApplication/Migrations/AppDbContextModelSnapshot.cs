@@ -2331,24 +2331,60 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal>("Id")
                         .HasColumnType("numeric(20,0)");
 
+                    b.Property<bool>("AdminOnly")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ApiModules")
+                        .HasColumnType("text");
+
+                    b.Property<string>("App")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
+                    b.Property<bool>("HideFromMenu")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Icon")
                         .HasColumnType("text");
+
+                    b.Property<bool>("IsTab")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("Level")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("NameTranslations")
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("ParentId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<string>("Route")
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.HasIndex("ParentId");
 
                     b.ToTable("Modules");
                 });
@@ -2454,6 +2490,50 @@ namespace GymManagmentApplication.Migrations
                         .IsUnique();
 
                     b.ToTable("Roles");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Identity.RoleModuleGrant", b =>
+                {
+                    b.Property<decimal>("Id")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<bool>("CanCreate")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanDelete")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanEdit")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanExport")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("CanView")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("ModuleId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal>("RoleId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal>("TenantId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModuleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("TenantId", "RoleId", "ModuleId")
+                        .IsUnique();
+
+                    b.ToTable("RoleModuleGrants");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Identity.RolePermission", b =>
@@ -2648,9 +2728,34 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasIndex("ModuleId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "ModuleId")
+                        .IsUnique();
 
                     b.ToTable("UserModuleAccesses");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Identity.UserRole", b =>
+                {
+                    b.Property<decimal>("Id")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("RoleId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal>("UserId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoleId");
+
+                    b.HasIndex("UserId", "RoleId")
+                        .IsUnique();
+
+                    b.ToTable("UserRoles");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Identity.UserSession", b =>
@@ -6192,6 +6297,16 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Identity.Module", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.Module", "Parent")
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Parent");
+                });
+
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Identity.ModuleAccess", b =>
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Identity.Role", "Role")
@@ -6220,6 +6335,31 @@ namespace GymManagmentApplication.Migrations
                         .IsRequired();
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Identity.RoleModuleGrant", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.Module", "Module")
+                        .WithMany()
+                        .HasForeignKey("ModuleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.Role", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Module");
+
+                    b.Navigation("Role");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Identity.RolePermission", b =>
@@ -6292,6 +6432,25 @@ namespace GymManagmentApplication.Migrations
                         .IsRequired();
 
                     b.Navigation("Module");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Identity.UserRole", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.Role", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
 
                     b.Navigation("User");
                 });

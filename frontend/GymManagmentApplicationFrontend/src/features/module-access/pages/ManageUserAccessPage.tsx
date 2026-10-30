@@ -11,6 +11,7 @@ import { useToast } from '../../common/components/Toast';
 import AccessPanel from '../components/AccessPanel';
 import { useRoles, useAssignUserRole, useRevokeUserRole } from '../api/moduleAccessQueries';
 import { Role } from '../types/moduleAccess.types';
+import { useAddExtraRole, useExtraRoles, useRemoveExtraRole } from '../../access/api/accessQueries';
 
 interface Props {
   userId: number;
@@ -152,11 +153,90 @@ function RoleRow({ userId, userName, currentRoleSlug }: { userId: number; userNa
   );
 }
 
+/**
+ * "Additional roles" chips — roles held on top of the main one. They add their module grants
+ * only; the main role still decides which app the person signs in to.
+ */
+function ExtraRolesRow({ userId, currentRoleSlug }: { userId: number; currentRoleSlug?: string }) {
+  const { data: roles = [] } = useRoles();
+  const { data: extra = [], isLoading } = useExtraRoles(userId);
+  const add = useAddExtraRole(userId);
+  const remove = useRemoveExtraRole(userId);
+  const [open, setOpen] = useState(false);
+  const busy = add.isPending || remove.isPending;
+
+  const choices = roles.filter(r => {
+    const slug = r.slug?.toLowerCase();
+    return slug !== 'superadmin' && slug !== currentRoleSlug?.toLowerCase() && !extra.some(e => String(e.roleId) === String(r.id));
+  });
+  const onError = (e: unknown) => Alert.alert('Could not change roles', apiErrorText(e));
+
+  return (
+    <View className="px-5 pb-3">
+      <Text style={{ color: T.textSub, fontSize: 12, marginBottom: 8 }}>Additional roles</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        {extra.map(r => (
+          <Pressable
+            key={r.roleId}
+            onPress={() => remove.mutate(r.roleId, { onError })}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel={`Remove additional role ${r.name}`}
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, paddingHorizontal: 12, borderRadius: 999,
+              backgroundColor: withAlpha(T.brand, 0.12), borderWidth: 1, borderColor: withAlpha(T.brand, 0.3),
+            }}
+          >
+            <Text style={{ color: T.brand, fontSize: 13, fontWeight: '700' }}>{r.name}</Text>
+            <Feather name="x" size={14} color={T.brand} />
+          </Pressable>
+        ))}
+        <Pressable
+          onPress={() => setOpen(true)}
+          disabled={busy || isLoading || choices.length === 0}
+          accessibilityRole="button"
+          accessibilityLabel="Add a role"
+          style={{
+            flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, paddingHorizontal: 12, borderRadius: 999,
+            borderWidth: 1, borderColor: T.line, opacity: choices.length === 0 ? 0.5 : 1,
+          }}
+        >
+          {busy ? <ActivityIndicator size="small" color={T.brand} /> : <Feather name="plus" size={14} color={T.textSub} />}
+          <Text style={{ color: T.textSub, fontSize: 13, fontWeight: '700' }}>Add role</Text>
+        </Pressable>
+      </View>
+
+      <BottomSheet visible={open} onClose={() => setOpen(false)} title="Add a role">
+        <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ paddingVertical: 8 }}>
+          <Text style={{ color: T.textSub, fontSize: 12, paddingHorizontal: 20, paddingVertical: 8 }}>
+            The person also gets this role's modules. Their main role stays the same.
+          </Text>
+          {choices.map(r => (
+            <Pressable
+              key={r.id}
+              onPress={() => add.mutate(Number(r.id), { onSuccess: () => setOpen(false), onError })}
+              accessibilityRole="button"
+              accessibilityLabel={r.name}
+              style={({ pressed }) => ({
+                minHeight: 52, paddingHorizontal: 20, paddingVertical: 10, justifyContent: 'center',
+                backgroundColor: pressed ? T.bgInputActive : 'transparent',
+              })}
+            >
+              <Text style={{ color: T.text, fontSize: 15, fontWeight: '600', textTransform: 'capitalize' }}>{r.name}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </BottomSheet>
+    </View>
+  );
+}
+
 export default function ManageUserAccessPage({ userId, userName, onBack, currentRoleSlug }: Props) {
   return (
     <Screen>
       <ScreenHeader eyebrow="Manage access" title={userName} onBack={onBack} />
       <RoleRow userId={userId} userName={userName} currentRoleSlug={currentRoleSlug} />
+      <ExtraRolesRow userId={userId} currentRoleSlug={currentRoleSlug} />
       <AccessPanel userId={userId} />
     </Screen>
   );

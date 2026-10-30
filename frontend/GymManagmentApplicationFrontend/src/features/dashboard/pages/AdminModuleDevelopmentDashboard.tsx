@@ -9,6 +9,7 @@ import { useLayout } from '../../../utils/useLayout';
 import Screen from '../../common/components/Screen';
 import BackButton from '../../common/components/BackButton';
 import SectionHeader from '../components/Sectionheader';
+import { useAccess, useMenu } from '../../access/context/AccessContext';
 
 // ─── Images ───────────────────────────────────────────────────────
 const IMG_COACH1  = require('../../../assets/dashboard/coach-1.jpg');
@@ -55,12 +56,20 @@ const buildActivity = (s?: HubStats) => s ? [
   { icon: 'user-plus' as FeatherIconName, title: `${fmt(s.newSignupsToday)} new members today`,                         sub: 'Today · all branches', to: 'members'  },
 ] : [];
 
+// All destinations live in AdminDashboard's router — the hub only reports where to go.
+const ROUTES: Record<string, string> = {
+  branch: 'add-branch',   'view-branchs':  'branches',
+  trainer: 'add-trainer', 'view-trainers': 'trainers',
+  tenant: 'add-tenant',   'view-tenants':  'tenants',
+  client: 'add-member',   'view-clients':  'members',
+};
+
 // ─── Module card ──────────────────────────────────────────────────
 function ModuleCard({
   mod, cardW, scale, onPressAdd, onPressView,
 }: {
   mod: ModuleItem; cardW: number; scale: number;
-  onPressAdd: () => void; onPressView: () => void;
+  onPressAdd?: () => void; onPressView: () => void;
 }) {
   const anim = useRef(new Animated.Value(1)).current;
   const onIn  = () => Animated.spring(anim, { toValue: 0.975, useNativeDriver: true, speed: 60, bounciness: 0 }).start();
@@ -167,8 +176,8 @@ function ModuleCard({
                 <Text numberOfLines={1} style={{ color: TEXT_SUB, fontSize: 11 * scale, fontWeight: '600', flexShrink: 1 }}>total</Text>
               </View>
 
-              {/* Add CTA */}
-              <Pressable
+              {/* Add CTA — only with create access */}
+              {onPressAdd && <Pressable
                 onPress={onPressAdd} hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={`Add ${mod.label}`}
@@ -186,7 +195,7 @@ function ModuleCard({
                     <Text style={{ color: ACCENT_FG, fontSize: 12 * scale, fontWeight: '700' }}>Add new</Text>
                   </>
                 )}
-              </Pressable>
+              </Pressable>}
             </View>
 
           </View>
@@ -204,19 +213,16 @@ interface AdminModuleDevelopmentDashboardProps {
 }
 
 export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack, stats }: AdminModuleDevelopmentDashboardProps) {
-  const MODULES = buildModules(stats);
-  const ACTIVITY = buildActivity(stats);
+  // Cards and rows show only for granted modules; "Add" only with create access.
+  const { routes } = useMenu();
+  const { modules } = useAccess();
+  const canCreate = (route: string) => modules.some(m => m.route === route && m.canCreate);
+  const MODULES = buildModules(stats).filter(m => routes.has(ROUTES[`view-${m.key}s`]));
+  const ACTIVITY = buildActivity(stats).filter(a => routes.has(a.to));
   const [activeFilter, setActiveFilter] = useState('All');
 
   const { hPad, cols, cardW, cardGap, scale, isTablet, isDesktop } = useLayout();
 
-  // All destinations live in AdminDashboard's router — the hub only reports where to go.
-  const ROUTES: Record<string, string> = {
-    branch: 'add-branch',   'view-branchs':  'branches',
-    trainer: 'add-trainer', 'view-trainers': 'trainers',
-    tenant: 'add-tenant',   'view-tenants':  'tenants',
-    client: 'add-member',   'view-clients':  'members',
-  };
   const handleNavigate = (key: string) => onNavigate?.(ROUTES[key] ?? key);
 
   const visibleModules = activeFilter === 'All'
@@ -317,7 +323,7 @@ export default function AdminModuleDevelopmentDashboard({ onNavigate, onBack, st
                   mod={mod}
                   cardW={cardW}
                   scale={scale}
-                  onPressAdd={() => handleNavigate(mod.key)}
+                  onPressAdd={canCreate(ROUTES[`view-${mod.key}s`]) ? () => handleNavigate(mod.key) : undefined}
                   onPressView={() => handleNavigate(`view-${mod.key}s`)}
                 />
               ))}

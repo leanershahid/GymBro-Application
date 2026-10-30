@@ -1,8 +1,7 @@
 using System.Net;
 using System.Security.Claims;
+using GymManagmentApplication.Application.Access;
 using GymManagmentApplication.Application.Common;
-using GymManagmentApplication.Application.ModuleAccess.Interfaces;
-using GymManagmentApplication.Application.UserModules.Interfaces;
 using GymManagmentApplication.Domain.Constants;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -10,24 +9,14 @@ using Microsoft.AspNetCore.Mvc.Filters;
 namespace GymManagmentApplication.Filters;
 
 /// <summary>
-/// Gates an endpoint behind a feature module, IN ADDITION to <see cref="AuthorizeRolesAttribute"/>
-/// — role decides what actions are possible in general, this decides whether the feature area
-/// (and the specific view/create/edit/delete action implied by the HTTP method) is enabled:
-/// <list type="bullet">
-/// <item>Admin/SuperAdmin: governed by the per-role Module Access matrix (the same "Role Access"
-/// screen an admin uses to configure custom roles) via <see cref="IModuleAccessService.IsAllowedForRoleAsync"/>
-/// — so toggling, say, Trainers → Delete off for the Admin role there actually hides/blocks it.
-/// An admin role with no explicit row for a module defaults to allowed (privilege dialed down
-/// by exception, not granted from zero), so existing admins aren't locked out by this change.</item>
-/// <item>Trainer/Client: governed by their own per-user <c>UserModuleAccess</c> row (the
-/// "Manage Access" screen for one specific person) via <see cref="IUserModulesService.CanAsync"/>
-/// — this is the member/trainer app's own feature-module toggle (workouts, exercises, etc.),
-/// unrelated to the admin-area Module Access matrix.</item>
-/// <item>Staff/custom roles: skipped here — already governed by the role/module matrix inside
-/// <see cref="AuthorizeRolesAttribute"/>.</item>
-/// </list>
-/// Never apply this to the module-access management endpoints themselves, or an admin who
-/// disables their own access to a module could lock themselves out of re-enabling it.
+/// Gates an endpoint behind an API permission key, IN ADDITION to <see cref="AuthorizeRolesAttribute"/>
+/// — the role decides what is possible in general, this decides whether the user has been granted a
+/// module that unlocks the key, with the action implied by the HTTP method (GET = view, POST = create,
+/// PUT/PATCH = edit, DELETE = delete). It is the same decision for every role, made by
+/// <see cref="IAccessService.CanAsync"/> from the user's role grants and per-user overrides, so hiding a
+/// module in the admin app's access screens also blocks its API. Super admins always pass.
+/// Never apply this to the access management endpoints themselves, or an admin who removes their
+/// own access to a module could lock themselves out of restoring it.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class RequireModuleAttribute(string moduleKey) : Attribute, IAsyncAuthorizationFilter
@@ -36,17 +25,15 @@ public class RequireModuleAttribute(string moduleKey) : Attribute, IAsyncAuthori
     {
         var user = context.HttpContext.User;
 
-        if (user.Identity is null || !user.Identity.IsAuthenticated)
+        if (user.Identity is null || !user.Identity.IsAuthenticated ||
+            !ulong.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
         {
             Deny(context, HttpStatusCode.Unauthorized, "Unauthorized. Token is missing or invalid.");
             return;
         }
 
         var role = user.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
-
-        // Staff/custom roles are governed by the role/module matrix in AuthorizeRoles instead
-        // of the checks below.
-        if (!RoleNames.IsBuiltIn(role))
+        if (role.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase))
             return;
 
         var action = context.HttpContext.Request.Method.ToUpperInvariant() switch
@@ -58,31 +45,8 @@ public class RequireModuleAttribute(string moduleKey) : Attribute, IAsyncAuthori
             _                => "view"
         };
 
-        bool allowed;
-        if (role.Equals(RoleNames.Admin, StringComparison.OrdinalIgnoreCase) ||
-            role.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase))
-        {
-            var currentUser = context.HttpContext.RequestServices.GetRequiredService<ICurrentUser>();
-            if (currentUser.TenantId is not { } tenantId)
-            {
-                Deny(context, HttpStatusCode.Unauthorized, "Unauthorized. Token is missing or invalid.");
-                return;
-            }
-            var moduleAccessService = context.HttpContext.RequestServices.GetRequiredService<IModuleAccessService>();
-            allowed = await moduleAccessService.IsAllowedForRoleAsync(tenantId, role, moduleKey, action);
-        }
-        else
-        {
-            if (!ulong.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
-            {
-                Deny(context, HttpStatusCode.Unauthorized, "Unauthorized. Token is missing or invalid.");
-                return;
-            }
-            var service = context.HttpContext.RequestServices.GetRequiredService<IUserModulesService>();
-            allowed = await service.CanAsync(userId, moduleKey, action);
-        }
-
-        if (!allowed)
+        var service = context.HttpContext.RequestServices.GetRequiredService<IAccessService>();
+        if (!await service.CanAsync(userId, role, moduleKey, action))
             Deny(context, HttpStatusCode.Forbidden, $"You don't have {action} access to the '{moduleKey}' module.");
     }
 

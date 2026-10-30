@@ -9,6 +9,7 @@ namespace GymManagmentApplication.Controllers;
 [ApiController]
 [PermissionModule("analytics")]
 [Route("api/dashboard")]
+[RequireModule("analytics")]
 [AuthorizeRoles(RoleNames.Admin)]
 public class DashboardController(IDashboardService service) : ControllerBase
 {

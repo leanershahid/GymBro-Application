@@ -10,6 +10,7 @@ import { memberBookingKeys } from '../api/bookingQueries';
 import ClassesTab from '../components/ClassesTab';
 import MyBookingsTab from '../components/MyBookingsTab';
 import PtTab from '../components/PtTab';
+import { usePageTabs } from '../../access/context/AccessContext';
 
 interface Props {
   userId: number;
@@ -17,12 +18,11 @@ interface Props {
   onOpenBilling?: () => void;
 }
 
-type Tab = 'classes' | 'mine' | 'pt';
-
 export default function BookScreen({ userId, onBack, onOpenBilling }: Props) {
   const { hPad } = useLayout();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<Tab>('classes');
+  // Tabs come from the access list (member.book.*).
+  const { items: tabs, tab, setTab } = usePageTabs('member.book');
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -43,16 +43,7 @@ export default function BookScreen({ userId, onBack, onOpenBilling }: Props) {
         contentContainerStyle={{ paddingHorizontal: hPad, paddingBottom: 60 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.brand} colors={[T.brand]} />}
       >
-        <SegmentedTabs
-          tabs={[
-            { key: 'classes', label: 'Classes' },
-            { key: 'mine', label: 'My bookings' },
-            { key: 'pt', label: 'Personal training' },
-          ]}
-          value={tab}
-          onChange={setTab}
-          style={{ marginBottom: SP.lg }}
-        />
+        {tabs.length > 1 && <SegmentedTabs tabs={tabs} value={tab ?? ''} onChange={setTab} style={{ marginBottom: SP.lg }} />}
         {tab === 'classes' && <ClassesTab userId={userId} />}
         {tab === 'mine' && <MyBookingsTab userId={userId} />}
         {tab === 'pt' && <PtTab userId={userId} onOpenBilling={onOpenBilling} />}
