@@ -251,6 +251,7 @@ builder.Services.AddScoped<IAccessService, AccessService>();
 builder.Services.AddScoped<GymManagmentApplication.Application.Shop.Common.IShopSettingsService, GymManagmentApplication.Application.Shop.Common.ShopSettingsService>();
 GymManagmentApplication.Application.Shop.Catalog.ShopCatalogRegistration.AddShopCatalog(builder.Services);
 GymManagmentApplication.Application.Shop.Orders.ShopOrdersRegistration.AddShopOrders(builder.Services);
+GymManagmentApplication.Application.Social.SocialRegistration.AddSocial(builder.Services);
 builder.Services.AddScoped<IMembershipPlanService, MembershipPlanService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<PaymentService>();

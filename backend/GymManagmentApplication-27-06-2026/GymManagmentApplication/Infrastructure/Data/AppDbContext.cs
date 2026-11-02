@@ -205,7 +205,11 @@ public class AppDbContext : DbContext
     public DbSet<PricingRule> PricingRules => Set<PricingRule>();
     public DbSet<Rating> Ratings => Set<Rating>();
     public DbSet<SearchIndexCache> SearchIndexCaches => Set<SearchIndexCache>();
-    public DbSet<SocialPost> SocialPosts => Set<SocialPost>();
+    // Social feed
+    public DbSet<Domain.Entities.Social.SocialPost> SocialPosts => Set<Domain.Entities.Social.SocialPost>();
+    public DbSet<Domain.Entities.Social.SocialPostImage> SocialPostImages => Set<Domain.Entities.Social.SocialPostImage>();
+    public DbSet<Domain.Entities.Social.SocialPostLike> SocialPostLikes => Set<Domain.Entities.Social.SocialPostLike>();
+    public DbSet<Domain.Entities.Social.SocialPostComment> SocialPostComments => Set<Domain.Entities.Social.SocialPostComment>();
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<SupportTicketReply> SupportTicketReplies => Set<SupportTicketReply>();
     public DbSet<Tag> Tags => Set<Tag>();
@@ -420,7 +424,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AiChatSession>().HasOne(a => a.Tenant).WithMany().HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<VirtualSession>().HasOne(v => v.Tenant).WithMany().HasForeignKey(v => v.TenantId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<Rating>().HasOne(r => r.Tenant).WithMany().HasForeignKey(r => r.TenantId).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<SocialPost>().HasOne(s => s.Tenant).WithMany().HasForeignKey(s => s.TenantId).OnDelete(DeleteBehavior.Restrict);
+        ConfigureSocial(modelBuilder);
         modelBuilder.Entity<MediaLibrary>().HasOne(m => m.Tenant).WithMany().HasForeignKey(m => m.TenantId).OnDelete(DeleteBehavior.Restrict);
 
         ConfigureShop(modelBuilder);
@@ -609,7 +613,7 @@ public class AppDbContext : DbContext
             if (table is null) continue;
             var schema = group.Key.GetSchema();
             var qualified = schema is null ? $"\"{table}\"" : $"\"{schema}\".\"{table}\"";
-            var next = ReadMaxId(qualified) + 1;
+            var next = ReadMaxId(qualified, IdColumn(group.Key)) + 1;
             // Leave room for rows in this batch that kept explicit ids.
             var keptMax = ChangeTracker.Entries()
                 .Where(x => x.Metadata == group.Key && x.State == EntityState.Added && !_generatedIds.Contains(x.Entity))
@@ -630,6 +634,52 @@ public class AppDbContext : DbContext
     // locally. Code that already sets an Id is left alone.
     private readonly Dictionary<string, ulong> _nextIds = [];
     private readonly HashSet<object> _generatedIds = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>Keys, spec column names, the one-like-per-user index and relations of the social tables.</summary>
+    private static void ConfigureSocial(ModelBuilder b)
+    {
+        // Column names follow the spec: PostId / ImageId / LikeId / CommentId, CreatedDate, ModifiedDate.
+        b.Entity<Domain.Entities.Social.SocialPost>(e =>
+        {
+            e.Property(x => x.Id).HasColumnName("PostId");
+            e.Property(x => x.CreatedAt).HasColumnName("CreatedDate");
+            e.Property(x => x.UpdatedAt).HasColumnName("ModifiedDate");
+            e.Property(x => x.Caption).HasMaxLength(2200);
+            // Feed query: one tenant's live posts, newest first.
+            e.HasIndex(x => new { x.TenantId, x.IsDeleted, x.IsActive, x.Id }).IsDescending(false, false, false, true);
+            e.HasIndex(x => x.UserId);
+            e.HasOne(x => x.Tenant).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<Domain.Entities.Social.SocialPostImage>(e =>
+        {
+            e.Property(x => x.Id).HasColumnName("ImageId");
+            e.Property(x => x.CreatedAt).HasColumnName("CreatedDate");
+            e.Property(x => x.ImageUrl).HasMaxLength(1000);
+            e.HasIndex(x => new { x.PostId, x.DisplayOrder });
+            e.HasOne(x => x.Post).WithMany(p => p.Images).HasForeignKey(x => x.PostId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<Domain.Entities.Social.SocialPostLike>(e =>
+        {
+            e.Property(x => x.Id).HasColumnName("LikeId");
+            e.Property(x => x.CreatedAt).HasColumnName("CreatedDate");
+            e.HasIndex(x => new { x.PostId, x.UserId }).IsUnique();   // one like per user per post
+            e.HasIndex(x => x.UserId);
+            e.HasOne(x => x.Post).WithMany(p => p.Likes).HasForeignKey(x => x.PostId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<Domain.Entities.Social.SocialPostComment>(e =>
+        {
+            e.Property(x => x.Id).HasColumnName("CommentId");
+            e.Property(x => x.CreatedAt).HasColumnName("CreatedDate");
+            e.Property(x => x.UpdatedAt).HasColumnName("ModifiedDate");
+            e.Property(x => x.CommentText).HasMaxLength(1000);
+            e.HasIndex(x => new { x.PostId, x.IsDeleted, x.Id });
+            e.HasIndex(x => x.UserId);
+            e.HasOne(x => x.Post).WithMany(p => p.Comments).HasForeignKey(x => x.PostId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+    }
 
     /// <summary>Indexes, keys, money precision and relations of the shop tables.</summary>
     private static void ConfigureShop(ModelBuilder b)
@@ -713,7 +763,7 @@ public class AppDbContext : DbContext
         var qualified = schema is null ? $"\"{table}\"" : $"\"{schema}\".\"{table}\"";
 
         if (!_nextIds.TryGetValue(qualified, out var next))
-            next = ReadMaxId(qualified) + 1;
+            next = ReadMaxId(qualified, IdColumn(e.Entry.Metadata)) + 1;
 
         // Never hand out an id an explicitly-numbered row in this context already holds.
         var trackedMax = ChangeTracker.Entries()
@@ -728,7 +778,16 @@ public class AppDbContext : DbContext
         _generatedIds.Add(e.Entry.Entity);
     }
 
-    private ulong ReadMaxId(string qualifiedTable)
+    /// <summary>The database column behind the entity's Id (renamed for some tables, e.g. PostId).</summary>
+    private static string IdColumn(Microsoft.EntityFrameworkCore.Metadata.IEntityType type)
+    {
+        var table = type.GetTableName();
+        var column = table is null ? null
+            : type.FindProperty("Id")?.GetColumnName(Microsoft.EntityFrameworkCore.Metadata.StoreObjectIdentifier.Table(table, type.GetSchema()));
+        return column ?? "Id";
+    }
+
+    private ulong ReadMaxId(string qualifiedTable, string idColumn = "Id")
     {
         var conn = Database.GetDbConnection();
         var wasOpen = conn.State == System.Data.ConnectionState.Open;
@@ -736,7 +795,7 @@ public class AppDbContext : DbContext
         try
         {
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = $"SELECT COALESCE(MAX(\"Id\"), 0) FROM {qualifiedTable}";
+            cmd.CommandText = $"SELECT COALESCE(MAX(\"{idColumn}\"), 0) FROM {qualifiedTable}";
             if (Database.CurrentTransaction is { } tx)
                 cmd.Transaction = Microsoft.EntityFrameworkCore.Storage.DbContextTransactionExtensions.GetDbTransaction(tx);
             var result = cmd.ExecuteScalar();

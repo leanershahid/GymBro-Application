@@ -67,6 +67,7 @@ import NewMembershipPage from '../../billing/pages/NewMembershipPage';
 import ClassSchedulePage from '../../classes/pages/ClassSchedulePage';
 import PtSessionsPage    from '../../classes/pages/PtSessionsPage';
 import ShopAdminApp      from '../../shop/admin/ShopAdminApp';
+import SocialApp         from '../../social/SocialApp';
 import MemberPickerSheet from '../components/MemberPickerSheet';
 import QuickCreateSheet, { QuickAction } from '../components/QuickCreateSheet';
 import { useCheckInMember } from '../../attendance/api/attendanceQueries';
@@ -88,6 +89,7 @@ type Screen =
   | 'billing' | 'new-invoice' | 'new-membership'
   | 'classes' | 'pt-sessions'
   | 'shop'
+  | 'social'
   | 'module-access'
   | 'user-access'
   | 'challenges-admin'
@@ -363,6 +365,7 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout, open: op
       ? <AddPlanPage onBack={() => go('plans')} />
       : <NoModuleAccess onBack={() => go('plans')} />;
     if (screen === 'shop') return <ShopAdminApp onBack={goHome} />;
+    if (screen === 'social') return <SocialApp onBack={goHome} />;
     if (screen === 'classes') return classesAccess.canView
       ? <ClassSchedulePage mode="admin" onBack={goHome} />
       : <NoModuleAccess onBack={goHome} />;

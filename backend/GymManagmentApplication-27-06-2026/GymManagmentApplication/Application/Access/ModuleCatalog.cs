@@ -49,6 +49,7 @@ public static class ModuleCatalog
         new("admin.roles",         AdminApp, "admin.more", "Roles",         "roles",               "shield",       "roles", 14, AdminOnly: true),
         new("admin.user-access",   AdminApp, "admin.more", "Access",        "user-access",         "lock",         "access", 15, AdminOnly: true),
         new("admin.shop",          AdminApp, "admin.more", "Shop",          "shop",                "shopping-bag", "shop", 16),
+        new("admin.social",        AdminApp, "admin.more", "Social",        "social",              "image",        "social", 17),
 
         new("admin.shop.dashboard",  AdminApp, "admin.shop", "Dashboard",  "dashboard",  "bar-chart-2", "shop", 1, IsTab: true),
         new("admin.shop.orders",     AdminApp, "admin.shop", "Orders",     "orders",     "package",     "shop", 2, IsTab: true),
@@ -79,10 +80,11 @@ public static class ModuleCatalog
         new("member.train",     MemberApp, null, "Train",      "train",     "activity",    null, 3),
         new("member.progress",  MemberApp, null, "Progress",   "progress",  "trending-up", "plans", 4),
         new("member.shop",      MemberApp, null, "Shop",       "shop",      "shopping-bag", null, 5),
-        new("member.community", MemberApp, null, "Community",  "community", "users",       null, 6),
-        new("member.stats",     MemberApp, null, "Stats",      "stats",     "bar-chart-2", "stats", 7),
-        new("member.billing",   MemberApp, null, "Membership", "billing",   "credit-card", "billing", 8),
-        new("member.profile",   MemberApp, null, "Profile",    "profile",   "user",        null, 9),
+        new("member.social",    MemberApp, null, "Social",     "social",    "image",       "social", 6),
+        new("member.community", MemberApp, null, "Community",  "community", "users",       null, 7),
+        new("member.stats",     MemberApp, null, "Stats",      "stats",     "bar-chart-2", "stats", 8),
+        new("member.billing",   MemberApp, null, "Membership", "billing",   "credit-card", "billing", 9),
+        new("member.profile",   MemberApp, null, "Profile",    "profile",   "user",        null, 10),
 
         new("member.book.classes", MemberApp, "member.book", "Classes",           "classes", "calendar", "classes", 1, IsTab: true),
         new("member.book.mine",    MemberApp, "member.book", "My bookings",       "mine",    "list",     "classes,pt-sessions", 2, IsTab: true),
@@ -123,7 +125,7 @@ public static class ModuleCatalog
         RoleNames.Admin   => All.Where(m => m.App == AdminApp).Select(m => m.Key),
         RoleNames.Trainer => ["trainer.home", "trainer.clients", "trainer.sessions", "trainer.classes", "trainer.profile"],
         RoleNames.Client  => ["member.home", "member.book", "member.book.classes", "member.book.mine", "member.book.pt",
-                              "member.billing", "member.profile",
+                              "member.billing", "member.profile", "member.social",
                               "member.shop", "member.shop.store", "member.shop.cart", "member.shop.wishlist", "member.shop.orders"],
         _                 => [],
     };

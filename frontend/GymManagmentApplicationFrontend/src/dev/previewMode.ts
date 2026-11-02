@@ -13,6 +13,7 @@ import axiosInstance from '../api/axios';
 import { getSession, setSession } from '../api/session';
 import { shopAdminRoute } from './shopAdminMocks';
 import { shopStoreRoute } from './shopStoreMocks';
+import { socialRoute } from './socialMocks';
 
 export type PreviewRole = 'admin' | 'superadmin' | 'trainer' | 'member';
 
@@ -82,6 +83,7 @@ const CATALOG: Row[] = [
   ['admin.roles', 'admin', 'admin.more', 'Roles', 'roles', 'shield', 'roles', 14, 'adminOnly'],
   ['admin.user-access', 'admin', 'admin.more', 'Access', 'user-access', 'lock', 'access', 15, 'adminOnly'],
   ['admin.shop', 'admin', 'admin.more', 'Shop', 'shop', 'shopping-bag', 'shop', 16, ''],
+  ['admin.social', 'admin', 'admin.more', 'Social', 'social', 'image', 'social', 17, ''],
   ['admin.shop.dashboard', 'admin', 'admin.shop', 'Dashboard', 'dashboard', 'bar-chart-2', 'shop', 1, 'tab'],
   ['admin.shop.orders', 'admin', 'admin.shop', 'Orders', 'orders', 'package', 'shop', 2, 'tab'],
   ['admin.shop.products', 'admin', 'admin.shop', 'Products', 'products', 'box', 'shop', 3, 'tab'],
@@ -104,7 +106,8 @@ const CATALOG: Row[] = [
   ['member.train', 'member', null, 'Train', 'train', 'activity', '', 3, ''],
   ['member.progress', 'member', null, 'Progress', 'progress', 'trending-up', 'plans', 4, ''],
   ['member.shop', 'member', null, 'Shop', 'shop', 'shopping-bag', '', 5, ''],
-  ['member.community', 'member', null, 'Community', 'community', 'users', '', 6, ''],
+  ['member.social', 'member', null, 'Social', 'social', 'image', 'social', 6, ''],
+  ['member.community', 'member', null, 'Community', 'community', 'users', '', 7, ''],
   ['member.stats', 'member', null, 'Stats', 'stats', 'bar-chart-2', 'stats', 7, ''],
   ['member.billing', 'member', null, 'Membership', 'billing', 'credit-card', 'billing', 8, ''],
   ['member.profile', 'member', null, 'Profile', 'profile', 'user', '', 9, ''],
@@ -161,6 +164,9 @@ function route(method: string, url: string, body?: unknown): unknown {
   // ── Shop ──
   if (path.startsWith('/shop/admin/')) { const r = shopAdminRoute(method, path, body, query); if (r !== undefined) return r; }
   else if (path.startsWith('/shop/')) { const r = shopStoreRoute(method, path, body, query); if (r !== undefined) return r; }
+
+  // ── Social ──
+  if (path.startsWith('/social/')) { const r = socialRoute(method, path, body, query); if (r !== undefined) return r; }
 
   // ── Admin ──
   if (path === '/dashboard/overview')
