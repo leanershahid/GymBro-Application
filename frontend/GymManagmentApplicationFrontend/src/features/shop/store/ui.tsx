@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, TextInput, Image, Platform, StyleProp, ViewStyle, TextInputProps } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Animated, View, Text, Pressable, TextInput, Platform, StyleProp, ViewStyle, TextInputProps } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { T, SP, R, withAlpha } from '../../../theme';
 import BottomSheet from '../../common/components/BottomSheet';
@@ -88,14 +88,16 @@ export function Stars({ rating, size = 12, count }: { rating: number; size?: num
 /** Product photo with a placeholder for missing or broken images. */
 export function ProductImage({ uri, style, iconSize = 28 }: { uri: string | null | undefined; style?: StyleProp<ViewStyle>; iconSize?: number }) {
   const [failed, setFailed] = useState(false);
+  const fade = useRef(new Animated.Value(0)).current;
   return (
     <View style={[{ backgroundColor: T.bgInputActive, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }, style]}>
       {uri && !failed ? (
-        <Image
+        <Animated.Image
           source={{ uri }}
           onError={() => setFailed(true)}
+          onLoad={() => Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }).start()}
           accessibilityIgnoresInvertColors
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', opacity: fade }}
           resizeMode="cover"
         />
       ) : (

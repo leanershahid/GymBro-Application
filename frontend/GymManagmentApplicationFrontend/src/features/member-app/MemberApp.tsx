@@ -15,6 +15,7 @@ import ProgressScreen      from './screens/ProgressScreen';
 import MyBillingScreen     from '../member-billing/screens/MyBillingScreen';
 import BookScreen          from '../member-booking/screens/BookScreen';
 import ShopStoreApp        from '../shop/store/ShopStoreApp';
+import SocialApp           from '../social/SocialApp';
 
 type Screen =
   | { id: 'home'      }
@@ -27,6 +28,7 @@ type Screen =
   | { id: 'billing'   }
   | { id: 'book'      }
   | { id: 'shop'      }
+  | { id: 'social'    }
   // `from` is the screen Back returns to (defaults to Train, or the landing screen without it)
   | { id: 'workout'; workoutId: number; from?: Screen };
 
@@ -100,6 +102,7 @@ export default function MemberApp({ userId, onLogout, open, onRouteChange }: Pro
             <BookScreen userId={userId} onOpenBilling={openBilling} />
           )}
           {screen.id === 'shop' && <ShopStoreApp />}
+          {screen.id === 'social' && <SocialApp />}
           {screen.id === 'billing' && (
             <MyBillingScreen userId={userId} onBack={goLanding} />
           )}

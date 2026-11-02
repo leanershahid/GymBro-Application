@@ -2980,9 +2980,6 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal>("CreatedBy")
                         .HasColumnType("numeric(20,0)");
 
-                    b.Property<decimal>("CreatorId")
-                        .HasColumnType("numeric(20,0)");
-
                     b.Property<DateOnly?>("EndsOn")
                         .HasColumnType("date");
 
@@ -3021,7 +3018,7 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasIndex("ClientId");
 
-                    b.HasIndex("CreatorId");
+                    b.HasIndex("CreatedBy");
 
                     b.HasIndex("TenantId");
 
@@ -3740,47 +3737,6 @@ namespace GymManagmentApplication.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("SearchIndexCaches");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.SocialPost", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Content")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsVisible")
-                        .HasColumnType("boolean");
-
-                    b.Property<long>("LikesCount")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Media")
-                        .HasColumnType("jsonb");
-
-                    b.Property<int>("PostType")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("RefId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("UserId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("SocialPosts");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.SupportTicket", b =>
@@ -4954,6 +4910,143 @@ namespace GymManagmentApplication.Migrations
                     b.ToTable("ShopWishlistItems");
                 });
 
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Social.SocialPost", b =>
+                {
+                    b.Property<decimal>("Id")
+                        .HasColumnType("numeric(20,0)")
+                        .HasColumnName("PostId");
+
+                    b.Property<string>("Caption")
+                        .HasMaxLength(2200)
+                        .HasColumnType("character varying(2200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("CreatedDate");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("TenantId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ModifiedDate");
+
+                    b.Property<decimal>("UserId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TenantId", "IsDeleted", "IsActive", "Id")
+                        .IsDescending(false, false, false, true);
+
+                    b.ToTable("SocialPosts");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Social.SocialPostComment", b =>
+                {
+                    b.Property<decimal>("Id")
+                        .HasColumnType("numeric(20,0)")
+                        .HasColumnName("CommentId");
+
+                    b.Property<string>("CommentText")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("CreatedDate");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("PostId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ModifiedDate");
+
+                    b.Property<decimal>("UserId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("PostId", "IsDeleted", "Id");
+
+                    b.ToTable("SocialPostComments");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Social.SocialPostImage", b =>
+                {
+                    b.Property<decimal>("Id")
+                        .HasColumnType("numeric(20,0)")
+                        .HasColumnName("ImageId");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("CreatedDate");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<decimal>("PostId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PostId", "DisplayOrder");
+
+                    b.ToTable("SocialPostImages");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Social.SocialPostLike", b =>
+                {
+                    b.Property<decimal>("Id")
+                        .HasColumnType("numeric(20,0)")
+                        .HasColumnName("LikeId");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("CreatedDate");
+
+                    b.Property<decimal>("PostId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("UserId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("PostId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("SocialPostLikes");
+                });
+
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.Equipment", b =>
                 {
                     b.Property<int>("Id")
@@ -4991,9 +5084,6 @@ namespace GymManagmentApplication.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal?>("CreatedBy")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal?>("CreatorId")
                         .HasColumnType("numeric(20,0)");
 
                     b.Property<string>("Description")
@@ -5039,7 +5129,7 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatorId");
+                    b.HasIndex("CreatedBy");
 
                     b.HasIndex("TenantId", "Slug")
                         .IsUnique();
@@ -5720,9 +5810,6 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal>("CreatedBy")
                         .HasColumnType("numeric(20,0)");
 
-                    b.Property<decimal>("CreatorId")
-                        .HasColumnType("numeric(20,0)");
-
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
@@ -5756,7 +5843,7 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatorId");
+                    b.HasIndex("CreatedBy");
 
                     b.HasIndex("TenantId");
 
@@ -5952,9 +6039,6 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal>("CreatedBy")
                         .HasColumnType("numeric(20,0)");
 
-                    b.Property<decimal>("CreatorId")
-                        .HasColumnType("numeric(20,0)");
-
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
@@ -5991,7 +6075,7 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatorId");
+                    b.HasIndex("CreatedBy");
 
                     b.HasIndex("TenantId");
 
@@ -7091,8 +7175,8 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Creator")
                         .WithMany()
-                        .HasForeignKey("CreatorId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
@@ -7314,25 +7398,6 @@ namespace GymManagmentApplication.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.SocialPost", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.SupportTicket", b =>
@@ -7817,6 +7882,74 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Wishlist");
                 });
 
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Social.SocialPost", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Social.SocialPostComment", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Social.SocialPost", "Post")
+                        .WithMany("Comments")
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Post");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Social.SocialPostImage", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Social.SocialPost", "Post")
+                        .WithMany("Images")
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Social.SocialPostLike", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Social.SocialPost", "Post")
+                        .WithMany("Likes")
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Post");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.Equipment", b =>
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
@@ -7829,7 +7962,8 @@ namespace GymManagmentApplication.Migrations
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Creator")
                         .WithMany()
-                        .HasForeignKey("CreatorId");
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
                         .WithMany()
@@ -8156,8 +8290,8 @@ namespace GymManagmentApplication.Migrations
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Creator")
                         .WithMany()
-                        .HasForeignKey("CreatorId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
@@ -8278,8 +8412,8 @@ namespace GymManagmentApplication.Migrations
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Creator")
                         .WithMany()
-                        .HasForeignKey("CreatorId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
@@ -8494,6 +8628,15 @@ namespace GymManagmentApplication.Migrations
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Shop.ShopWishlist", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Social.SocialPost", b =>
+                {
+                    b.Navigation("Comments");
+
+                    b.Navigation("Images");
+
+                    b.Navigation("Likes");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.Equipment", b =>
