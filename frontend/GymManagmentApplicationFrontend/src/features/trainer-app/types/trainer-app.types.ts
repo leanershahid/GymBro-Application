@@ -10,6 +10,8 @@ export interface TrainerProfile {
   branchName?: string | null;
   trainerCode: string;
   displayName: string;
+  /** Photo URL, when the trainer has one. */
+  profileImage?: string | null;
   bio: string | null;
   experienceYears: number | null;
   gender: string | null;

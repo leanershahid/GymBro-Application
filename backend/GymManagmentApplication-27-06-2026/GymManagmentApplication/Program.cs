@@ -80,6 +80,9 @@ using GymManagmentApplication.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
+// Local secrets from .env (git-ignored); real environment variables take priority.
+GymManagmentApplication.Infrastructure.DotEnv.Load(Path.Combine(Directory.GetCurrentDirectory(), ".env"));
+
 var builder = WebApplication.CreateBuilder(args);
 
 var port = Environment.GetEnvironmentVariable("PORT");

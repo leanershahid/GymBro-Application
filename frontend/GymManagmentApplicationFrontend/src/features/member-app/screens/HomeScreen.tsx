@@ -135,7 +135,7 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
         {/* 1 · Greeting + streak */}
         <HomeGreeting
           firstName={firstName}
-          lastName={profile?.lastName}
+          avatarUrl={profile?.avatarUrl}
           streakDays={canStats && health ? health.streakDays : null}
           onOpenProfile={() => onNavigate('profile')}
         />

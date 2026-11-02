@@ -6,6 +6,7 @@ import { useTrainer } from '../api/trainerQueries';
 import { TrainerSummary } from '../types/trainer.types';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
+import Avatar from '../../common/components/Avatar';
 import SegmentedTabs from '../../common/components/SegmentedTabs';
 import StatusPill from '../../common/components/StatusPill';
 import LoadingState from '../../common/components/LoadingState';
@@ -13,10 +14,6 @@ import EmptyState from '../../dashboard/components/EmptyState';
 import AccessPanel from '../../module-access/components/AccessPanel';
 
 type Tab = 'details' | 'access';
-
-function getInitials(name: string): string {
-  return name.split(' ').filter(Boolean).map((p) => p[0]).join('').slice(0, 2).toUpperCase();
-}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -133,15 +130,7 @@ export default function TrainerDetailPage({ trainer: summary, onBack, onEdit }: 
           >
             {/* Hero */}
             <View style={{ alignItems: 'center', marginVertical: SP.lg }}>
-              <View style={[{
-                width: 92, height: 92, borderRadius: 46,
-                backgroundColor: T.brand, alignItems: 'center', justifyContent: 'center',
-                borderWidth: 3, borderColor: withAlpha(T.brand, 0.4),
-              }, Shadow.neon]}>
-                <Text style={{ color: T.onBrand, fontSize: 30, fontWeight: '800' }}>
-                  {getInitials(fullName)}
-                </Text>
-              </View>
+              <Avatar uri={t.profileImage} size={92} borderWidth={3} borderColor={withAlpha(T.brand, 0.4)} label={`${fullName} photo`} style={Shadow.neon} />
 
               <Text style={{ color: T.text, fontSize: 21, fontWeight: '800', marginTop: SP.md, letterSpacing: -0.3 }}>
                 {fullName}

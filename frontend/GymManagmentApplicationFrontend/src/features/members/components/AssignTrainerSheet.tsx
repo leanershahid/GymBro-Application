@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import BottomSheet from '../../common/components/BottomSheet';
+import Avatar from '../../common/components/Avatar';
 import SearchBar from '../../common/components/SearchBar';
 import LoadingState from '../../common/components/LoadingState';
 import EmptyState from '../../dashboard/components/EmptyState';
@@ -20,9 +21,6 @@ interface Props {
   /** Trainers currently assigned to the member (replaced when a new one is picked). */
   currentTrainers: AssignedTrainer[];
 }
-
-const initials = (name: string) =>
-  name.split(' ').filter(Boolean).map(p => p[0]).join('').slice(0, 2).toUpperCase();
 
 /** Pick a trainer for a member (assign / change) or remove the current one. */
 export default function AssignTrainerSheet({ visible, onClose, memberId, memberName, currentTrainers }: Props) {
@@ -155,12 +153,7 @@ export default function AssignTrainerSheet({ visible, onClose, memberId, memberN
                 opacity: busy && !loading ? 0.6 : 1,
               })}
             >
-              <View style={{
-                width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
-                backgroundColor: withAlpha(T.sky, 0.10), borderWidth: 1, borderColor: withAlpha(T.sky, 0.3),
-              }}>
-                <Text style={{ color: T.sky, fontWeight: '800', fontSize: 14 }}>{initials(t.displayName)}</Text>
-              </View>
+              <Avatar uri={t.profileImage} size={40} borderWidth={1} borderColor={withAlpha(T.sky, 0.3)} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={{ color: T.text, fontSize: 14, fontWeight: '700' }} numberOfLines={1}>{t.displayName}</Text>
                 <Text style={{ color: T.textFaint, fontSize: 12, marginTop: 2 }} numberOfLines={1}>

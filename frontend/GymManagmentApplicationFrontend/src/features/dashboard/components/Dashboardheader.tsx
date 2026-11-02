@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, Pressable, Image } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { T } from '../../../theme';
+import Avatar from '../../common/components/Avatar';
 
 interface DashboardHeaderProps {
   adminName: string;
@@ -33,10 +34,6 @@ function IconButton({ icon, label, onPress, filled }: { icon: React.ComponentPro
   );
 }
 
-function getInitials(name: string): string {
-  return name.split(' ').filter(Boolean).map((p) => p[0]).join('').slice(0, 2).toUpperCase();
-}
-
 export default function DashboardHeader({
   adminName,
   avatarUrl,
@@ -61,25 +58,7 @@ export default function DashboardHeader({
         accessibilityLabel={`${adminName}${roleLabel ? `, ${roleLabel}` : ''}, profile`}
       >
         {/* Avatar */}
-        {avatarUrl ? (
-          <Image
-            source={{ uri: avatarUrl }}
-            style={{ width: 48, height: 48, borderRadius: 24 }}
-          />
-        ) : (
-          <View style={{
-            width: 48,
-            height: 48,
-            borderRadius: 24,
-            backgroundColor: T.brand,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-            <Text style={{ color: T.onBrand, fontSize: 16, fontWeight: '800', letterSpacing: 0.5 }}>
-              {getInitials(adminName)}
-            </Text>
-          </View>
-        )}
+        <Avatar uri={avatarUrl} size={48} />
 
         {/* Name + role badge */}
         <View style={{ marginLeft: 14, flexShrink: 1, justifyContent: 'center' }}>

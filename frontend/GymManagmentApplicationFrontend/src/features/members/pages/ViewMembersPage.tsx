@@ -6,6 +6,7 @@ import { useTrainers } from '../../trainers/api/trainerQueries';
 import { Member } from '../types/member.types';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
+import Avatar from '../../common/components/Avatar';
 import SearchBar from '../../common/components/SearchBar';
 import StatusPill, { toneForStatus } from '../../common/components/StatusPill';
 import PaginationFooter from '../../common/components/PaginationFooter';
@@ -64,7 +65,6 @@ function MemberCard({
   canDelete: boolean;
 }) {
   const accent   = tint(member.id);
-  const initials = `${member.firstName[0] ?? ''}${member.lastName[0] ?? ''}`.toUpperCase();
   const fullName = `${member.firstName} ${member.lastName}`;
   const isActive = member.status.toLowerCase() === 'active';
 
@@ -81,15 +81,7 @@ function MemberCard({
         style={{ flexDirection: 'row', alignItems: 'center' }}
       >
         {/* Avatar */}
-        <View style={{
-          width: 46, height: 46, borderRadius: 23,
-          backgroundColor: withAlpha(accent, 0.09),
-          borderWidth: 1.5, borderColor: withAlpha(accent, 0.31),
-          alignItems: 'center', justifyContent: 'center',
-          marginRight: 14,
-        }}>
-          <Text style={{ color: accent, fontSize: 16, fontWeight: '800' }}>{initials}</Text>
-        </View>
+        <Avatar uri={member.avatarUrl} size={46} borderWidth={1.5} borderColor={withAlpha(accent, 0.31)} style={{ marginRight: 14 }} />
 
         {/* Info */}
         <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>

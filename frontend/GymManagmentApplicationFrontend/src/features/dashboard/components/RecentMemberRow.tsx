@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, Image, Pressable } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { T, Shadow, withAlpha } from '../../../theme';
+import Avatar from '../../common/components/Avatar';
 import { RecentMember } from '../types/dashboard';
 
 const STATUS: Record<RecentMember['status'], { bg: string; border: string; color: string }> = {
@@ -41,18 +42,7 @@ export default function RecentMemberRow({ member, onPress }: RecentMemberRowProp
       }]}
     >
       {/* Avatar */}
-      {member.avatarUrl ? (
-        <Image source={{ uri: member.avatarUrl }} style={{ width: 52, height: 52, borderRadius: 14 }} />
-      ) : (
-        <View style={{
-          width: 52, height: 52, borderRadius: 14,
-          backgroundColor: T.brandDim,
-          borderWidth: 1, borderColor: T.brandBorder,
-          alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Text style={{ color: T.brand, fontSize: 18, fontWeight: '700' }}>{member.name.charAt(0)}</Text>
-        </View>
-      )}
+      <Avatar uri={member.avatarUrl} size={52} radius={14} borderWidth={1} borderColor={T.brandBorder} />
 
       {/* Info */}
       <View style={{ flex: 1, marginLeft: 12, paddingRight: 8 }}>

@@ -6,6 +6,7 @@ import { TrainerSummary } from '../types/trainer.types';
 import { T, withAlpha, R, SP } from '../../../theme';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
+import Avatar from '../../common/components/Avatar';
 import SearchBar from '../../common/components/SearchBar';
 import StatusPill from '../../common/components/StatusPill';
 import PaginationFooter from '../../common/components/PaginationFooter';
@@ -64,8 +65,6 @@ function TrainerCard({
   canDelete: boolean;
 }) {
   const c        = tint(trainer.id);
-  const initials = trainer.displayName
-    .split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
   const designation = trainer.employment?.designation ?? '';
   const department  = trainer.employment?.department  ?? '';
 
@@ -96,15 +95,7 @@ function TrainerCard({
       <View style={{ padding: 16 }}>
         {/* Top row — avatar + name + badge */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-          <View style={{
-            width: 52, height: 52, borderRadius: 26,
-            backgroundColor: c.bg,
-            borderWidth: 1.5, borderColor: withAlpha(c.accent, 0.38),
-            alignItems: 'center', justifyContent: 'center',
-            marginRight: 14,
-          }}>
-            <Text style={{ color: c.accent, fontSize: 20, fontWeight: '800' }}>{initials}</Text>
-          </View>
+          <Avatar uri={trainer.profileImage} size={52} borderWidth={1.5} borderColor={withAlpha(c.accent, 0.38)} style={{ marginRight: 14 }} />
 
           <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
             <Text style={{ color: T.text, fontSize: 16, fontWeight: '800', letterSpacing: -0.3 }} numberOfLines={1}>

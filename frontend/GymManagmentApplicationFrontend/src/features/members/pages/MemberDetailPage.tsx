@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import MemberBillingSection from '../../billing/components/MemberBillingSection';
 import {
-  View, Text, ScrollView, Pressable, Image, TextInput, Alert, Linking, RefreshControl,
+  View, Text, ScrollView, Pressable, TextInput, Alert, Linking, RefreshControl,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -13,6 +13,7 @@ import { MemberDetail, AssignedTrainer } from '../types/member.types';
 import AssignTrainerSheet from '../components/AssignTrainerSheet';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
+import Avatar from '../../common/components/Avatar';
 import SegmentedTabs from '../../common/components/SegmentedTabs';
 import StatusPill, { toneForStatus } from '../../common/components/StatusPill';
 import LoadingState from '../../common/components/LoadingState';
@@ -469,8 +470,6 @@ export default function MemberDetailPage({ memberId, onBack, onEdit, canEdit = f
     return <ManageUserAccessPage userId={member.id} userName={fullName} currentRoleSlug="client" onBack={() => setManageAccess(false)} />;
   }
 
-  const initials = `${member.firstName[0] ?? ''}${member.lastName[0] ?? ''}`.toUpperCase();
-
   const removeTrainer = (t: AssignedTrainer) => {
     Alert.alert(
       'Remove trainer?',
@@ -508,20 +507,7 @@ export default function MemberDetailPage({ memberId, onBack, onEdit, canEdit = f
       >
         {/* Hero */}
         <View style={{ alignItems: 'center', marginTop: SP.sm, marginBottom: SP.lg }}>
-          {member.avatarUrl ? (
-            <Image
-              source={{ uri: member.avatarUrl }}
-              accessibilityLabel={`${fullName} photo`}
-              style={{ width: 92, height: 92, borderRadius: 46, borderWidth: 3, borderColor: withAlpha(T.brand, 0.4) }}
-            />
-          ) : (
-            <View style={[{
-              width: 92, height: 92, borderRadius: 46, backgroundColor: T.brand,
-              alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: withAlpha(T.brand, 0.4),
-            }, Shadow.neon]}>
-              <Text style={{ color: T.onBrand, fontSize: 30, fontWeight: '800' }}>{initials}</Text>
-            </View>
-          )}
+          <Avatar uri={member.avatarUrl} size={92} borderWidth={3} borderColor={withAlpha(T.brand, 0.4)} label={`${fullName} photo`} style={Shadow.neon} />
           <Text style={{ color: T.text, fontSize: 21, fontWeight: '800', marginTop: SP.md, letterSpacing: -0.3 }}>{fullName}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 8 }}>
             <StatusPill label={capitalize(member.status)} tone={toneForStatus(member.status)} dot />

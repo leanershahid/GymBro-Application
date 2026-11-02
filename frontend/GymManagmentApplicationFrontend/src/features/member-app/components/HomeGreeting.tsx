@@ -2,11 +2,12 @@ import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { T, R, withAlpha } from '../../../theme';
+import Avatar from '../../common/components/Avatar';
 
 interface Props {
   /** Hidden from the greeting when null (profile not loaded / missing). */
   firstName: string | null;
-  lastName?: string | null;
+  avatarUrl?: string | null;
   /** Shown as a pill under the name; hidden when null (e.g. stats module disabled). */
   streakDays: number | null;
   onOpenProfile: () => void;
@@ -17,9 +18,8 @@ function greeting(d = new Date()) {
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 }
 
-/** Member home header: avatar initials, time-of-day greeting and streak pill. */
-export default function HomeGreeting({ firstName, lastName, streakDays, onOpenProfile }: Props) {
-  const initials = `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase();
+/** Member home header: avatar, time-of-day greeting and streak pill. */
+export default function HomeGreeting({ firstName, avatarUrl, streakDays, onOpenProfile }: Props) {
   const streakLabel = streakDays == null ? null
     : streakDays > 0 ? `${streakDays}-day streak` : 'Start a streak today';
 
@@ -30,14 +30,9 @@ export default function HomeGreeting({ firstName, lastName, streakDays, onOpenPr
         accessibilityRole="button"
         accessibilityLabel="Open profile"
         hitSlop={6}
-        style={({ pressed }) => ({
-          width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center',
-          backgroundColor: pressed ? withAlpha(T.brand, 0.2) : T.brandDim, borderWidth: 1.5, borderColor: T.brand,
-        })}
+        style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
       >
-        {initials
-          ? <Text style={{ color: T.brand, fontSize: 16, fontWeight: '800' }}>{initials}</Text>
-          : <Feather name="user" size={20} color={T.brand} />}
+        <Avatar uri={avatarUrl} size={48} borderColor={T.brand} borderWidth={1.5} />
       </Pressable>
 
       <View style={{ flex: 1, minWidth: 0 }}>
