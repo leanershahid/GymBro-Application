@@ -90,8 +90,12 @@ if (!string.IsNullOrEmpty(port))
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 // Database
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Dynamic JSON lets jsonb columns map to Dictionary<,> properties (e.g. ShopProduct.Specifications).
+builder.Services.AddSingleton(_ =>
+    new Npgsql.NpgsqlDataSourceBuilder(builder.Configuration.GetConnectionString("DefaultConnection"))
+        .EnableDynamicJson().Build());
+builder.Services.AddDbContext<AppDbContext>((sp, options) =>
+    options.UseNpgsql(sp.GetRequiredService<Npgsql.NpgsqlDataSource>()));
 
 // JWT Settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
@@ -243,6 +247,10 @@ builder.Services.AddScoped<IWorkoutPlanService, WorkoutPlanService>();
 builder.Services.AddScoped<IWorkoutBuilderService, WorkoutBuilderService>();
 builder.Services.AddScoped<IWorkoutAutomationService, WorkoutAutomationService>();
 builder.Services.AddScoped<IAccessService, AccessService>();
+// Shop (members buy, admins run it) — settings, catalog, and cart/orders.
+builder.Services.AddScoped<GymManagmentApplication.Application.Shop.Common.IShopSettingsService, GymManagmentApplication.Application.Shop.Common.ShopSettingsService>();
+GymManagmentApplication.Application.Shop.Catalog.ShopCatalogRegistration.AddShopCatalog(builder.Services);
+GymManagmentApplication.Application.Shop.Orders.ShopOrdersRegistration.AddShopOrders(builder.Services);
 builder.Services.AddScoped<IMembershipPlanService, MembershipPlanService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<PaymentService>();

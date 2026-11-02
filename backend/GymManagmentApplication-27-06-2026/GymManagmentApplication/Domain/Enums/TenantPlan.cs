@@ -51,8 +51,6 @@ public enum LockerStatus { Available, Occupied, Maintenance, Reserved }
 public enum AccessDeviceType { QrReader, FaceCam, Biometric, CardReader, PinPad }
 public enum AccessEventType { Entry, Exit, Denied, Alarm }
 public enum AccessMethod { Qr, Face, Biometric, Card, Pin, Manual }
-public enum PosPaymentMethod { Cash, Card, Upi, Wallet, MembershipCredit }
-public enum PosOrderStatus { Pending, Paid, Refunded, Cancelled }
 public enum PayCycle { Weekly, BiWeekly, Monthly }
 public enum PayrollStatus { Draft, Processing, Approved, Paid }
 public enum PayrollSlipStatus { Draft, Approved, Paid }

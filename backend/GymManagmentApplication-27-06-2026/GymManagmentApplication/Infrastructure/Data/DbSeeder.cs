@@ -40,7 +40,7 @@ public static class DbSeeder
         // Before the roles, so a newly created role can be given its default grants.
         // No grant rows at all means the access data still lives in the old tables.
         var legacyAccessToMove = !await db.RoleModuleGrants.IgnoreQueryFilters().AnyAsync();
-        await UpsertModulesAsync(db);
+        var newModuleKeys = await UpsertModulesAsync(db);
 
         // ── Roles ─────────────────────────────────────────────────────────────
         // Every tenant gets its own copy of the system roles (role checks are by slug, but
@@ -90,6 +90,8 @@ public static class DbSeeder
         // role matrix and per-user module table, move what those held.
         if (legacyAccessToMove)
             await MoveLegacyAccessAsync(db);
+        else if (newModuleKeys.Count > 0)
+            await GrantNewDefaultModulesAsync(db, newModuleKeys);
         await PruneStaleModulesAsync(db);
     }
 
@@ -123,9 +125,13 @@ public static class DbSeeder
 
     // ── Module master ─────────────────────────────────────────────────────────
 
-    /// <summary>Inserts or updates every <see cref="ModuleCatalog"/> row by key. Parents come first in the catalog.</summary>
-    private static async Task UpsertModulesAsync(AppDbContext db)
+    /// <summary>
+    /// Inserts or updates every <see cref="ModuleCatalog"/> row by key (parents come first in the
+    /// catalog). Returns the keys inserted this boot.
+    /// </summary>
+    private static async Task<List<string>> UpsertModulesAsync(AppDbContext db)
     {
+        var inserted = new List<string>();
         var existing = await db.Modules.ToDictionaryAsync(m => m.Key);
         var levels = new Dictionary<string, int>();
 
@@ -137,6 +143,7 @@ public static class DbSeeder
             if (!existing.TryGetValue(def.Key, out var module))
             {
                 module = new Module { Key = def.Key, CreatedAt = DateTime.UtcNow };
+                inserted.Add(def.Key);
                 db.Modules.Add(module);
                 existing[def.Key] = module;
             }
@@ -154,6 +161,32 @@ public static class DbSeeder
             module.Parent       = def.ParentKey is null ? null : existing[def.ParentKey];
         }
 
+        await db.SaveChangesAsync();
+        return inserted;
+    }
+
+    /// <summary>
+    /// A module added to the catalog after roles already exist (e.g. the shop) is given to the
+    /// built-in roles whose defaults include it — once, in the boot that creates it, so a module an
+    /// admin later takes away from a role stays away.
+    /// </summary>
+    private static async Task GrantNewDefaultModulesAsync(AppDbContext db, List<string> newKeys)
+    {
+        var builtIn = new[] { RoleNames.Admin, RoleNames.Trainer, RoleNames.Client };
+        var modules = await db.Modules.Where(m => newKeys.Contains(m.Key)).ToDictionaryAsync(m => m.Key, m => m.Id);
+        foreach (var role in await db.Roles.IgnoreQueryFilters().Where(r => builtIn.Contains(r.Slug)).ToListAsync())
+        {
+            foreach (var key in ModuleCatalog.DefaultKeysFor(role.Slug).Where(modules.ContainsKey))
+            {
+                var moduleId = modules[key];
+                if (await db.RoleModuleGrants.IgnoreQueryFilters().AnyAsync(g => g.RoleId == role.Id && g.ModuleId == moduleId)) continue;
+                db.RoleModuleGrants.Add(new RoleModuleGrant
+                {
+                    TenantId = role.TenantId, RoleId = role.Id, ModuleId = moduleId,
+                    CanView = true, CanCreate = true, CanEdit = true, CanDelete = true, CanExport = true,
+                });
+            }
+        }
         await db.SaveChangesAsync();
     }
 
