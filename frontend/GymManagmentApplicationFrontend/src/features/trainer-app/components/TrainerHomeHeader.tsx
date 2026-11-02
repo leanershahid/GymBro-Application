@@ -2,27 +2,20 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { T, R, withAlpha } from '../../../theme';
+import Avatar from '../../common/components/Avatar';
 
 interface Props {
   greeting: string;
   firstName: string;
   branchName?: string | null;
+  avatarUrl?: string | null;
 }
 
-/** Compact greeting row: avatar initial, "Good morning, Name", branch chip. */
-export default function TrainerHomeHeader({ greeting, firstName, branchName }: Props) {
+/** Compact greeting row: avatar, "Good morning, Name", branch chip. */
+export default function TrainerHomeHeader({ greeting, firstName, branchName, avatarUrl }: Props) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <View
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={{
-          width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
-          backgroundColor: withAlpha(T.brand, 0.12), borderWidth: 1.5, borderColor: withAlpha(T.brand, 0.5),
-        }}
-      >
-        <Text style={{ color: T.brand, fontSize: 17, fontWeight: '800' }}>{firstName[0]?.toUpperCase() ?? 'C'}</Text>
-      </View>
+      <Avatar uri={avatarUrl} size={44} borderColor={withAlpha(T.brand, 0.5)} borderWidth={1.5} />
 
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 12 }}>{greeting}</Text>

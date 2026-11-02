@@ -5,6 +5,7 @@ import { T, R, withAlpha } from '../../../theme';
 import { useClientProfile } from '../api/trainerAppQueries';
 import { ClientAssignment } from '../types/trainer-app.types';
 import StatusPill from '../../common/components/StatusPill';
+import Avatar from '../../common/components/Avatar';
 
 const ACCENTS = [T.brand, T.sky, T.violet, T.brandGold, T.rose];
 
@@ -14,15 +15,12 @@ interface Props {
   onPress: () => void;
 }
 
-/** Rich client row for the home screen: initials avatar, real name (via the member profile), since-date and status. */
+/** Rich client row for the home screen: avatar, real name (via the member profile), since-date and status. */
 export default function ClientPreviewRow({ client, index, onPress }: Props) {
   const { data: profile, isLoading } = useClientProfile(client.clientId);
   const accent = ACCENTS[index % ACCENTS.length];
   const fullName = profile ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() : '';
   const name = fullName || profile?.email || (isLoading ? 'Loading…' : 'Unknown client');
-  const initials = profile
-    ? `${profile.firstName?.[0] ?? ''}${profile.lastName?.[0] ?? ''}`.toUpperCase()
-    : '';
   const assigned = new Date(client.assignedAt);
   const since = assigned.toLocaleDateString('en-IN', {
     day: 'numeric', month: 'short',
@@ -43,11 +41,8 @@ export default function ClientPreviewRow({ client, index, onPress }: Props) {
         backgroundColor: pressed ? T.bgInputActive : T.bgInput,
       })}
     >
-      <View style={{
-        width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
-        backgroundColor: withAlpha(accent, 0.12), borderWidth: 1.5, borderColor: withAlpha(accent, 0.35),
-      }}>
-        <Text numberOfLines={1} style={{ color: accent, fontSize: 15, fontWeight: '800' }}>{initials || '?'}</Text>
+      <View style={{ width: 44, height: 44 }}>
+        <Avatar uri={profile?.avatarUrl} size={44} borderColor={withAlpha(accent, 0.35)} borderWidth={1.5} />
         {active && (
           <View style={{
             position: 'absolute', right: -1, bottom: -1, width: 12, height: 12, borderRadius: 6,

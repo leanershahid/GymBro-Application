@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, ScrollView, Pressable, Image, Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
+  View, Text, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,6 +12,7 @@ import { getSession, isAdminRole, isDelegatedRole } from '../../../api/session';
 import { T, withAlpha, SP } from '../../../theme';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
+import Avatar from '../../common/components/Avatar';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
 import EmptyState from '../../dashboard/components/EmptyState';
@@ -174,8 +175,6 @@ export default function EditMemberPage({ memberId, onBack, onSaved }: Props) {
     );
   };
 
-  const initials = `${member.firstName[0] ?? ''}${member.lastName[0] ?? ''}`.toUpperCase();
-
   return (
     <Screen>
       <ScreenHeader eyebrow="Members" title="Edit Member" onBack={onBack} />
@@ -196,16 +195,7 @@ export default function EditMemberPage({ memberId, onBack, onSaved }: Props) {
               accessibilityLabel="Change photo"
               style={{ alignItems: 'center' }}
             >
-              {member.avatarUrl ? (
-                <Image source={{ uri: member.avatarUrl }} style={{ width: 84, height: 84, borderRadius: 42, borderWidth: 2, borderColor: withAlpha(T.brand, 0.4) }} />
-              ) : (
-                <View style={{
-                  width: 84, height: 84, borderRadius: 42, backgroundColor: withAlpha(T.brand, 0.12),
-                  borderWidth: 2, borderColor: withAlpha(T.brand, 0.4), alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Text style={{ color: T.brand, fontSize: 26, fontWeight: '800' }}>{initials}</Text>
-                </View>
-              )}
+              <Avatar uri={member.avatarUrl} size={84} borderWidth={2} borderColor={withAlpha(T.brand, 0.4)} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: SP.sm }}>
                 {photo.isPending
                   ? <ActivityIndicator size="small" color={T.brand} />

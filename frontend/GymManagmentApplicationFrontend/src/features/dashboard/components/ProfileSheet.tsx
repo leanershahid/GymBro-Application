@@ -1,13 +1,10 @@
 import React from 'react';
-import { View, Text, Image, ActivityIndicator, Pressable } from 'react-native';
+import { View, Text, ActivityIndicator, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import BottomSheet from '../../common/components/BottomSheet';
+import Avatar from '../../common/components/Avatar';
 import { T, SP, R, withAlpha, Shadow } from '../../../theme';
 import { UserProfile } from '../../auth/types/auth.types';
-
-function getInitials(name: string): string {
-  return name.split(' ').filter(Boolean).map((p) => p[0]).join('').slice(0, 2).toUpperCase();
-}
 
 function DetailRow({
   icon,
@@ -87,22 +84,7 @@ export default function ProfileSheet({
           <>
             {/* Header: avatar + name + role badge */}
             <View style={{ alignItems: 'center', marginBottom: SP.lg }}>
-              {profile.avatarUrl ? (
-                <Image
-                  source={{ uri: profile.avatarUrl }}
-                  style={[{ width: 84, height: 84, borderRadius: 42, borderWidth: 3, borderColor: T.brand }, Shadow.neon]}
-                />
-              ) : (
-                <View style={[{
-                  width: 84, height: 84, borderRadius: 42,
-                  backgroundColor: T.brand, alignItems: 'center', justifyContent: 'center',
-                  borderWidth: 3, borderColor: withAlpha(T.brand, 0.4),
-                }, Shadow.neon]}>
-                  <Text style={{ color: T.onBrand, fontSize: 28, fontWeight: '800' }}>
-                    {getInitials(fullName || profile.email)}
-                  </Text>
-                </View>
-              )}
+              <Avatar uri={profile.avatarUrl} size={84} borderWidth={3} borderColor={T.brand} style={Shadow.neon} />
 
               <Text style={{ color: T.text, fontSize: 19, fontWeight: '800', marginTop: SP.md, letterSpacing: -0.3 }}>
                 {fullName || 'Unnamed user'}

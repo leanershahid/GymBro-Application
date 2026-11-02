@@ -153,6 +153,7 @@ export default function TrainerHomeScreen({ trainerId, onNavigate }: Props) {
           greeting={greetingFor(now.getHours())}
           firstName={firstName}
           branchName={profile?.branchName}
+          avatarUrl={profile?.profileImage}
         />
 
         {/* Location check-in (only when the gym has it switched on at a branch) */}

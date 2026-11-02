@@ -5,6 +5,7 @@ import { T, R, SP, withAlpha } from '../../../theme';
 import { apiErrorText } from '../../../api/apiError';
 import Skeleton from '../../common/components/Skeleton';
 import BottomSheet from '../../common/components/BottomSheet';
+import Avatar from '../../common/components/Avatar';
 import EmptyState from '../../dashboard/components/EmptyState';
 import { useToast } from '../../common/components/Toast';
 import { usePtTypes, useBookPtSession } from '../api/bookingQueries';
@@ -161,9 +162,7 @@ export default function PtTab({ userId, onOpenBilling }: Props) {
       {groups.map(([trainer, list]) => (
         <View key={trainer} style={{ marginBottom: SP.lg }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SP.sm }}>
-            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: withAlpha(T.violet, 0.14), alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: T.violet, fontSize: 12, fontWeight: '800' }}>{trainer.trim().charAt(0).toUpperCase()}</Text>
-            </View>
+            <Avatar size={28} />
             <Text style={{ color: T.text, fontSize: 14, fontWeight: '700' }}>{trainer}</Text>
           </View>
           <Card style={{ padding: 0, overflow: 'hidden' }}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, Pressable,
-  Platform, Alert, Image, TouchableOpacity, KeyboardAvoidingView, ActivityIndicator,
+  Platform, Alert, TouchableOpacity, KeyboardAvoidingView, ActivityIndicator,
 } from 'react-native';
 
 import { Feather } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useMyProfile, useMyTimeline, useUpdateProfile, useUploadPhoto, useAssignedTrainer } from '../api/memberAppQueries';
 import { T, withAlpha } from '../../../theme';
 import Screen from '../../common/components/Screen';
+import Avatar from '../../common/components/Avatar';
 import SegmentedTabs from '../../common/components/SegmentedTabs';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
@@ -19,7 +20,7 @@ import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
 import { PickedFile } from '../../../api/upload';
 import { apiErrorText } from '../../../api/apiError';
 
-function AvatarPicker({ uri, initials, onPick, uploading }: { uri?: string | null; initials: string; onPick: (f: PickedFile) => void; uploading?: boolean }) {
+function AvatarPicker({ uri, onPick, uploading }: { uri?: string | null; onPick: (f: PickedFile) => void; uploading?: boolean }) {
   const pick = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -42,18 +43,7 @@ function AvatarPicker({ uri, initials, onPick, uploading }: { uri?: string | nul
       accessibilityState={{ busy: !!uploading }}
       accessibilityLabel="Change profile photo"
       style={{ alignItems: 'center', marginBottom: 12 }}>
-      {uri ? (
-        <Image
-          source={{ uri }}
-          style={{ width: 88, height: 88, borderRadius: 44, borderWidth: 2, borderColor: T.brand }}
-        />
-      ) : (
-        <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: withAlpha(T.brand, 0.12), borderWidth: 2, borderColor: T.brand, alignItems: 'center', justifyContent: 'center' }}>
-          {initials
-            ? <Text style={{ color: T.brand, fontSize: 28, fontWeight: '800' }}>{initials}</Text>
-            : <Feather name="user" size={32} color={T.brand} />}
-        </View>
-      )}
+      <Avatar uri={uri} size={88} borderColor={T.brand} borderWidth={2} />
       {uploading && (
         <View style={{ position: 'absolute', top: 0, width: 88, height: 88, borderRadius: 44, backgroundColor: withAlpha(T.black, 0.55), alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={T.brand} />
@@ -140,7 +130,6 @@ export default function ProfileScreen({ userId, onLogout, onOpenBilling }: Props
 
   if (isLoading) return <LoadingState fullScreen label="Loading profile" />;
 
-  const initials = `${profile?.firstName?.[0] ?? ''}${profile?.lastName?.[0] ?? ''}`.toUpperCase();
   // Chips show real names only — hidden when the name isn't available.
   const trainerName = trainer?.displayName?.trim() || null;
   const branchName  = profile?.branchId ? profile.branchName?.trim() || null : null;
@@ -155,7 +144,6 @@ export default function ProfileScreen({ userId, onLogout, onOpenBilling }: Props
         <View style={{ alignItems: 'center', paddingTop: 32, paddingBottom: 24, paddingHorizontal: 20 }}>
           <AvatarPicker
             uri={avatarUri}
-            initials={initials}
             onPick={handlePhoto}
             uploading={uploading}
           />

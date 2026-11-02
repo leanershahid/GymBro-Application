@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { T, withAlpha } from '../../../theme';
+import { T } from '../../../theme';
+import Avatar from '../../common/components/Avatar';
 import BottomSheet from '../../common/components/BottomSheet';
 import SearchBar from '../../common/components/SearchBar';
 import StatusPill from '../../common/components/StatusPill';
@@ -62,13 +63,7 @@ export default function MemberPickerSheet({ visible, title, onClose, onPick, bus
                 paddingHorizontal: 20, paddingVertical: 8, backgroundColor: pressed ? T.bgInputActive : 'transparent',
               })}
             >
-              {m.avatarUrl
-                ? <Image source={{ uri: m.avatarUrl }} style={{ width: 40, height: 40, borderRadius: 20 }} />
-                : (
-                  <View style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: withAlpha(T.brand, 0.14) }}>
-                    <Text style={{ color: T.brand, fontWeight: '800' }}>{(m.firstName?.[0] ?? '') + (m.lastName?.[0] ?? '')}</Text>
-                  </View>
-                )}
+              <Avatar uri={m.avatarUrl} size={40} />
               <View style={{ flex: 1 }}>
                 <Text numberOfLines={1} style={{ color: T.text, fontSize: 15, fontWeight: '700' }}>{name}</Text>
                 <Text numberOfLines={1} style={{ color: T.textFaint, fontSize: 12, marginTop: 2 }}>{m.phone || m.email}</Text>

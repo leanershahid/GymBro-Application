@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { T } from '../../../theme';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
+import Avatar from '../../common/components/Avatar';
 import LoadingState from '../../common/components/LoadingState';
 import EmptyState from '../../dashboard/components/EmptyState';
 import StatTile from '../../dashboard/components/Stattile';
@@ -17,7 +18,6 @@ const fmtSleep = (v: number | null) => (v === null || v === undefined ? '—' : 
 const fmtSteps = (v: number | null) => (v === null || v === undefined ? '—' : Math.round(v).toLocaleString());
 
 function ClientRow({ client }: { client: ClientHealthRow }) {
-  const initials = client.name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
   return (
     <View
       accessible
@@ -26,12 +26,7 @@ function ClientRow({ client }: { client: ClientHealthRow }) {
       flexDirection: 'row', alignItems: 'center', backgroundColor: T.bgInput, borderRadius: 16,
       padding: 14, marginBottom: 10, borderWidth: 1, borderColor: T.line,
     }}>
-      <View style={{
-        width: 40, height: 40, borderRadius: 20, backgroundColor: T.brandDim,
-        borderWidth: 1, borderColor: T.brandBorder, alignItems: 'center', justifyContent: 'center', marginRight: 12,
-      }}>
-        <Text style={{ color: T.brand, fontSize: 14, fontWeight: '800' }}>{initials}</Text>
-      </View>
+      <Avatar size={40} borderWidth={1} borderColor={T.brandBorder} style={{ marginRight: 12 }} />
 
       <View style={{ flex: 1, paddingRight: 8 }}>
         <Text style={{ color: T.text, fontSize: 14, fontWeight: '700' }} numberOfLines={1}>{client.name}</Text>

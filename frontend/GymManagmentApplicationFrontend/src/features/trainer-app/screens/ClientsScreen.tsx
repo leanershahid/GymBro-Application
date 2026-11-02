@@ -11,6 +11,7 @@ import {
 import ClientPreviewRow from '../components/ClientPreviewRow';
 import { T, R, withAlpha } from '../../../theme';
 import Screen from '../../common/components/Screen';
+import Avatar from '../../common/components/Avatar';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import SearchBar from '../../common/components/SearchBar';
 import SegmentedTabs from '../../common/components/SegmentedTabs';
@@ -41,7 +42,6 @@ function ClientDetail({ trainerId, clientId, onBack }: { trainerId: number; clie
 
   if (isLoading) return <LoadingState fullScreen label="Loading client" />;
 
-  const initials = `${profile?.firstName?.[0] ?? ''}${profile?.lastName?.[0] ?? ''}`.toUpperCase() || '?';
   const fullName = profile ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() : '';
 
   return (
@@ -57,9 +57,7 @@ function ClientDetail({ trainerId, clientId, onBack }: { trainerId: number; clie
 
       {/* Avatar + info */}
       <View style={{ alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 }}>
-        <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: withAlpha(T.brand, 0.12), borderWidth: 2, borderColor: T.brand, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-          <Text style={{ color: T.brand, fontSize: 22, fontWeight: '800' }}>{initials}</Text>
-        </View>
+        <Avatar uri={profile?.avatarUrl} size={68} borderColor={T.brand} borderWidth={2} label={fullName ? `${fullName} photo` : undefined} style={{ marginBottom: 10 }} />
         {profile && <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 13 }}>{profile.email}</Text>}
         {profile?.status && (
           <View style={{ marginTop: 8, alignSelf: 'center' }}>

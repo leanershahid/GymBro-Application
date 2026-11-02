@@ -11,6 +11,7 @@ import {
 import { ScheduleSlot } from '../types/trainer-app.types';
 import { T, R, withAlpha } from '../../../theme';
 import Screen from '../../common/components/Screen';
+import Avatar from '../../common/components/Avatar';
 import SegmentedTabs from '../../common/components/SegmentedTabs';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
@@ -73,8 +74,6 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
 
   if (isLoading) return <LoadingState fullScreen label="Loading profile" />;
 
-  const initials = profile?.displayName?.split(' ').map(w => w[0]).join('').toUpperCase() || 'T';
-
   return (
     <Screen>
 
@@ -83,9 +82,7 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
 
         {/* Avatar */}
         <View style={{ alignItems: 'center', paddingTop: 30, paddingBottom: 20, paddingHorizontal: 20 }}>
-          <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: withAlpha(T.brand, 0.12), borderWidth: 2, borderColor: T.brand, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-            <Text style={{ color: T.brand, fontSize: 26, fontWeight: '800' }}>{initials}</Text>
-          </View>
+          <Avatar uri={profile?.profileImage} size={80} borderColor={T.brand} borderWidth={2} style={{ marginBottom: 12 }} />
           <Text numberOfLines={1} style={{ color: T.text, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }}>{profile?.displayName ?? 'Trainer'}</Text>
           <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 13, marginTop: 4 }}>{profile?.email}</Text>
           {profile?.trainerCode && (

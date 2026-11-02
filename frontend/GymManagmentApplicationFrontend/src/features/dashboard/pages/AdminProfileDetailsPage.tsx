@@ -1,15 +1,12 @@
 import React from 'react';
-import { View, Text, Image, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
+import Avatar from '../../common/components/Avatar';
 import EmptyState from '../components/EmptyState';
-import { T, SP, R, withAlpha, Shadow } from '../../../theme';
+import { T, SP, R, Shadow } from '../../../theme';
 import { useMe } from '../../auth/api/authQueries';
-
-function getInitials(name: string): string {
-  return name.split(' ').filter(Boolean).map((p) => p[0]).join('').slice(0, 2).toUpperCase();
-}
 
 function DetailRow({
   icon,
@@ -99,22 +96,7 @@ export default function AdminProfileDetailsPage({ onBack, roleLabel }: Props) {
         >
           {/* Hero: avatar + name + role */}
           <View style={{ alignItems: 'center', marginVertical: SP.lg }}>
-            {profile.avatarUrl ? (
-              <Image
-                source={{ uri: profile.avatarUrl }}
-                style={[{ width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: T.brand }, Shadow.neon]}
-              />
-            ) : (
-              <View style={[{
-                width: 100, height: 100, borderRadius: 50,
-                backgroundColor: T.brand, alignItems: 'center', justifyContent: 'center',
-                borderWidth: 3, borderColor: withAlpha(T.brand, 0.4),
-              }, Shadow.neon]}>
-                <Text style={{ color: T.onBrand, fontSize: 32, fontWeight: '800' }}>
-                  {getInitials(fullName || profile.email)}
-                </Text>
-              </View>
-            )}
+            <Avatar uri={profile.avatarUrl} size={100} borderWidth={3} borderColor={T.brand} style={Shadow.neon} />
 
             <Text style={{ color: T.text, fontSize: 21, fontWeight: '800', marginTop: SP.md, letterSpacing: -0.3 }}>
               {fullName || 'Unnamed user'}
