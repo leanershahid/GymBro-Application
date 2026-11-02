@@ -14,7 +14,7 @@ using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Domain.Entities.Membership;
 using GymManagmentApplication.Domain.Entities.Nutrition;
 using GymManagmentApplication.Domain.Entities.Platform;
-using GymManagmentApplication.Domain.Entities.POS;
+using GymManagmentApplication.Domain.Entities.Shop;
 using GymManagmentApplication.Domain.Entities.Scheduling;
 using GymManagmentApplication.Domain.Entities.Training;
 using System.Linq.Expressions;
@@ -216,9 +216,21 @@ public class AppDbContext : DbContext
     public DbSet<VirtualSession> VirtualSessions => Set<VirtualSession>();
 
     // POS
-    public DbSet<PosProduct> PosProducts => Set<PosProduct>();
-    public DbSet<PosOrder> PosOrders => Set<PosOrder>();
-    public DbSet<PosOrderItem> PosOrderItems => Set<PosOrderItem>();
+    // Shop (replaces the old POS tables)
+    public DbSet<ShopCategory> ShopCategories => Set<ShopCategory>();
+    public DbSet<ShopProduct> ShopProducts => Set<ShopProduct>();
+    public DbSet<ShopProductImage> ShopProductImages => Set<ShopProductImage>();
+    public DbSet<ShopVariant> ShopVariants => Set<ShopVariant>();
+    public DbSet<ShopInventory> ShopInventories => Set<ShopInventory>();
+    public DbSet<ShopReview> ShopReviews => Set<ShopReview>();
+    public DbSet<ShopCart> ShopCarts => Set<ShopCart>();
+    public DbSet<ShopCartItem> ShopCartItems => Set<ShopCartItem>();
+    public DbSet<ShopWishlist> ShopWishlists => Set<ShopWishlist>();
+    public DbSet<ShopWishlistItem> ShopWishlistItems => Set<ShopWishlistItem>();
+    public DbSet<ShopAddress> ShopAddresses => Set<ShopAddress>();
+    public DbSet<ShopOrder> ShopOrders => Set<ShopOrder>();
+    public DbSet<ShopOrderItem> ShopOrderItems => Set<ShopOrderItem>();
+    public DbSet<ShopPayment> ShopPayments => Set<ShopPayment>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -314,8 +326,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PtSession>().HasOne<Branch>().WithMany().HasForeignKey(p => p.BranchId).OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<WorkoutLog>().HasOne<Branch>().WithMany().HasForeignKey(l => l.BranchId).OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<AnalyticsDaily>().HasOne<Branch>().WithMany().HasForeignKey(a => a.BranchId).OnDelete(DeleteBehavior.SetNull);
-        modelBuilder.Entity<PosOrder>().HasOne<Branch>().WithMany().HasForeignKey(o => o.BranchId).OnDelete(DeleteBehavior.SetNull);
-        modelBuilder.Entity<PosProduct>().HasOne<Branch>().WithMany().HasForeignKey(p => p.BranchId).OnDelete(DeleteBehavior.SetNull);
 
         // Prevent cascade delete cycles
         modelBuilder.Entity<WorkoutProgression>()
@@ -407,18 +417,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<SocialPost>().HasOne(s => s.Tenant).WithMany().HasForeignKey(s => s.TenantId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<MediaLibrary>().HasOne(m => m.Tenant).WithMany().HasForeignKey(m => m.TenantId).OnDelete(DeleteBehavior.Restrict);
 
-        // Fix cascade on PosOrderItems
-        modelBuilder.Entity<PosOrderItem>()
-            .HasOne(p => p.Order)
-            .WithMany(o => o.Items)
-            .HasForeignKey(p => p.OrderId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<PosOrderItem>()
-            .HasOne(p => p.Product)
-            .WithMany()
-            .HasForeignKey(p => p.ProductId)
-            .OnDelete(DeleteBehavior.Restrict);
+        ConfigureShop(modelBuilder);
 
         // Decimal precision
         modelBuilder.Entity<MlPrediction>().Property(e => e.Confidence).HasPrecision(18, 6);
@@ -470,16 +469,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<FoodItem>().Property(e => e.FatG).HasPrecision(10, 3);
         modelBuilder.Entity<FoodItem>().Property(e => e.FiberG).HasPrecision(10, 3);
         modelBuilder.Entity<NutritionLog>().Property(e => e.QuantityG).HasPrecision(10, 3);
-        modelBuilder.Entity<PosOrder>().Property(e => e.Subtotal).HasPrecision(18, 2);
-        modelBuilder.Entity<PosOrder>().Property(e => e.Tax).HasPrecision(18, 2);
-        modelBuilder.Entity<PosOrder>().Property(e => e.Discount).HasPrecision(18, 2);
-        modelBuilder.Entity<PosOrder>().Property(e => e.Total).HasPrecision(18, 2);
-        modelBuilder.Entity<PosOrderItem>().Property(e => e.UnitPrice).HasPrecision(18, 2);
-        modelBuilder.Entity<PosOrderItem>().Property(e => e.TaxAmount).HasPrecision(18, 2);
-        modelBuilder.Entity<PosOrderItem>().Property(e => e.LineTotal).HasPrecision(18, 2);
-        modelBuilder.Entity<PosProduct>().Property(e => e.Price).HasPrecision(18, 2);
-        modelBuilder.Entity<PosProduct>().Property(e => e.Cost).HasPrecision(18, 2);
-        modelBuilder.Entity<PosProduct>().Property(e => e.TaxRate).HasPrecision(10, 4);
         modelBuilder.Entity<ClientAssessment>().Property(e => e.Score).HasPrecision(10, 4);
         modelBuilder.Entity<PricingRule>().Property(e => e.PriceModifier).HasPrecision(18, 4);
         modelBuilder.Entity<PtSession>().Property(e => e.Price).HasPrecision(18, 2);
@@ -635,6 +624,72 @@ public class AppDbContext : DbContext
     // locally. Code that already sets an Id is left alone.
     private readonly Dictionary<string, ulong> _nextIds = [];
     private readonly HashSet<object> _generatedIds = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>Indexes, keys, money precision and relations of the shop tables.</summary>
+    private static void ConfigureShop(ModelBuilder b)
+    {
+        b.Entity<ShopCategory>().HasIndex(c => new { c.TenantId, c.Slug });
+        b.Entity<ShopCategory>().HasOne(c => c.Parent).WithMany(c => c.Children).HasForeignKey(c => c.ParentId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<ShopCategory>().HasOne<Tenant>().WithMany().HasForeignKey(c => c.TenantId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<ShopProduct>().HasIndex(p => new { p.TenantId, p.Slug });
+        b.Entity<ShopProduct>().HasIndex(p => new { p.TenantId, p.Sku });
+        b.Entity<ShopProduct>().Property(p => p.Specifications).HasColumnType("jsonb");
+        b.Entity<ShopProduct>().Property(p => p.BasePrice).HasPrecision(12, 2);
+        b.Entity<ShopProduct>().Property(p => p.CompareAtPrice).HasPrecision(12, 2);
+        b.Entity<ShopProduct>().Property(p => p.AverageRating).HasPrecision(3, 2);
+        b.Entity<ShopProduct>().HasOne(p => p.Category).WithMany(c => c.Products).HasForeignKey(p => p.CategoryId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<ShopProduct>().HasOne<Tenant>().WithMany().HasForeignKey(p => p.TenantId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<ShopProductImage>().HasOne(i => i.Product).WithMany(p => p.Images).HasForeignKey(i => i.ProductId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<ShopVariant>().HasIndex(v => new { v.TenantId, v.Sku });
+        b.Entity<ShopVariant>().Property(v => v.Price).HasPrecision(12, 2);
+        b.Entity<ShopVariant>().Property(v => v.CompareAtPrice).HasPrecision(12, 2);
+        b.Entity<ShopVariant>().HasOne(v => v.Product).WithMany(p => p.Variants).HasForeignKey(v => v.ProductId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<ShopInventory>().HasIndex(i => i.VariantId).IsUnique();
+        b.Entity<ShopInventory>().HasOne(i => i.Variant).WithOne(v => v.Inventory).HasForeignKey<ShopInventory>(i => i.VariantId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<ShopInventory>().Property(i => i.Version).IsRowVersion();
+        b.Entity<ShopInventory>().Ignore(i => i.Available);
+
+        b.Entity<ShopReview>().HasIndex(r => new { r.ProductId, r.UserId }).IsUnique().HasFilter("\"DeletedAt\" IS NULL");
+        b.Entity<ShopReview>().HasOne(r => r.Product).WithMany(p => p.Reviews).HasForeignKey(r => r.ProductId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<ShopReview>().HasOne(r => r.User).WithMany().HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<ShopCart>().HasIndex(c => new { c.TenantId, c.UserId }).IsUnique();
+        b.Entity<ShopCart>().HasOne<User>().WithMany().HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<ShopCartItem>().HasIndex(i => new { i.CartId, i.VariantId }).IsUnique();
+        b.Entity<ShopCartItem>().HasOne(i => i.Cart).WithMany(c => c.Items).HasForeignKey(i => i.CartId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<ShopCartItem>().HasOne(i => i.Variant).WithMany().HasForeignKey(i => i.VariantId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<ShopWishlist>().HasIndex(w => new { w.TenantId, w.UserId }).IsUnique();
+        b.Entity<ShopWishlist>().HasOne<User>().WithMany().HasForeignKey(w => w.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<ShopWishlistItem>().HasIndex(i => new { i.WishlistId, i.ProductId }).IsUnique();
+        b.Entity<ShopWishlistItem>().HasOne(i => i.Wishlist).WithMany(w => w.Items).HasForeignKey(i => i.WishlistId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<ShopWishlistItem>().HasOne(i => i.Product).WithMany().HasForeignKey(i => i.ProductId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<ShopAddress>().HasIndex(a => new { a.TenantId, a.UserId });
+        b.Entity<ShopAddress>().HasOne<User>().WithMany().HasForeignKey(a => a.UserId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<ShopOrder>().HasIndex(o => new { o.TenantId, o.OrderNumber }).IsUnique();
+        b.Entity<ShopOrder>().HasIndex(o => new { o.TenantId, o.UserId });
+        b.Entity<ShopOrder>().HasIndex(o => new { o.TenantId, o.Status });
+        b.Entity<ShopOrder>().OwnsOne(o => o.ShippingAddress);
+        foreach (var money in new[] { "Subtotal", "Discount", "Shipping", "Tax", "Total" })
+            b.Entity<ShopOrder>().Property(money).HasPrecision(12, 2);
+        b.Entity<ShopOrder>().HasOne(o => o.User).WithMany().HasForeignKey(o => o.UserId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<ShopOrder>().HasOne(o => o.Coupon).WithMany().HasForeignKey(o => o.CouponId).OnDelete(DeleteBehavior.SetNull);
+        b.Entity<ShopOrder>().HasOne<Tenant>().WithMany().HasForeignKey(o => o.TenantId).OnDelete(DeleteBehavior.Restrict);
+
+        b.Entity<ShopOrderItem>().Property(i => i.UnitPrice).HasPrecision(12, 2);
+        b.Entity<ShopOrderItem>().Property(i => i.LineTotal).HasPrecision(12, 2);
+        b.Entity<ShopOrderItem>().HasOne(i => i.Order).WithMany(o => o.Items).HasForeignKey(i => i.OrderId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<ShopPayment>().HasIndex(p => p.OrderId).IsUnique();
+        b.Entity<ShopPayment>().Property(p => p.Amount).HasPrecision(12, 2);
+        b.Entity<ShopPayment>().HasOne(p => p.Order).WithOne(o => o.Payment).HasForeignKey<ShopPayment>(p => p.OrderId).OnDelete(DeleteBehavior.Cascade);
+    }
 
     private void AssignIdOnTracking(object? sender, Microsoft.EntityFrameworkCore.ChangeTracking.EntityTrackingEventArgs e)
     {

@@ -11,6 +11,8 @@ import { Platform } from 'react-native';
 import type { AxiosAdapter, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import axiosInstance from '../api/axios';
 import { getSession, setSession } from '../api/session';
+import { shopAdminRoute } from './shopAdminMocks';
+import { shopStoreRoute } from './shopStoreMocks';
 
 export type PreviewRole = 'admin' | 'superadmin' | 'trainer' | 'member';
 
@@ -79,6 +81,15 @@ const CATALOG: Row[] = [
   ['admin.tenants', 'admin', 'admin.more', 'Tenants', 'tenants', 'briefcase', 'tenants', 13, 'adminOnly'],
   ['admin.roles', 'admin', 'admin.more', 'Roles', 'roles', 'shield', 'roles', 14, 'adminOnly'],
   ['admin.user-access', 'admin', 'admin.more', 'Access', 'user-access', 'lock', 'access', 15, 'adminOnly'],
+  ['admin.shop', 'admin', 'admin.more', 'Shop', 'shop', 'shopping-bag', 'shop', 16, ''],
+  ['admin.shop.dashboard', 'admin', 'admin.shop', 'Dashboard', 'dashboard', 'bar-chart-2', 'shop', 1, 'tab'],
+  ['admin.shop.orders', 'admin', 'admin.shop', 'Orders', 'orders', 'package', 'shop', 2, 'tab'],
+  ['admin.shop.products', 'admin', 'admin.shop', 'Products', 'products', 'box', 'shop', 3, 'tab'],
+  ['admin.shop.categories', 'admin', 'admin.shop', 'Categories', 'categories', 'folder', 'shop', 4, 'tab'],
+  ['admin.shop.inventory', 'admin', 'admin.shop', 'Inventory', 'inventory', 'layers', 'shop', 5, 'tab'],
+  ['admin.shop.coupons', 'admin', 'admin.shop', 'Coupons', 'coupons', 'tag', 'shop', 6, 'tab'],
+  ['admin.shop.customers', 'admin', 'admin.shop', 'Customers', 'customers', 'users', 'shop', 7, 'tab'],
+  ['admin.shop.settings', 'admin', 'admin.shop', 'Settings', 'settings', 'settings', 'shop', 8, 'tab'],
   ['trainer.home', 'trainer', null, 'Today', 'home', 'home', '', 1, ''],
   ['trainer.clients', 'trainer', null, 'Clients', 'clients', 'users', 'members', 2, ''],
   ['trainer.sessions', 'trainer', null, 'PT', 'sessions', 'clock', 'pt-sessions', 3, ''],
@@ -92,13 +103,18 @@ const CATALOG: Row[] = [
   ['member.book', 'member', null, 'Book', 'book', 'calendar', '', 2, ''],
   ['member.train', 'member', null, 'Train', 'train', 'activity', '', 3, ''],
   ['member.progress', 'member', null, 'Progress', 'progress', 'trending-up', 'plans', 4, ''],
-  ['member.community', 'member', null, 'Community', 'community', 'users', '', 5, ''],
-  ['member.stats', 'member', null, 'Stats', 'stats', 'bar-chart-2', 'stats', 6, ''],
-  ['member.billing', 'member', null, 'Membership', 'billing', 'credit-card', 'billing', 7, ''],
-  ['member.profile', 'member', null, 'Profile', 'profile', 'user', '', 8, ''],
+  ['member.shop', 'member', null, 'Shop', 'shop', 'shopping-bag', '', 5, ''],
+  ['member.community', 'member', null, 'Community', 'community', 'users', '', 6, ''],
+  ['member.stats', 'member', null, 'Stats', 'stats', 'bar-chart-2', 'stats', 7, ''],
+  ['member.billing', 'member', null, 'Membership', 'billing', 'credit-card', 'billing', 8, ''],
+  ['member.profile', 'member', null, 'Profile', 'profile', 'user', '', 9, ''],
   ['member.book.classes', 'member', 'member.book', 'Classes', 'classes', 'calendar', 'classes', 1, 'tab'],
   ['member.book.mine', 'member', 'member.book', 'My bookings', 'mine', 'list', 'classes,pt-sessions', 2, 'tab'],
   ['member.book.pt', 'member', 'member.book', 'Personal training', 'pt', 'clock', 'pt-sessions', 3, 'tab'],
+  ['member.shop.store', 'member', 'member.shop', 'Shop', 'store', 'shopping-bag', 'shop', 1, 'tab'],
+  ['member.shop.cart', 'member', 'member.shop', 'Cart', 'cart', 'shopping-cart', 'shop', 2, 'tab'],
+  ['member.shop.wishlist', 'member', 'member.shop', 'Wishlist', 'wishlist', 'heart', 'shop', 3, 'tab'],
+  ['member.shop.orders', 'member', 'member.shop', 'Orders', 'orders', 'package', 'shop', 4, 'tab'],
   ['member.train.workouts', 'member', 'member.train', 'Workouts', 'workouts', 'activity', 'workouts', 1, 'tab'],
   ['member.train.exercises', 'member', 'member.train', 'Exercises', 'exercises', 'zap', 'exercises', 2, 'tab'],
   ['member.community.coaches', 'member', 'member.community', 'Live coaching', 'coaches', 'video', 'live-coaching', 1, 'tab'],
@@ -138,8 +154,13 @@ function previewAccess(tabs: boolean) {
     .map(({ adminOnly: _adminOnly, ...m }) => ({ ...m, canCreate: true, canEdit: true, canDelete: true, canExport: true }));
 }
 
-function route(method: string, url: string): unknown {
+function route(method: string, url: string, body?: unknown): unknown {
   const path = url.replace(/^https?:\/\/[^/]+/, '').replace(/^\/api/, '').split('?')[0];
+
+  const query = new URLSearchParams(url.split('?')[1] ?? '');
+  // ── Shop ──
+  if (path.startsWith('/shop/admin/')) { const r = shopAdminRoute(method, path, body, query); if (r !== undefined) return r; }
+  else if (path.startsWith('/shop/')) { const r = shopStoreRoute(method, path, body, query); if (r !== undefined) return r; }
 
   // ── Admin ──
   if (path === '/dashboard/overview')
@@ -294,7 +315,9 @@ function route(method: string, url: string): unknown {
 
 const mockAdapter: AxiosAdapter = async (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
   await new Promise(r => setTimeout(r, 150)); // let loading states flash briefly
-  const data = route((config.method ?? 'get').toLowerCase(), `${config.baseURL ?? ''}${config.url ?? ''}`);
+  let body: unknown = config.data;
+  if (typeof body === 'string') { try { body = JSON.parse(body); } catch { /* form data or plain text */ } }
+  const data = route((config.method ?? 'get').toLowerCase(), `${config.baseURL ?? ''}${config.url ?? ''}${config.params ? '?' + new URLSearchParams(config.params).toString() : ''}`, body);
   return { data, status: 200, statusText: 'OK', headers: {}, config };
 };
 

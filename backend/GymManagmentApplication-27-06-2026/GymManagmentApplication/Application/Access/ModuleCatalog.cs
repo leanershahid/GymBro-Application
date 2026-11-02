@@ -48,6 +48,16 @@ public static class ModuleCatalog
         new("admin.tenants",       AdminApp, "admin.more", "Tenants",       "tenants",             "briefcase",    "tenants", 13, AdminOnly: true),
         new("admin.roles",         AdminApp, "admin.more", "Roles",         "roles",               "shield",       "roles", 14, AdminOnly: true),
         new("admin.user-access",   AdminApp, "admin.more", "Access",        "user-access",         "lock",         "access", 15, AdminOnly: true),
+        new("admin.shop",          AdminApp, "admin.more", "Shop",          "shop",                "shopping-bag", "shop", 16),
+
+        new("admin.shop.dashboard",  AdminApp, "admin.shop", "Dashboard",  "dashboard",  "bar-chart-2", "shop", 1, IsTab: true),
+        new("admin.shop.orders",     AdminApp, "admin.shop", "Orders",     "orders",     "package",     "shop", 2, IsTab: true),
+        new("admin.shop.products",   AdminApp, "admin.shop", "Products",   "products",   "box",         "shop", 3, IsTab: true),
+        new("admin.shop.categories", AdminApp, "admin.shop", "Categories", "categories", "folder",      "shop", 4, IsTab: true),
+        new("admin.shop.inventory",  AdminApp, "admin.shop", "Inventory",  "inventory",  "layers",      "shop", 5, IsTab: true),
+        new("admin.shop.coupons",    AdminApp, "admin.shop", "Coupons",    "coupons",    "tag",         "shop", 6, IsTab: true),
+        new("admin.shop.customers",  AdminApp, "admin.shop", "Customers",  "customers",  "users",       "shop", 7, IsTab: true),
+        new("admin.shop.settings",   AdminApp, "admin.shop", "Settings",   "settings",   "settings",    "shop", 8, IsTab: true),
 
         // ── Trainer (training) ─────────────────────────────────────────────
         // Main menu = the coach's day (as Wodify / Glofox): today, clients, sessions, classes.
@@ -68,14 +78,20 @@ public static class ModuleCatalog
         new("member.book",      MemberApp, null, "Book",       "book",      "calendar",    null, 2),
         new("member.train",     MemberApp, null, "Train",      "train",     "activity",    null, 3),
         new("member.progress",  MemberApp, null, "Progress",   "progress",  "trending-up", "plans", 4),
-        new("member.community", MemberApp, null, "Community",  "community", "users",       null, 5),
-        new("member.stats",     MemberApp, null, "Stats",      "stats",     "bar-chart-2", "stats", 6),
-        new("member.billing",   MemberApp, null, "Membership", "billing",   "credit-card", "billing", 7),
-        new("member.profile",   MemberApp, null, "Profile",    "profile",   "user",        null, 8),
+        new("member.shop",      MemberApp, null, "Shop",       "shop",      "shopping-bag", null, 5),
+        new("member.community", MemberApp, null, "Community",  "community", "users",       null, 6),
+        new("member.stats",     MemberApp, null, "Stats",      "stats",     "bar-chart-2", "stats", 7),
+        new("member.billing",   MemberApp, null, "Membership", "billing",   "credit-card", "billing", 8),
+        new("member.profile",   MemberApp, null, "Profile",    "profile",   "user",        null, 9),
 
         new("member.book.classes", MemberApp, "member.book", "Classes",           "classes", "calendar", "classes", 1, IsTab: true),
         new("member.book.mine",    MemberApp, "member.book", "My bookings",       "mine",    "list",     "classes,pt-sessions", 2, IsTab: true),
         new("member.book.pt",      MemberApp, "member.book", "Personal training", "pt",      "clock",    "pt-sessions", 3, IsTab: true),
+
+        new("member.shop.store",    MemberApp, "member.shop", "Shop",     "store",    "shopping-bag", "shop", 1, IsTab: true),
+        new("member.shop.cart",     MemberApp, "member.shop", "Cart",     "cart",     "shopping-cart", "shop", 2, IsTab: true),
+        new("member.shop.wishlist", MemberApp, "member.shop", "Wishlist", "wishlist", "heart",         "shop", 3, IsTab: true),
+        new("member.shop.orders",   MemberApp, "member.shop", "Orders",   "orders",   "package",       "shop", 4, IsTab: true),
 
         new("member.train.workouts",  MemberApp, "member.train", "Workouts",  "workouts",  "activity", "workouts", 1, IsTab: true),
         new("member.train.exercises", MemberApp, "member.train", "Exercises", "exercises", "zap",      "exercises", 2, IsTab: true),
@@ -107,7 +123,8 @@ public static class ModuleCatalog
         RoleNames.Admin   => All.Where(m => m.App == AdminApp).Select(m => m.Key),
         RoleNames.Trainer => ["trainer.home", "trainer.clients", "trainer.sessions", "trainer.classes", "trainer.profile"],
         RoleNames.Client  => ["member.home", "member.book", "member.book.classes", "member.book.mine", "member.book.pt",
-                              "member.billing", "member.profile"],
+                              "member.billing", "member.profile",
+                              "member.shop", "member.shop.store", "member.shop.cart", "member.shop.wishlist", "member.shop.orders"],
         _                 => [],
     };
 
