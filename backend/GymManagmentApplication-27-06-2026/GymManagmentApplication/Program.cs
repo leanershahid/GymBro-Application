@@ -134,6 +134,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 builder.Services.AddMemoryCache();
+// Brotli/gzip for JSON responses: far fewer bytes over the (slow, mobile) link to the app.
+builder.Services.AddResponseCompression(o => o.EnableForHttps = true);
 builder.Services.AddControllers()
     .AddJsonOptions(o =>
     {
@@ -303,6 +305,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseForwardedHeaders();
+app.UseResponseCompression();
 app.UseMiddleware<ExceptionMiddleware>();
 
 // API docs only in Development, or when explicitly enabled (Swagger__Enabled=true).
