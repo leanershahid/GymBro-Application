@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput, ActivityIndicator, Keyboard } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { T, SP, R, withAlpha } from '../../../theme';
 import EmptyState from '../../dashboard/components/EmptyState';
 import Skeleton from '../../common/components/Skeleton';
@@ -187,6 +188,39 @@ export default function HomeTab({ hPad }: { hPad: number }) {
         <EmptyState icon="wifi-off" tone="error" title="Couldn’t load the shop" subtitle="Check your connection and try again." action={{ label: 'Retry', onPress: () => { categories.refetch(); bestsellers.refetch(); fresh.refetch(); } }} />
       ) : (
         <>
+          {/* Hero */}
+          {(() => {
+            const lead = bestsellers.data?.items[0];
+            return (
+              <Pressable
+                onPress={() => lead ? nav.push({ id: 'product', slug: lead.slug }) : nav.push({ id: 'listing', title: 'All products' })}
+                accessibilityRole="button"
+                accessibilityLabel={lead ? `Featured: ${lead.name}. Shop now` : 'Shop all products'}
+                style={{ height: 190, borderRadius: R.xl, overflow: 'hidden', backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line }}
+              >
+                {lead && <ProductImage uri={lead.primaryImageUrl} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />}
+                <LinearGradient
+                  colors={[withAlpha(T.black, 0.88), withAlpha(T.black, 0.45), withAlpha(T.black, 0.05)]}
+                  start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }}
+                  style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                />
+                <View style={{ flex: 1, justifyContent: 'flex-end', padding: SP.lg, gap: 6, maxWidth: '72%' }}>
+                  <View style={{ alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.sm, backgroundColor: T.brand }}>
+                    <Text style={{ color: T.onBrand, fontSize: 10, fontWeight: '800', letterSpacing: 0.6 }}>FEATURED</Text>
+                  </View>
+                  <Text numberOfLines={2} style={{ color: T.text, fontSize: 22, fontWeight: '900', lineHeight: 26 }}>{lead?.name ?? 'Fuel your training'}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md }}>
+                    {lead && <Text style={{ color: T.text, fontSize: 16, fontWeight: '800' }}>{formatPrice(lead.price)}</Text>}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 14, borderRadius: R.pill, backgroundColor: T.brand }}>
+                      <Text style={{ color: T.onBrand, fontSize: 13, fontWeight: '800' }}>Shop now</Text>
+                      <Feather name="arrow-right" size={14} color={T.onBrand} />
+                    </View>
+                  </View>
+                </View>
+              </Pressable>
+            );
+          })()}
+
           {/* Promise strip */}
           {store.data && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: SP.md, padding: SP.md, borderRadius: R.lg, backgroundColor: T.brandDim, borderWidth: 1, borderColor: T.brandBorder }}>
@@ -208,11 +242,11 @@ export default function HomeTab({ hPad }: { hPad: number }) {
                   accessibilityRole="button"
                   accessibilityLabel={`${c.name}, ${c.productCount} products`}
                   style={({ pressed }) => ({
-                    width: 120, minHeight: 96, padding: SP.md, borderRadius: R.lg, justifyContent: 'space-between',
+                    width: 128, minHeight: 104, padding: SP.md, borderRadius: R.xl, justifyContent: 'space-between',
                     backgroundColor: pressed ? T.bgInputActive : T.bgInput, borderWidth: 1, borderColor: T.line,
                   })}
                 >
-                  <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: T.brandDim }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: T.brandDim, borderWidth: 1, borderColor: T.brandBorder }}>
                     <Feather name={CATEGORY_ICON[c.slug] ?? 'grid'} size={18} color={T.brand} />
                   </View>
                   <View>
