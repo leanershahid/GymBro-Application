@@ -408,6 +408,12 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ClassBooking>().HasOne(b => b.Tenant).WithMany().HasForeignKey(b => b.TenantId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<OnboardingStep>().HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<OnboardingStep>().HasIndex(s => new { s.UserId, s.StepKey }).IsUnique();
+        // The Creator navigation must use the CreatedBy column the services fill in. Without this EF invents
+        // a separate CreatorId column that is always 0, so every insert failed its foreign key (HTTP 409).
+        modelBuilder.Entity<WorkoutPlan>().HasOne(w => w.Creator).WithMany().HasForeignKey(w => w.CreatedBy).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<WorkoutTemplate>().HasOne(w => w.Creator).WithMany().HasForeignKey(w => w.CreatedBy).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<DietPlan>().HasOne(w => w.Creator).WithMany().HasForeignKey(w => w.CreatedBy).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Exercise>().HasOne(w => w.Creator).WithMany().HasForeignKey(w => w.CreatedBy).OnDelete(DeleteBehavior.SetNull);
         modelBuilder.Entity<WorkoutTemplate>().HasOne(w => w.Tenant).WithMany().HasForeignKey(w => w.TenantId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<WorkoutPlan>().HasOne(w => w.Tenant).WithMany().HasForeignKey(w => w.TenantId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<WorkoutAutomationRule>().HasOne(w => w.Tenant).WithMany().HasForeignKey(w => w.TenantId).OnDelete(DeleteBehavior.Restrict);

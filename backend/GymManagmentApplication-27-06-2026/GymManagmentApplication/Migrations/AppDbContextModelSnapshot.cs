@@ -2980,9 +2980,6 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal>("CreatedBy")
                         .HasColumnType("numeric(20,0)");
 
-                    b.Property<decimal>("CreatorId")
-                        .HasColumnType("numeric(20,0)");
-
                     b.Property<DateOnly?>("EndsOn")
                         .HasColumnType("date");
 
@@ -3021,7 +3018,7 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasIndex("ClientId");
 
-                    b.HasIndex("CreatorId");
+                    b.HasIndex("CreatedBy");
 
                     b.HasIndex("TenantId");
 
@@ -4993,9 +4990,6 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal?>("CreatedBy")
                         .HasColumnType("numeric(20,0)");
 
-                    b.Property<decimal?>("CreatorId")
-                        .HasColumnType("numeric(20,0)");
-
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
@@ -5039,7 +5033,7 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatorId");
+                    b.HasIndex("CreatedBy");
 
                     b.HasIndex("TenantId", "Slug")
                         .IsUnique();
@@ -5720,9 +5714,6 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal>("CreatedBy")
                         .HasColumnType("numeric(20,0)");
 
-                    b.Property<decimal>("CreatorId")
-                        .HasColumnType("numeric(20,0)");
-
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
@@ -5756,7 +5747,7 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatorId");
+                    b.HasIndex("CreatedBy");
 
                     b.HasIndex("TenantId");
 
@@ -5952,9 +5943,6 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal>("CreatedBy")
                         .HasColumnType("numeric(20,0)");
 
-                    b.Property<decimal>("CreatorId")
-                        .HasColumnType("numeric(20,0)");
-
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
@@ -5991,7 +5979,7 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatorId");
+                    b.HasIndex("CreatedBy");
 
                     b.HasIndex("TenantId");
 
@@ -7091,8 +7079,8 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Creator")
                         .WithMany()
-                        .HasForeignKey("CreatorId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
@@ -7829,7 +7817,8 @@ namespace GymManagmentApplication.Migrations
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Creator")
                         .WithMany()
-                        .HasForeignKey("CreatorId");
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
                         .WithMany()
@@ -8156,8 +8145,8 @@ namespace GymManagmentApplication.Migrations
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Creator")
                         .WithMany()
-                        .HasForeignKey("CreatorId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
@@ -8278,8 +8267,8 @@ namespace GymManagmentApplication.Migrations
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Creator")
                         .WithMany()
-                        .HasForeignKey("CreatorId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
