@@ -95,11 +95,20 @@ export const useAddComment = (postId: number) => {
   return useMutation({
     mutationFn: (text: string) => addComment(postId, text),
     onSuccess: c => {
-      // Chronological list: the new comment goes on the last loaded page.
-      qc.setQueryData<Comments>(socialKeys.comments(postId), old => old && {
-        ...old,
-        pages: old.pages.map((pg, i) => (i === old.pages.length - 1
-          ? { ...pg, items: [...pg.items, c], totalRecords: pg.totalRecords + 1 } : { ...pg, totalRecords: pg.totalRecords + 1 })),
+      // Chronological list: the new comment belongs at the very end, so it is only added to the cache
+      // once every page is loaded; otherwise it shows up when the user pages down to it.
+      qc.setQueryData<Comments>(socialKeys.comments(postId), old => {
+        if (!old) return old;
+        const lastPage = old.pages[old.pages.length - 1];
+        const atEnd = lastPage.pageNumber >= lastPage.totalPages;
+        return {
+          ...old,
+          pages: old.pages.map((pg, i) => ({
+            ...pg,
+            items: atEnd && i === old.pages.length - 1 ? [...pg.items, c] : pg.items,
+            totalRecords: pg.totalRecords + 1,
+          })),
+        };
       });
       patchPost(qc, postId, p => ({ ...p, commentCount: p.commentCount + 1, commentsPreview: [...p.commentsPreview, c].slice(-2) }));
     },
