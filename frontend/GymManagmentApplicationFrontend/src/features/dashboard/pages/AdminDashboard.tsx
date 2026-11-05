@@ -1,205 +1,34 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, ScrollView, RefreshControl, Alert } from 'react-native';
+import { View } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
-import { Feather } from '@expo/vector-icons';
-import { T, SP, R } from '../../../theme';
-import { useLayout } from '../../../utils/useLayout';
-import ScreenRoot             from '../../common/components/Screen';
-import LoadingState           from '../../common/components/LoadingState';
-import ActionList, { ActionItem } from '../../common/components/dashboard/ActionList';
-import KpiTile                from '../../common/components/dashboard/KpiTile';
-import BarList                from '../../common/components/dashboard/BarList';
-
-import DashboardHeader        from '../components/Dashboardheader';
-import ProfileSheet           from '../components/ProfileSheet';
-import AdminProfileDetailsPage from './AdminProfileDetailsPage';
-import { useMe }              from '../../auth/api/authQueries';
-import AdminRevenueHero       from '../components/AdminRevenueHero';
-import RevenueTrendCard       from '../components/RevenueTrendCard';
-import QuickAccessGrid        from '../components/QuickAccessGrid';
-import SectionHeader          from '../components/Sectionheader';
-import RecentMemberRow        from '../components/RecentMemberRow';
-import EmptyState             from '../components/EmptyState';
-import { formatInrCompact, formatPct } from '../components/formatInr';
-import { useDashboardStats }  from '../hooks/useDashboardStats';
-import { DashboardData }      from '../types/dashboard';
-import AdminModuleDevelopmentDashboard from './AdminModuleDevelopmentDashboard';
-import MoreActionsPage        from './MoreActionsPage';
+import { T } from '../../../theme';
+import ProfileSheet from '../components/ProfileSheet';
+import MemberPickerSheet from '../components/MemberPickerSheet';
+import QuickCreateSheet from '../components/QuickCreateSheet';
+import { useMe } from '../../auth/api/authQueries';
+import { useDashboardStats } from '../hooks/useDashboardStats';
 import { useVisibleAdminActions } from '../adminActions';
 import { getSession, isSuperAdmin, isAdminRole } from '../../../api/session';
-import { useRoleModuleAccess } from '../../module-access/hooks/useRoleModuleAccess';
 import { useLanding, useMenu } from '../../access/context/AccessContext';
 import { ShellHosted } from '../../access/types/access.types';
-
-// ─── Feature pages ────────────────────────────────────────────────
-import ViewMembersPage   from '../../members/pages/ViewMembersPage';
-import AddMemberPage     from '../../members/pages/AddMemberPage';
-import ViewLeadsPage     from '../../leads/pages/ViewLeadsPage';
-import ViewExercisesPage from '../../exercises/pages/ViewExercisesPage';
-import ViewWorkoutsPage  from '../../workouts/pages/ViewWorkoutsPage';
-import ViewPlansPage     from '../../workouts/pages/ViewPlansPage';
-import ViewBranchesPage  from '../../branches/pages/ViewBranchesPage';
-import AddBranchPage     from '../../branches/pages/AddBranchPage';
-import ViewTenantsPage   from '../../tenants/pages/ViewTenantsPage';
-import AddTenantPage     from '../../tenants/pages/AddTenantPage';
-import ViewTrainersPage  from '../../trainers/pages/ViewTrainersPage';
-import AddTrainerPage    from '../../trainers/pages/AddTrainerPage';
-import ModuleAccessPage  from '../../module-access/pages/ModuleAccessPage';
-import UserAccessListPage from '../../module-access/pages/UserAccessListPage';
-import ChallengesAdminPage    from '../../challenges/pages/ChallengesAdminPage';
-import StatsAdminPage         from '../../health/pages/StatsAdminPage';
-import LiveCoachingAdminPage  from '../../trainers/pages/LiveCoachingAdminPage';
-import AiCoachSettingsPage    from '../../ai-coach/pages/AiCoachSettingsPage';
-import AttendanceSettingsPage from '../../attendance/pages/AttendanceSettingsPage';
-import AttendanceLogPage      from '../../attendance/pages/AttendanceLogPage';
-import MemberDetailPage  from '../../members/pages/MemberDetailPage';
-import EditMemberPage    from '../../members/pages/EditMemberPage';
-import EditBranchPage    from '../../branches/pages/EditBranchPage';
-import EditTenantPage    from '../../tenants/pages/EditTenantPage';
-import AddExercisePage   from '../../exercises/pages/AddExercisePage';
-import AddWorkoutPage    from '../../workouts/pages/AddWorkoutPage';
-import AddPlanPage       from '../../workouts/pages/AddPlanPage';
-import AddLeadPage       from '../../leads/pages/AddLeadPage';
-import RolesPage         from '../../module-access/pages/RolesPage';
-import BillingHomePage   from '../../billing/pages/BillingHomePage';
-import NewInvoicePage    from '../../billing/pages/NewInvoicePage';
-import NewMembershipPage from '../../billing/pages/NewMembershipPage';
-import ClassSchedulePage from '../../classes/pages/ClassSchedulePage';
-import PtSessionsPage    from '../../classes/pages/PtSessionsPage';
-import ShopAdminApp      from '../../shop/admin/ShopAdminApp';
-import SocialApp         from '../../social/SocialApp';
-import MemberPickerSheet from '../components/MemberPickerSheet';
-import QuickCreateSheet, { QuickAction } from '../components/QuickCreateSheet';
-import { useCheckInMember } from '../../attendance/api/attendanceQueries';
-import { useToast } from '../../common/components/Toast';
-import { apiErrorText } from '../../../api/apiError';
-
-type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
-type Screen =
-  | 'home' | 'module-hub'
-  | 'members' | 'add-member' | 'member-detail' | 'edit-member'
-  | 'trainers' | 'add-trainer'
-  | 'branches' | 'add-branch' | 'edit-branch'
-  | 'tenants'  | 'add-tenant' | 'edit-tenant'
-  | 'leads'    | 'add-lead'
-  | 'exercises' | 'add-exercise'
-  | 'workouts'  | 'add-workout'
-  | 'plans'     | 'add-plan'
-  | 'roles'
-  | 'billing' | 'new-invoice' | 'new-membership'
-  | 'classes' | 'pt-sessions'
-  | 'shop'
-  | 'social'
-  | 'module-access'
-  | 'user-access'
-  | 'challenges-admin'
-  | 'stats-admin'
-  | 'live-coaching-admin'
-  | 'ai-coach-admin'
-  | 'attendance'
-  | 'attendance-log' | 'attendance-settings'
-  | 'more-actions'
-  | 'profile-details';
-
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-/** "Today" — things that need the admin's attention, built only from live dashboard data. */
-function buildTodayItems({ stats, branches, recentMembers }: DashboardData, go: (s: Screen) => void): ActionItem[] {
-  const items: ActionItem[] = [];
-
-  if (stats.newSignupsToday > 0) items.push({
-    key: 'signups', icon: 'user-plus', tone: 'brand', badge: 'Today',
-    title: plural(stats.newSignupsToday, 'new sign-up', 'new sign-ups'),
-    subtitle: 'Assign a trainer',
-    onPress: () => go('members'),
-  });
-
-  const pending = recentMembers.filter(m => m.status?.toLowerCase() === 'pending');
-  if (pending.length > 0) items.push({
-    key: 'pending', icon: 'clock', tone: 'warn', badge: `${pending.length}`,
-    title: `${plural(pending.length, 'member', 'members')} pending`,
-    subtitle: pending.map(m => m.name).join(', '),
-    onPress: () => go('members'),
-  });
-
-  const closed = branches.filter(b => !b.isOpen);
-  if (closed.length > 0) items.push({
-    key: 'closed', icon: 'alert-triangle', tone: 'err', badge: `${closed.length}`,
-    title: `${plural(closed.length, 'branch', 'branches')} closed`,
-    subtitle: closed.map(b => b.name).join(', '),
-    onPress: () => go('branches'),
-  });
-
-  if (stats.totalTrainers > 0) items.push({
-    key: 'trainers', icon: 'activity', tone: stats.trainersOnline === 0 ? 'warn' : 'info',
-    badge: `${stats.trainersOnline} of ${stats.totalTrainers}`,
-    title: 'Trainers online',
-    subtitle: stats.trainersOnline === 0 ? 'None on the floor now' : 'On the floor now',
-    onPress: () => go('trainers'),
-  });
-
-  if (stats.membersNeedingTrainer > 0) items.push({
-    key: 'needs-trainer', icon: 'user-x', tone: 'err', badge: `${stats.membersNeedingTrainer}`,
-    title: plural(stats.membersNeedingTrainer, 'member needs', 'members need') + ' a new trainer',
-    subtitle: 'Their trainer was removed or deactivated',
-    onPress: () => go('members'),
-  });
-
-  if (stats.totalMembers > 0) items.push({
-    key: 'members-present', icon: 'users', tone: stats.membersPresent === 0 ? 'warn' : 'info',
-    badge: `${stats.membersPresent} of ${stats.totalMembers}`,
-    title: 'Members checked in',
-    subtitle: stats.membersPresent === 0 ? 'No one on the floor now' : 'On the floor now',
-    onPress: () => go('attendance-log'),
-  });
-
-  return items;
-}
-
-/** Shown instead of a page when the signed-in user's own module access doesn't grant it. */
-function NoModuleAccess({ onBack }: { onBack: () => void }) {
-  return (
-    <ScreenRoot style={{ justifyContent: 'center' }}>
-      <EmptyState
-        icon="lock"
-        tone="error"
-        title="No access"
-        subtitle="Your account doesn't have access to this module. Ask an admin to grant it."
-        action={{ label: 'Go back', onPress: onBack }}
-      />
-    </ScreenRoot>
-  );
-}
-
-const SECTION = SP.xxl; // 28px between home sections
-
-/** Screens reached from inside another module's page — open only when that module is granted. */
-const OWNER_ROUTE: Partial<Record<Screen, string>> = {
-  'add-member': 'members', 'member-detail': 'members', 'edit-member': 'members', 'new-membership': 'members',
-  'add-trainer': 'trainers',
-  'add-branch': 'branches', 'edit-branch': 'branches',
-  'add-tenant': 'tenants', 'edit-tenant': 'tenants',
-  'add-lead': 'leads',
-  'add-exercise': 'exercises',
-  'add-workout': 'workouts',
-  'add-plan': 'plans',
-  'new-invoice': 'billing',
-  'module-access': 'roles',
-  'attendance-log': 'attendance', 'attendance-settings': 'attendance',
-};
-/** Always open, whatever the access list says. */
-const ALWAYS_OPEN = new Set<Screen>(['more-actions', 'profile-details']);
-const ownerOf = (screen: Screen) => OWNER_ROUTE[screen] ?? screen;
+import { AdminScreen, ALWAYS_OPEN, ownerOf } from '../admin/adminRoutes';
+import { useAdminAccess } from '../admin/useAdminAccess';
+import { useFrontDesk } from '../admin/useFrontDesk';
+import { renderAdminScreen } from '../admin/AdminRouter';
+import AdminHome from '../admin/AdminHome';
+import NoModuleAccess from '../admin/NoModuleAccess';
 
 interface AdminDashboardProps extends ShellHosted { adminName?: string; onLogout?: () => void; }
 
 /**
  * The admin screens. The app shell (AppShell) hosts them and owns the tab bar; which screens open
- * comes from the access list.
+ * comes from the access list. The route table lives in ../admin/AdminRouter, the home screen in
+ * ../admin/AdminHome and the front-desk tools in ../admin/useFrontDesk (ARCH-059).
  */
 export default function AdminDashboard({ adminName = 'Admin', onLogout, open: openRequest, onRouteChange }: AdminDashboardProps) {
   const { routes } = useMenu();
-  const landing = useLanding('home', 'more-actions') as Screen;
+  const landing = useLanding('home', 'more-actions') as AdminScreen;
   const { data, loading, refreshing, error, refresh } = useDashboardStats(routes.has('home'));
   const actions = useVisibleAdminActions();
   const role = getSession()?.role;
@@ -209,208 +38,55 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout, open: op
   const displayName = me ? `${me.firstName} ${me.lastName}`.trim() || adminName : adminName;
   const [profileOpen, setProfileOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
-  const confirmLogout = onLogout && (() => Alert.alert('Log out', 'Are you sure you want to log out?', [
+  const confirmLogout = onLogout && (() => showAlert('Log out', 'Are you sure you want to log out?', [
     { text: 'Cancel', style: 'cancel' },
     { text: 'Log out', style: 'destructive', onPress: onLogout },
   ]));
-  const [screen, setScreen] = useState<Screen>((openRequest?.route ?? landing) as Screen);
+  const [screen, setScreen] = useState<AdminScreen>((openRequest?.route ?? landing) as AdminScreen);
   // Record the current detail/edit screen is about (member, branch, tenant, role).
   const [selectedId, setSelectedId] = useState<number>(0);
-  const canOpen = (s: Screen) => ALWAYS_OPEN.has(s) || routes.has(ownerOf(s));
-  const { tileW } = useLayout();
-  const kpiW = tileW(2, 12);
+  const canOpen = (s: AdminScreen) => ALWAYS_OPEN.has(s) || routes.has(ownerOf(s));
 
-  // Every module's view/create flags come from the signed-in user's access list (their role
-  // grants plus their own overrides), so it works dynamically for every role.
-  const members  = useRoleModuleAccess('members');
-  const trainers = useRoleModuleAccess('trainers');
-  const branches = useRoleModuleAccess('branches');
-  const tenants  = useRoleModuleAccess('tenants');
-  const attendance = useRoleModuleAccess('attendance');
-  const leads    = useRoleModuleAccess('leads');
-  const exercises = useRoleModuleAccess('exercises');
-  const workouts  = useRoleModuleAccess('workouts');
-  const plans     = useRoleModuleAccess('plans');
-  const roles     = useRoleModuleAccess('roles');
-  const billingAccess = useRoleModuleAccess('billing');
-  const classesAccess = useRoleModuleAccess('classes');
-  const ptAccess      = useRoleModuleAccess('pt-sessions');
-  const canViewMembers  = members.canView;
-  const canViewTrainers = trainers.canView;
-  const canViewBranches = branches.canView;
-  const canAddMember    = members.canCreate;
-  const canAddTrainer   = trainers.canCreate;
-  const canAddBranch    = branches.canCreate;
-  const canViewTenants  = tenants.canView;
-  const canAddTenant    = tenants.canCreate;
-  const canViewAttendance = attendance.canView;
-  const canViewLeads    = leads.canView;
+  const access = useAdminAccess();
 
-  // Front-desk tools: member search, quick actions, check-in.
-  type PickFor = 'search' | 'check-in' | 'sell' | 'invoice';
-  const [pickFor, setPickFor] = useState<PickFor | null>(null);
-  const [quickOpen, setQuickOpen] = useState(false);
-  const [invoiceFor, setInvoiceFor] = useState<number | null>(null);
-  const [sellName, setSellName] = useState<string | undefined>(undefined);
-  const checkIn = useCheckInMember();
-  const { show: showToast } = useToast();
-
-  const checkInMember = (userId: number) => checkIn.mutate(userId, {
-    onSuccess: (r) => showToast({ type: r.success ? 'success' : 'error', message: r.message }),
-    onError: (e) => showToast({ type: 'error', message: apiErrorText(e) }),
-  });
-
-  const go = useCallback((s: Screen) => setScreen(s), []);
-  const open = useCallback((s: Screen, id: number) => { setSelectedId(id); setScreen(s); }, []);
+  const go = useCallback((s: AdminScreen) => setScreen(s), []);
+  const open = useCallback((s: AdminScreen, id: number) => { setSelectedId(id); setScreen(s); }, []);
   const goHome = useCallback(() => setScreen(landing), [landing]);
 
-  useEffect(() => { if (openRequest) go(openRequest.route as Screen); }, [openRequest, go]);
+  const desk = useFrontDesk(access, go, open);
 
-  const onPicked = (m: { id: number; firstName: string; lastName: string }) => {
-    const name = `${m.firstName} ${m.lastName}`.trim();
-    const purpose = pickFor;
-    if (purpose === 'check-in') { checkInMember(m.id); setPickFor(null); return; }
-    setPickFor(null);
-    if (purpose === 'search') open('member-detail', m.id);
-    if (purpose === 'sell') { setSellName(name); open('new-membership', m.id); }
-    if (purpose === 'invoice') { setInvoiceFor(m.id); go('new-invoice'); }
-  };
-
-  // Everyday actions for the "+" button — each only with the matching create permission.
-  const quickActions: QuickAction[] = [
-    attendance.canCreate && { key: 'check-in', label: 'Check in a member', hint: 'Record a visit at the front desk', icon: 'log-in', onPress: () => setPickFor('check-in') },
-    canAddMember && { key: 'add-member', label: 'Add member', hint: 'Create a new member profile', icon: 'user-plus', onPress: () => go('add-member') },
-    billingAccess.canCreate && { key: 'sell', label: 'Sell membership', hint: 'Pick a member, then a plan', icon: 'award', onPress: () => setPickFor('sell') },
-    billingAccess.canCreate && { key: 'invoice', label: 'New invoice', hint: 'Bill a member for anything', icon: 'file-plus', onPress: () => setPickFor('invoice') },
-    ptAccess.canCreate && { key: 'pt', label: 'Book PT session', hint: 'Schedule personal training', icon: 'clock', onPress: () => go('pt-sessions') },
-    leads.canCreate && { key: 'lead', label: 'Add lead', hint: 'Log a walk-in or enquiry', icon: 'target', onPress: () => go('add-lead') },
-  ].filter(Boolean) as QuickAction[];
+  useEffect(() => { if (openRequest) go(openRequest.route as AdminScreen); }, [openRequest, go]);
   // A detail or add screen reports the module it belongs to, so that module's tab stays lit.
   useEffect(() => { onRouteChange?.(ownerOf(screen)); }, [screen]);
 
-  // ── Sub-page routing — rendered above the persistent bottom nav ──
-  const subPage = (() => {
-    // Only screens of granted modules (and their own sub-screens) open — even when reached some other way.
-    if (!canOpen(screen)) return <NoModuleAccess onBack={goHome} />;
-    if (screen === 'home') return null;
-    if (screen === 'module-hub')  return <AdminModuleDevelopmentDashboard onBack={goHome} onNavigate={(k) => go(k as Screen)} stats={data?.stats} />;
-    if (screen === 'members') return canViewMembers
-      ? <ViewMembersPage onBack={goHome} onAddMember={canAddMember ? () => go('add-member') : undefined} onOpenMember={(id) => open('member-detail', id)} />
-      : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'member-detail') return canViewMembers
-      ? <MemberDetailPage memberId={selectedId} onBack={() => go('members')} canEdit={members.canEdit}
-          onEdit={members.canEdit ? () => go('edit-member') : undefined}
-          onNewMembership={billingAccess.canCreate ? () => { setSellName(undefined); go('new-membership'); } : undefined}
-          onNewInvoice={billingAccess.canCreate ? () => { setInvoiceFor(selectedId); go('new-invoice'); } : undefined}
-          onCheckIn={attendance.canCreate ? () => checkInMember(selectedId) : undefined}
-          checkingIn={checkIn.isPending} />
-      : <NoModuleAccess onBack={() => go('members')} />;
-    if (screen === 'edit-member') return members.canEdit
-      ? <EditMemberPage memberId={selectedId} onBack={() => go('member-detail')} onSaved={() => go('member-detail')} />
-      : <NoModuleAccess onBack={() => go('member-detail')} />;
-    if (screen === 'add-member') return canAddMember
-      ? <AddMemberPage onBack={() => go('members')}
-          onOpenMember={(id) => open('member-detail', id)}
-          onSellMembership={billingAccess.canCreate ? (id, name) => { setSellName(name); open('new-membership', id); } : undefined} />
-      : <NoModuleAccess onBack={() => go('members')} />;
-    if (screen === 'trainers') return canViewTrainers
-      ? <ViewTrainersPage onBack={goHome} onAddTrainer={canAddTrainer ? () => go('add-trainer') : undefined} />
-      : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'add-trainer') return canAddTrainer
-      ? <AddTrainerPage onBack={() => go('trainers')} />
-      : <NoModuleAccess onBack={() => go('trainers')} />;
-    if (screen === 'branches') return canViewBranches
-      ? <ViewBranchesPage onBack={goHome} onAddBranch={canAddBranch ? () => go('add-branch') : undefined}
-          onEditBranch={branches.canEdit ? (id) => open('edit-branch', id) : undefined} />
-      : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'edit-branch') return branches.canEdit
-      ? <EditBranchPage branchId={selectedId} onBack={() => go('branches')} onSaved={() => go('branches')} />
-      : <NoModuleAccess onBack={() => go('branches')} />;
-    if (screen === 'add-branch') return canAddBranch
-      ? <AddBranchPage onBack={() => go('branches')} />
-      : <NoModuleAccess onBack={() => go('branches')} />;
-    if (screen === 'tenants') return canViewTenants
-      ? <ViewTenantsPage onBack={goHome} onAddTenant={canAddTenant ? () => go('add-tenant') : undefined}
-          onEditTenant={tenants.canEdit ? (id) => open('edit-tenant', id) : undefined} />
-      : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'edit-tenant') return tenants.canEdit
-      ? <EditTenantPage tenantId={selectedId} onBack={() => go('tenants')} onSaved={() => go('tenants')} />
-      : <NoModuleAccess onBack={() => go('tenants')} />;
-    if (screen === 'add-tenant') return canAddTenant
-      ? <AddTenantPage onBack={() => go('tenants')} />
-      : <NoModuleAccess onBack={() => go('tenants')} />;
-    if (screen === 'leads') return canViewLeads
-      ? <ViewLeadsPage onBack={goHome} onAddLead={leads.canCreate ? () => go('add-lead') : undefined} />
-      : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'add-lead') return leads.canCreate
-      ? <AddLeadPage onBack={() => go('leads')} />
-      : <NoModuleAccess onBack={() => go('leads')} />;
-    // Exercises/workouts/plans are gated here too, not only by hiding their tiles.
-    if (screen === 'exercises') return exercises.canView
-      ? <ViewExercisesPage onBack={goHome} onAddExercise={exercises.canCreate ? () => go('add-exercise') : undefined} />
-      : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'add-exercise') return exercises.canCreate
-      ? <AddExercisePage onBack={() => go('exercises')} />
-      : <NoModuleAccess onBack={() => go('exercises')} />;
-    if (screen === 'workouts') return workouts.canView
-      ? <ViewWorkoutsPage onBack={goHome} onAddWorkout={workouts.canCreate ? () => go('add-workout') : undefined} />
-      : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'add-workout') return workouts.canCreate
-      ? <AddWorkoutPage onBack={() => go('workouts')} />
-      : <NoModuleAccess onBack={() => go('workouts')} />;
-    if (screen === 'plans') return plans.canView
-      ? <ViewPlansPage onBack={goHome} onAddPlan={plans.canCreate ? () => go('add-plan') : undefined} />
-      : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'add-plan') return plans.canCreate
-      ? <AddPlanPage onBack={() => go('plans')} />
-      : <NoModuleAccess onBack={() => go('plans')} />;
-    if (screen === 'shop') return <ShopAdminApp onBack={goHome} />;
-    if (screen === 'social') return <SocialApp onBack={goHome} />;
-    if (screen === 'classes') return classesAccess.canView
-      ? <ClassSchedulePage mode="admin" onBack={goHome} />
-      : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'pt-sessions') return ptAccess.canView
-      ? <PtSessionsPage mode="admin" onBack={goHome} />
-      : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'billing') return billingAccess.canView
-      ? <BillingHomePage onBack={goHome} onOpenMember={canViewMembers ? (id) => open('member-detail', id) : undefined}
-          onNewInvoice={billingAccess.canCreate ? () => { setInvoiceFor(null); go('new-invoice'); } : undefined} />
-      : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'new-invoice') return billingAccess.canCreate
-      ? <NewInvoicePage key={invoiceFor ?? 0} memberId={invoiceFor ?? undefined} onBack={() => go(invoiceFor ? 'member-detail' : 'billing')} />
-      : <NoModuleAccess onBack={() => go('billing')} />;
-    if (screen === 'new-membership') return billingAccess.canCreate
-      ? <NewMembershipPage memberId={selectedId} memberName={sellName} onBack={() => go('member-detail')} />
-      : <NoModuleAccess onBack={() => go('member-detail')} />;
-    if (screen === 'roles') return roles.canView
-      ? <RolesPage onBack={goHome} onOpenRoleAccess={(id) => open('module-access', id)} />
-      : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'module-access') return roles.canView
-      ? <ModuleAccessPage onBack={() => go('roles')} initialRoleId={selectedId || undefined} />
-      : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'user-access')   return <UserAccessListPage onBack={goHome} />;
-    if (screen === 'challenges-admin')   return <ChallengesAdminPage   onBack={goHome} />;
-    if (screen === 'stats-admin')        return <StatsAdminPage        onBack={goHome} />;
-    if (screen === 'live-coaching-admin') return <LiveCoachingAdminPage onBack={goHome} />;
-    if (screen === 'ai-coach-admin')     return <AiCoachSettingsPage   onBack={goHome} />;
-    if (screen === 'attendance') return canViewAttendance
-      ? <AttendanceLogPage onBack={goHome}
-          onCheckIn={attendance.canCreate ? () => setPickFor('check-in') : undefined}
-          onOpenSettings={attendance.canEdit ? () => go('attendance-settings') : undefined}
-          onOpenMember={canViewMembers ? (id) => open('member-detail', id) : undefined} />
-      : <NoModuleAccess onBack={goHome} />;
-    if (screen === 'attendance-log')      return <AttendanceLogPage onBack={goHome} onOpenMember={canViewMembers ? (id) => open('member-detail', id) : undefined} />;
-    if (screen === 'attendance-settings') return <AttendanceSettingsPage onBack={() => go('attendance')} onOpenLog={() => go('attendance')} />;
-    if (screen === 'more-actions')       return <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as Screen)} onLogout={confirmLogout} />;
-    if (screen === 'profile-details')    return <AdminProfileDetailsPage onBack={goHome} roleLabel={roleLabel} />;
-    return null;
-  })();
+  // Sub-page routing — only screens of granted modules (and their own sub-screens) open,
+  // even when reached some other way.
+  const subPage = !canOpen(screen)
+    ? <NoModuleAccess onBack={goHome} />
+    : renderAdminScreen(screen, { access, desk, selectedId, go, open, goHome, roleLabel, confirmLogout });
 
-  // ── Loading / Error states ─────────────────────────────────────
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
       <View style={{ flex: 1 }}>
-        {subPage ?? renderHome()}
+        {subPage ?? (
+          <AdminHome
+            data={data}
+            loading={loading}
+            refreshing={refreshing}
+            error={error}
+            refresh={refresh}
+            displayName={displayName}
+            avatarUrl={me?.avatarUrl ?? undefined}
+            roleLabel={roleLabel}
+            superAdmin={superAdmin}
+            actions={actions}
+            onPressAvatar={() => setProfileOpen(true)}
+            onSearch={access.members.canView ? () => desk.setPickFor('search') : undefined}
+            onQuickCreate={desk.quickActions.length > 0 ? () => desk.setQuickOpen(true) : undefined}
+            go={go}
+            open={open}
+          />
+        )}
       </View>
       <ProfileSheet
         visible={profileOpen}
@@ -424,176 +100,14 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout, open: op
         onChangePassword={() => { setProfileOpen(false); setPwOpen(true); }}
       />
       <MemberPickerSheet
-        visible={pickFor !== null}
-        title={pickFor === 'check-in' ? 'Check in a member' : pickFor === 'sell' ? 'Sell membership to…' : pickFor === 'invoice' ? 'Invoice for…' : 'Find a member'}
-        onClose={() => setPickFor(null)}
-        onPick={onPicked}
-        busyId={checkIn.isPending ? checkIn.variables ?? null : null}
+        visible={desk.pickFor !== null}
+        title={desk.pickerTitle}
+        onClose={() => desk.setPickFor(null)}
+        onPick={desk.onPicked}
+        busyId={desk.checkIn.isPending ? desk.checkIn.variables ?? null : null}
       />
-      <QuickCreateSheet visible={quickOpen} actions={quickActions} onClose={() => setQuickOpen(false)} />
+      <QuickCreateSheet visible={desk.quickOpen} actions={desk.quickActions} onClose={() => desk.setQuickOpen(false)} />
       <ChangePasswordSheet visible={pwOpen} onClose={() => setPwOpen(false)} onChanged={() => onLogout?.()} />
     </View>
   );
-
-  function renderHome() {
-  if (loading && !data) return <LoadingState fullScreen label="Loading dashboard" />;
-
-  if (error && !data) return (
-    <ScreenRoot style={{ justifyContent: 'center' }}>
-      <EmptyState
-        icon="alert-triangle"
-        tone="error"
-        title="Something went wrong"
-        subtitle={error}
-        action={{ label: 'Try again', onPress: refresh }}
-      />
-    </ScreenRoot>
-  );
-
-  if (!data) return null;
-
-  const { stats, revenueTrend, branches, recentMembers } = data;
-  const todayItems = buildTodayItems(data, go);
-
-  const closedCount = branches.filter(b => !b.isOpen).length;
-  const openBranches = branches.filter(b => b.isOpen);
-  const avgOccupancy = openBranches.length
-    ? Math.round(openBranches.reduce((sum, b) => sum + b.occupancyPct, 0) / openBranches.length)
-    : 0;
-
-  const branchRows = [...branches]
-    .sort((a, b) => b.revenue - a.revenue)
-    .map(b => ({
-      key: b.id,
-      label: b.name,
-      value: b.revenue,
-      display: formatInrCompact(b.revenue),
-      hint: [b.city, `${b.memberCount.toLocaleString('en-IN')} members`, b.isOpen ? `${b.occupancyPct}% full` : 'Closed']
-        .filter(Boolean).join(' · '),
-    }));
-
-  return (
-    <ScreenRoot>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: SP.xl, paddingBottom: 32 }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={T.brand} colors={[T.brand]} />}
-      >
-        {/* 1. Header — greeting, name, role */}
-        <View style={{ paddingTop: SP.lg, marginBottom: 24 }}>
-          <DashboardHeader
-            adminName={displayName}
-            avatarUrl={me?.avatarUrl ?? undefined}
-            roleLabel={roleLabel}
-            onPressAvatar={() => setProfileOpen(true)}
-            onSearch={canViewMembers ? () => setPickFor('search') : undefined}
-            onQuickCreate={quickActions.length > 0 ? () => setQuickOpen(true) : undefined}
-          />
-        </View>
-
-        {/* 2. Today — action-first: what needs doing before any statistics */}
-        {todayItems.length > 0 && (
-          <View style={{ marginBottom: SECTION }}>
-            <SectionHeader title="Today" />
-            <ActionList items={todayItems} />
-          </View>
-        )}
-
-        {/* Shortcuts — the first eight modules; "All" lists every one. */}
-        {actions.length > 0 && (
-          <View style={{ marginBottom: SECTION }}>
-            <SectionHeader title="Shortcuts" actionLabel={actions.length > 8 ? 'All' : undefined}
-              onPressAction={actions.length > 8 ? () => go('more-actions') : undefined} />
-            <QuickAccessGrid actions={actions.slice(0, 8)} onPress={(s) => go(s as Screen)} />
-          </View>
-        )}
-
-        {/* 3. Hero — the one key number: revenue this month */}
-        <View style={{ marginBottom: SECTION }}>
-          <AdminRevenueHero
-            totalRevenue={stats.totalRevenue}
-            growthPct={stats.revenueGrowthPct}
-            activeBranches={stats.activeBranches}
-            trend={revenueTrend}
-          />
-        </View>
-
-        {/* 4. KPI grid */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: SECTION }}>
-          <KpiTile
-            width={kpiW} icon="users" label="Members"
-            value={stats.totalMembers.toLocaleString('en-IN')}
-            delta={{ label: formatPct(stats.memberGrowthPct), positive: stats.memberGrowthPct >= 0 }}
-            hint={`${stats.membersPresent} checked in now`}
-            onPress={() => go('members')}
-          />
-          <KpiTile
-            width={kpiW} icon="map-pin" label="Active branches"
-            value={`${stats.activeBranches}/${stats.totalBranches}`}
-            hint={closedCount > 0 ? `${closedCount} closed` : 'All open'}
-            accent={closedCount > 0 ? T.brandGold : T.brand}
-            onPress={() => go('branches')}
-          />
-          <KpiTile
-            width={kpiW} icon="award" label="Trainers"
-            value={stats.totalTrainers.toLocaleString('en-IN')}
-            hint={`${stats.trainersOnline} online`}
-            accent={T.sky}
-            onPress={() => go('trainers')}
-          />
-          {superAdmin ? (
-            <KpiTile
-              width={kpiW} icon="briefcase" label="Gyms"
-              value={stats.totalTenants.toLocaleString('en-IN')}
-              hint="On the platform"
-              accent={T.violet}
-              onPress={() => go('tenants')}
-            />
-          ) : (
-            <KpiTile
-              width={kpiW} icon="pie-chart" label="Avg occupancy"
-              value={openBranches.length ? `${avgOccupancy}%` : '—'}
-              hint={`Across ${openBranches.length} open ${openBranches.length === 1 ? 'branch' : 'branches'}`}
-              accent={T.violet}
-              onPress={() => go('branches')}
-            />
-          )}
-        </View>
-
-        {/* 5. Revenue trend — history, average and best month (the hero has the total) */}
-        {revenueTrend.length > 1 && (
-          <View style={{ marginBottom: SECTION }}>
-            <SectionHeader title="Revenue trend" />
-            <RevenueTrendCard trend={revenueTrend} />
-          </View>
-        )}
-
-        {/* 6. Branch performance — ranked by revenue */}
-        <View style={{ marginBottom: SECTION }}>
-          <SectionHeader title="Branch performance" onPressAction={() => go('branches')} />
-          {branches.length === 0 ? (
-            <EmptyState icon="map-pin" title="No branches yet" subtitle="Add your first branch to see performance here." />
-          ) : (
-            <View style={{ borderRadius: R.lg, padding: SP.lg, backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line }}>
-              <BarList rows={branchRows} />
-            </View>
-          )}
-        </View>
-
-        {/* 8. Recent sign-ups */}
-        <View style={{ marginBottom: 24 }}>
-          <SectionHeader title="Recent sign-ups" onPressAction={() => go('members')} />
-          {recentMembers.length === 0 ? (
-            <EmptyState icon="user-plus" title="No sign-ups yet" subtitle="New members will show up here as they join." />
-          ) : (
-            recentMembers.map((member) => (
-              <RecentMemberRow key={member.id} member={member} onPress={() => Number(member.id) > 0 ? open('member-detail', Number(member.id)) : go('members')} />
-            ))
-          )}
-        </View>
-      </ScrollView>
-    </ScreenRoot>
-  );
-  }
 }

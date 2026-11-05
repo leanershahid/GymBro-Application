@@ -1,0 +1,34 @@
+{
+  "bg": "#0A0F0A",
+  "bgPanel": "#0A0F0A",
+  "bgNav": "#111111",
+  "bgInput": "#151915",
+  "bgInputActive": "#1C211C",
+
+  "line": "#242B24",
+  "lineSubtle": "#151915",
+  "lineBright": "#7ED321",
+
+  "text": "#FFFFFF",
+  "textSub": "#AAB2AA",
+  "textFaint": "#6B726B",
+  "textDisabled": "#454B45",
+
+  "brand": "#7ED321",
+  "brandDark": "#5FA317",
+  "brandGold": "#FFC107",
+  "onBrand": "#000000",
+
+  "logoLime": "#D4ED35",
+  "logoDeep": "#7B990B",
+
+  "shadow": "#000000",
+  "black": "#000000",
+
+  "ok": "#22C55E",
+  "err": "#EF4444",
+
+  "rose": "#FF4D6D",
+  "sky": "#4DA6FF",
+  "violet": "#9B7EF0"
+}

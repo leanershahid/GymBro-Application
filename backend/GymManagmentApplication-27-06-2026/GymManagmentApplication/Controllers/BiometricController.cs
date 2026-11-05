@@ -69,6 +69,6 @@ public class BiometricController(
         var v = await verifyFpValidator.ValidateAsync(request);
         if (!v.IsValid) return BadRequest(ApiResponse<object>.Fail("Validation failed.", v.Errors.Select(e => e.ErrorMessage).ToList()));
         var result = await service.VerifyFingerprintAsync(request);
-        return result.Verified ? Ok(ApiResponse<object>.Ok(result, "Fingerprint verified.")) : Unauthorized(ApiResponse<object>.Fail("Fingerprint verification failed."));
+        return result.Verified ? Ok(ApiResponse<object>.Ok(result, "Fingerprint verified.")) : StatusCode(501, ApiResponse<object>.Fail(result.Message ?? "Fingerprint verification failed."));
     }
 }

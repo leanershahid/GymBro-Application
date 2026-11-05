@@ -117,9 +117,6 @@ public class MembershipPlanService(AppDbContext db, ICurrentUser currentUser) : 
         };
     }
 
-    private async Task<ulong> NextIdAsync() =>
-        (await db.MembershipPlans.IgnoreQueryFilters().MaxAsync(p => (ulong?)p.Id) ?? 0) + 1;
-
     /// <summary>"monthly", "quarterly", "half-yearly", "annual"/"yearly", "weekly", "daily", "one-time".</summary>
     public static BillingCycle ParseCycle(string? value) =>
         (value ?? "monthly").Trim().ToLowerInvariant().Replace("-", "").Replace("_", "").Replace(" ", "") switch

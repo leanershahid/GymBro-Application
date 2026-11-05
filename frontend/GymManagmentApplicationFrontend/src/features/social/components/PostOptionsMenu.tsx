@@ -22,7 +22,7 @@ interface Props {
 }
 
 /**
- * The "···" button of a post or comment. Alert.alert does nothing on web, so the choice list and the
+ * The "···" button of a post or comment. native alerts do not render on web, so the choice list and the
  * delete confirmation are both sheets, which work the same on every platform.
  */
 export default function PostOptionsMenu({ title, actions, accessibilityLabel, size = 20 }: Props) {

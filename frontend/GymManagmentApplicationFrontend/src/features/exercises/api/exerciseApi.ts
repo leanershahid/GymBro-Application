@@ -15,6 +15,17 @@ export const fetchExercises = async (pageNumber = 1, pageSize = 20): Promise<Exe
   return data;
 };
 
+/**
+ * Exercise library page filtered by tag/category, for pickers (program builder, member Train tab).
+ * Sends `tag` for when the server honours it; callers may still filter client-side.
+ */
+export const fetchExerciseLibrary = async (pageNumber = 1, pageSize = 20, tag?: string): Promise<ExerciseListResponse> => {
+  const { data } = await axiosInstance.get<ExerciseListResponse>(ENDPOINTS.EXERCISES, {
+    params: { pageNumber, pageSize, tag: tag || undefined },
+  });
+  return data;
+};
+
 export const fetchExercise = async (id: number): Promise<ApiResponse<Exercise>> => {
   const { data } = await axiosInstance.get<ApiResponse<Exercise>>(`${ENDPOINTS.EXERCISES}/${id}`);
   return data;
@@ -26,7 +37,7 @@ export const fetchMuscles = async (): Promise<ApiResponse<MuscleGroup[]>> => {
 };
 
 export const createExercise = async (payload: ExercisePayload): Promise<ExerciseCreateResponse> => {
-  const { data } = await axiosInstance.post<ExerciseCreateResponse>(ENDPOINTS.ADD_EXERCISE, payload);
+  const { data } = await axiosInstance.post<ExerciseCreateResponse>(ENDPOINTS.EXERCISES, payload);
   return data;
 };
 

@@ -1,3 +1,10 @@
+// Shared React Query keys (ARCH-120). Convention:
+//  - every feature owns a unique first element (its "root"), so invalidating one feature never
+//    refetches another's cache by accident;
+//  - list/detail keys extend the root (`[...root, 'detail', id]`), and invalidation uses the root
+//    or a `*All` prefix from here — never an inline string literal;
+//  - features with many keys (shop, social, billing, classes…) keep a local `K` factory in their
+//    *Queries.ts, following the same rule.
 export const queryKeys = {
   auth:       { me: ['auth-me'] as const },
   dashboard:  { overview: ['dashboard', 'overview'] as const },
@@ -13,7 +20,9 @@ export const queryKeys = {
   attendance: {
     settings: ['attendance-settings'] as const,
     myStatus: ['attendance-me-status'] as const,
+    myHistoryAll: ['attendance-me'] as const,
     myHistory: (days: number) => ['attendance-me', days] as const,
+    logAll:   ['attendance-log'] as const,
     log:      (date?: string, branchId?: number) => ['attendance-log', date, branchId] as const,
   },
   trainers:   { all: ['trainers']   as const },
@@ -37,7 +46,7 @@ export const queryKeys = {
     documents:  (id: number) => ['member-docs', id]      as const,
     workouts:   (id: number, p: number) => ['member-workouts', id, p] as const,
     workout:    (id: number) => ['workout-detail', id]   as const,
-    exercises:  (p: number, tag?: string) => ['exercises', p, tag]    as const,
+    exercises:  (p: number, tag?: string) => ['member-exercises', p, tag] as const, // not the admin ['exercises'] root
     plans:      (p: number) => ['member-plans', p]       as const,
   },
   trainerApp: {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Pressable, Alert } from 'react-native';
+import { View, Text, FlatList, Pressable,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { usePlans, usePlan, useDeletePlan } from '../api/workoutQueries';
 import { WorkoutPlan } from '../types/workout.types';
 import Screen from '../../common/components/Screen';
@@ -8,10 +9,10 @@ import StatusPill from '../../common/components/StatusPill';
 import { difficultyTone, goalTone } from '../../common/constants/statusColors';
 import PaginationFooter from '../../common/components/PaginationFooter';
 import Skeleton from '../../common/components/Skeleton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import StatsStrip from '../../common/StatsStrip';
 import DetailSheet, { fmtDate } from '../../exercises/components/DetailSheet';
-import { humanize } from '../../exercises/components/ChipSelect';
+import { humanize } from '../../common/components/ChipSelect';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import { useToast } from '../../common/components/Toast';
 import { apiErrorText } from '../../../api/apiError';
@@ -81,12 +82,12 @@ export default function ViewPlansPage({ onBack, onAddPlan, onOpenPlan }: Props) 
   const handleOpen = (id: number) => (onOpenPlan ? onOpenPlan(id) : setOpenId(id));
 
   const handleDelete = (id: number, name: string) => {
-    Alert.alert('Delete Plan', `Delete "${name}"? This cannot be undone.`, [
+    showAlert('Delete Plan', `Delete "${name}"? This cannot be undone.`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () =>
         del(id, {
           onSuccess: () => { setOpenId(null); toast.show({ type: 'success', message: 'Plan deleted.' }); },
-          onError: (e) => Alert.alert('Delete failed', apiErrorText(e)),
+          onError: (e) => showAlert('Delete failed', apiErrorText(e)),
         })
       },
     ]);

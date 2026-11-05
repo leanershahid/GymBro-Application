@@ -1,5 +1,6 @@
 import axiosInstance from '../../../api/axios';
 import { ApiResponse } from '../../../api/types';
+import { unwrap } from '../../../api/http';
 import {
   Paged, ShopSettings, ShopCategory, ShopProductCard, ShopProductDetail, ShopProductQuery, ShopFilters, ShopSuggest,
   ShopReview, ShopReviewSummary, ShopWishlist, ShopCart, ShopCouponCheck, ShopQuote, ShopDeliveryMethod,
@@ -8,11 +9,6 @@ import {
 
 // The member side of the shop (/api/shop). Every call returns the ApiResponse envelope; these
 // return its `data`, or throw the envelope's message so React Query surfaces it as an error.
-
-function unwrap<T>(res: ApiResponse<T>): T {
-  if (!res.success) throw new Error(res.errors?.length ? `${res.message}\n• ${res.errors.join('\n• ')}` : res.message || 'Request failed.');
-  return res.data as T;
-}
 
 /** Drops empty values and joins lists, so the query string only carries what was asked for. */
 function params(q: Record<string, unknown>): Record<string, string> {

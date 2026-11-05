@@ -8,7 +8,7 @@ import { TrainerSummary } from '../types/trainer.types';
 import { useBranches } from '../../branches/api/branchQueries';
 import { T, withAlpha } from '../../../theme';
 import BottomSheet from '../../common/components/BottomSheet';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 
 interface Props {
   value: number | null;                              // selected trainer id

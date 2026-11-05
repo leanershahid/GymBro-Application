@@ -7,8 +7,8 @@ import {
   useHealthToday, useActiveChallenges,
 } from '../api/memberAppQueries';
 import { useTrainers } from '../../trainers/api/trainerQueries';
-import { useModuleAccess } from '../../module-access/context/ModuleAccessContext';
-import EmptyState from '../../dashboard/components/EmptyState';
+import { useApiAccess } from '../../access/context/AccessContext';
+import EmptyState from '../../common/components/EmptyState';
 import Screen from '../../common/components/Screen';
 import Skeleton from '../../common/components/Skeleton';
 import CheckInCard from '../../attendance/components/CheckInCard';
@@ -44,14 +44,14 @@ interface Props {
 export default function HomeScreen({ userId, onNavigate }: Props) {
   const { hPad, contentW } = useLayout();
 
-  const canWorkouts     = useModuleAccess('workouts');
-  const canBilling      = useModuleAccess('billing');
+  const canWorkouts     = useApiAccess('workouts').canView;
+  const canBilling      = useApiAccess('billing').canView;
   const canBook         = useHasModule('member.book');
-  const canStats        = useModuleAccess('stats');
-  const canAiCoach      = useModuleAccess('ai-coach');
-  const canChallenges   = useModuleAccess('challenges');
-  const canLiveCoaching = useModuleAccess('live-coaching');
-  const canPlans        = useModuleAccess('plans');
+  const canStats        = useApiAccess('stats').canView;
+  const canAiCoach      = useApiAccess('ai-coach').canView;
+  const canChallenges   = useApiAccess('challenges').canView;
+  const canLiveCoaching = useApiAccess('live-coaching').canView;
+  const canPlans        = useApiAccess('plans').canView;
   // A card is only shown when the screen it opens is granted (no dead ends).
   const { routes } = useMenu();
   const canOpenBook     = canBook && routes.has('book');

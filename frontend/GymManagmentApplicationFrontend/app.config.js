@@ -1,5 +1,3 @@
-// dotenv no longer needed — API URL is hardcoded in src/config.ts
-
 export default {
   expo: {
     name: 'GymManagementApp',

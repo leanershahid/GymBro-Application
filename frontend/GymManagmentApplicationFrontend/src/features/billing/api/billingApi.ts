@@ -1,4 +1,5 @@
 import axiosInstance from '../../../api/axios';
+import { unwrapResponse as unwrap, messageOf as message } from '../../../api/http';
 import { ApiResponse, PaginatedData } from '../../../api/types';
 import { currentTenantId } from '../../../api/session';
 import {
@@ -20,9 +21,6 @@ const EP = {
   payments: '/payments',
 };
 
-/** Unwraps the `{ success, message, data, errors }` envelope. */
-const unwrap = <T>(res: { data: ApiResponse<T> }): T => res.data.data as T;
-const message = (res: { data: ApiResponse<unknown> }) => res.data.message;
 
 /** Cleans empty strings out of the pay-now block so the server leaves the invoice due. */
 const chargeBody = (o: ChargeOptions) => ({

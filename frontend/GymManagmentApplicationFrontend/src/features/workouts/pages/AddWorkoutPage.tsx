@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Text, Alert } from 'react-native';
+import { Text,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { useCreateWorkout } from '../api/workoutQueries';
 import { WORKOUT_GOALS, WORKOUT_DIFFICULTIES, GOAL_GENERAL, WorkoutPayload } from '../types/workout.types';
-import { Field, SwitchRow, RowGrid, GridCell } from '../../trainers/components/FormFields';
-import ChipSelect, { humanize } from '../../exercises/components/ChipSelect';
-import FormPage from '../../exercises/components/FormPage';
+import { Field, SwitchRow, RowGrid, GridCell } from '../../common/components/FormFields';
+import ChipSelect, { humanize } from '../../common/components/ChipSelect';
+import FormPage from '../../common/components/FormPage';
 import { currentTenantId } from '../../../api/session';
 import { apiErrorText } from '../../../api/apiError';
 import { useToast } from '../../common/components/Toast';
@@ -55,7 +56,7 @@ export default function AddWorkoutPage({ onBack, onCreated }: Props) {
         onCreated?.();
         onBack();
       },
-      onError: (e) => Alert.alert('Could not create workout', apiErrorText(e)),
+      onError: (e) => showAlert('Could not create workout', apiErrorText(e)),
     });
   };
 

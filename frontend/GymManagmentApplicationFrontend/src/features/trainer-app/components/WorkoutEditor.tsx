@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Alert } from 'react-native';
+import { View, Text, Pressable,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { T, R, SP, withAlpha } from '../../../theme';
-import FormPage from '../../exercises/components/FormPage';
-import ChipSelect from '../../exercises/components/ChipSelect';
-import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
+import FormPage from '../../common/components/FormPage';
+import ChipSelect from '../../common/components/ChipSelect';
+import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
 import Skeleton from '../../common/components/Skeleton';
 import { useToast } from '../../common/components/Toast';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { apiErrorText } from '../../../api/apiError';
 import { useWorkoutStructure, useSaveWorkoutStructure } from '../api/programQueries';
 import {
@@ -228,7 +229,7 @@ export default function WorkoutEditor({ workoutId, workoutName, onBack }: Props)
   const removeSection = (s: DraftSection, index: number) => {
     const doIt = () => update(prev => prev.filter(x => x.key !== s.key));
     if (s.exercises.length === 0) { doIt(); return; }
-    Alert.alert(
+    showAlert(
       'Remove section?',
       `"${s.name.trim() || `Section ${index + 1}`}" and its ${s.exercises.length} exercise${s.exercises.length === 1 ? '' : 's'} will be removed.`,
       [{ text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: doIt }],
@@ -253,23 +254,23 @@ export default function WorkoutEditor({ workoutId, workoutName, onBack }: Props)
     const problems = validate(sections);
     if (problems.length) {
       const shown = problems.slice(0, 6);
-      Alert.alert('Check the workout', `• ${shown.join('\n• ')}${problems.length > shown.length ? `\n…and ${problems.length - shown.length} more` : ''}`);
+      showAlert('Check the workout', `• ${shown.join('\n• ')}${problems.length > shown.length ? `\n…and ${problems.length - shown.length} more` : ''}`);
       return;
     }
     save(toPayload(sections), {
       onSuccess: res => {
-        if (!res.success) { Alert.alert('Could not save', res.message || 'The workout was not saved.'); return; }
+        if (!res.success) { showAlert('Could not save', res.message || 'The workout was not saved.'); return; }
         if (res.data) setSections(toDraft(res.data.sections ?? []));
         setDirty(false);
         toast.show({ type: 'success', message: res.message || 'Workout saved.' });
       },
-      onError: e => Alert.alert('Could not save', apiErrorText(e)),
+      onError: e => showAlert('Could not save', apiErrorText(e)),
     });
   };
 
   const handleBack = () => {
     if (!dirty) { onBack(); return; }
-    Alert.alert('Discard changes?', 'You have unsaved changes to this workout.', [
+    showAlert('Discard changes?', 'You have unsaved changes to this workout.', [
       { text: 'Keep editing', style: 'cancel' },
       { text: 'Discard', style: 'destructive', onPress: onBack },
     ]);

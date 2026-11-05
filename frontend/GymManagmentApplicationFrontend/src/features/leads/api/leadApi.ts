@@ -13,7 +13,7 @@ export const fetchLeads = async (
 };
 
 export const createLead = async (payload: LeadPayload): Promise<LeadCreateResponse> => {
-  const { data } = await axiosInstance.post<LeadCreateResponse>(ENDPOINTS.ADD_LEAD, payload);
+  const { data } = await axiosInstance.post<LeadCreateResponse>(ENDPOINTS.LEADS, payload);
   return data;
 };
 

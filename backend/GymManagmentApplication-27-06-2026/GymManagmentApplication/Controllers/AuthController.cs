@@ -4,6 +4,7 @@ using GymManagmentApplication.Application.Auth.Interfaces;
 using GymManagmentApplication.Application.Auth.Requests;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Filters;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using GymManagmentApplication.Application.Auth;
@@ -28,6 +29,7 @@ public class AuthController(
     IValidator<ResendOtpRequest> resendValidator) : ControllerBase
 {
     [HttpPost("register")]
+    [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<object>>> Register([FromBody] RegisterRequest request)
     {
         var v = await registerValidator.ValidateAsync(request);
@@ -38,6 +40,7 @@ public class AuthController(
     }
 
     [HttpPost("login")]
+    [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<object>>> Login([FromBody] LoginRequest request)
     {
         var v = await loginValidator.ValidateAsync(request);
@@ -57,6 +60,7 @@ public class AuthController(
     }
 
     [HttpPost("refresh-token")]
+    [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<object>>> Refresh([FromBody] RefreshTokenRequest request)
     {
         var result = await service.RefreshAsync(request.RefreshToken, Session());
@@ -65,6 +69,7 @@ public class AuthController(
     }
 
     [HttpPost("forgot-password")]
+    [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<object>>> ForgotPassword([FromBody] ForgotPasswordRequest request)
     {
         var v = await forgotValidator.ValidateAsync(request);
@@ -74,6 +79,7 @@ public class AuthController(
     }
 
     [HttpPost("reset-password")]
+    [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<object>>> ResetPassword([FromBody] ResetPasswordRequest request)
     {
         var v = await resetValidator.ValidateAsync(request);
@@ -103,6 +109,7 @@ public class AuthController(
     }
 
     [HttpPost("verify-email")]
+    [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<object>>> VerifyEmail([FromBody] VerifyEmailRequest request)
     {
         var v = await verifyValidator.ValidateAsync(request);
@@ -112,6 +119,7 @@ public class AuthController(
     }
 
     [HttpPost("resend-otp")]
+    [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<object>>> ResendOtp([FromBody] ResendOtpRequest request)
     {
         var v = await resendValidator.ValidateAsync(request);

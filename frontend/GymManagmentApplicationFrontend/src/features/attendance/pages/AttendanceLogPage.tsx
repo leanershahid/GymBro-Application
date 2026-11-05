@@ -6,7 +6,7 @@ import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import LoadingState from '../../common/components/LoadingState';
 import StatusPill from '../../common/components/StatusPill';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useAttendanceLog } from '../api/attendanceQueries';
 import { AttendanceRecord } from '../types/attendance.types';
 import { formatDistance } from '../utils/location';

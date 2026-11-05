@@ -10,7 +10,7 @@ export const fetchTenants = async (): Promise<TenantListResponse> => {
 };
 
 export const createTenant = async (payload: TenantPayload): Promise<TenantCreateResponse> => {
-  const { data } = await axiosInstance.post<TenantCreateResponse>(ENDPOINTS.ADD_TENANT, payload);
+  const { data } = await axiosInstance.post<TenantCreateResponse>(ENDPOINTS.TENANTS, payload);
   return data;
 };
 

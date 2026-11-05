@@ -7,7 +7,7 @@ import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import Skeleton from '../../common/components/Skeleton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useToast } from '../../common/components/Toast';
 import { apiErrorText } from '../../../api/apiError';
 import { formatMoney } from '../common/format';
@@ -167,7 +167,7 @@ export default function CheckoutScreen() {
   const [addressId, setAddressId] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const [delivery, setDelivery] = useState<ShopDeliveryMethod>('Standard');
-  const [payment, setPayment] = useState<ShopPaymentMethod>('CashOnDelivery');
+  const [payment, setPayment] = useState<ShopPaymentMethod>('CashOnDelivery'); // only COD offered (ARCH-001)
   const [notes, setNotes] = useState('');
   const [couponInput, setCouponInput] = useState('');
   const [coupon, setCoupon] = useState<string | null>(null);
@@ -318,8 +318,9 @@ export default function CheckoutScreen() {
         {step === 3 && (
           <View style={{ gap: SP.md }}>
             <RadioCard selected={payment === 'CashOnDelivery'} onPress={() => setPayment('CashOnDelivery')} icon="dollar-sign" a11y="Cash on delivery" title="Cash on delivery" sub="Pay in cash or by UPI when your order arrives." />
-            <RadioCard selected={payment === 'Upi'} onPress={() => setPayment('Upi')} icon="smartphone" a11y="UPI" title="UPI" sub="Google Pay, PhonePe, Paytm or any UPI app." />
-            <RadioCard selected={payment === 'Card'} onPress={() => setPayment('Card')} icon="credit-card" a11y="Credit or debit card" title="Credit or debit card" sub="Visa, Mastercard, RuPay — processed securely by our payment partner." />
+            {/* ARCH-001: online Card/UPI payment is hidden until a real payment gateway is wired on the backend.
+                Only cash on delivery is offered; PAYMENT_LABEL still renders legacy Card/Upi orders. */}
+            <Text style={{ color: T.textFaint, fontSize: 12, lineHeight: 18 }}>Online card and UPI payments are coming soon.</Text>
           </View>
         )}
 

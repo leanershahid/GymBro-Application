@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { currentTenantId } from '../../../api/session';
 import {
   View, Text, ScrollView, Pressable,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { T, withAlpha } from '../../../theme';
 import Screen from '../../common/components/Screen';
@@ -11,8 +12,8 @@ import ScreenHeader from '../../common/components/ScreenHeader';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
 import SharedStatusPill, { PillTone } from '../../common/components/StatusPill';
-import EmptyState from '../../dashboard/components/EmptyState';
-import { Field } from '../../trainers/components/FormFields';
+import EmptyState from '../../common/components/EmptyState';
+import { Field } from '../../common/components/FormFields';
 import { useChallenges, useCreateChallenge, useUpdateChallengeStatus } from '../api/challengeQueries';
 import { ChallengeAdminResponse, ChallengeStatus, CreateChallengePayload } from '../types/challenge.types';
 
@@ -53,11 +54,11 @@ function CreateChallengeForm({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = () => {
     if (!title.trim()) {
-      Alert.alert('Missing title', 'Please enter a challenge title.');
+      showAlert('Missing title', 'Please enter a challenge title.');
       return;
     }
     if (!startsAt.trim() || !endsAt.trim()) {
-      Alert.alert('Missing dates', 'Please enter both a start and end date (YYYY-MM-DD).');
+      showAlert('Missing dates', 'Please enter both a start and end date (YYYY-MM-DD).');
       return;
     }
     const payload: CreateChallengePayload = {
@@ -71,7 +72,7 @@ function CreateChallengeForm({ onClose }: { onClose: () => void }) {
     };
     create(payload, {
       onSuccess: () => onClose(),
-      onError: () => Alert.alert('Error', 'Failed to create challenge.'),
+      onError: () => showAlert('Error', 'Failed to create challenge.'),
     });
   };
 
@@ -104,7 +105,7 @@ function ChallengeCard({ challenge }: { challenge: ChallengeAdminResponse }) {
   const handleAction = (status: ChallengeStatus) => {
     setStatus(
       { id: challenge.id, payload: { status } },
-      { onError: () => Alert.alert('Error', `Failed to set status to ${status}.`) },
+      { onError: () => showAlert('Error', `Failed to set status to ${status}.`) },
     );
   };
 

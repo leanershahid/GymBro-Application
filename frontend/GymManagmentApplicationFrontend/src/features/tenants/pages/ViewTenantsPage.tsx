@@ -10,7 +10,7 @@ import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import SearchBar from '../../common/components/SearchBar';
 import StatusPill, { PillTone, toneForStatus } from '../../common/components/StatusPill';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 
 const TINTS = [
   { bg: withAlpha(T.violet, 0.08), accent: T.violet },

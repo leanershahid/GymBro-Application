@@ -1,4 +1,18 @@
-use native wind only.
+STYLING CONVENTION (ARCH-128 — replaces the old "use native wind only" rule):
+- The standard is inline `style={{ … }}` objects built from tokens in src/theme.ts (`T`, `SP`, `R`, `TY`, `Shadow`, `withAlpha`). This is what ~90% of the code already does.
+- NativeWind `className` is allowed for simple layout utilities (flex-1, px-5, gap-*) where it already exists; don't add colours through Tailwind classes, and don't mass-convert files either way.
+- No StyleSheet.create in new code unless a component is performance-critical; never hardcode hex/rgba.
+
+SHARED UI (use before writing your own):
+- src/features/common/components: Screen, ScreenHeader, BackButton, PrimaryButton, SmallButton, DetailRow, ConfirmSheet, EmptyState, FormFields (Field/SwitchRow/RowGrid), FormPage, ChipSelect, DatePicker, SearchBar, SegmentedTabs, StatusPill, BottomSheet, Toast, LoadingState, Skeleton, PaginationFooter.
+- Dialogs: never call Alert.alert (it does nothing on web). Use `showAlert` / `confirm()` / `notify()` from src/features/common/components/dialogs.
+- Formatting: src/features/common/utils/format.ts (formatMoney, formatDate, parseDate).
+- Long lists: FlatList with a module-level keyExtractor, a useCallback renderItem and a React.memo row.
+
+FEATURE FOLDER TEMPLATE (ARCH-138, apply gradually when touching a feature):
+- features/<name>/api (raw calls + React Query hooks), types/, components/ (feature-only UI), pages/ or screens/ (one per route), hooks/, utils/.
+- Components are PascalCase files with the component's exact name. Import another feature only through its pages/screens entry point or its api hooks — shared pieces move to features/common.
+
 follow floder structure correctly by refering existing folders and files.
 make all responsive for all type of mobile screens.
 must follow this always on design:

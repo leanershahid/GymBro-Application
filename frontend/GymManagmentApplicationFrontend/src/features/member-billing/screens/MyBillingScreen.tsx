@@ -9,7 +9,7 @@ import ScreenHeader from '../../common/components/ScreenHeader';
 import SegmentedTabs from '../../common/components/SegmentedTabs';
 import StatusPill from '../../common/components/StatusPill';
 import Skeleton from '../../common/components/Skeleton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useMyMemberships, useMyInvoices, useMyPayments, useOnlinePayments } from '../api/memberBillingQueries';
 import { MyInvoice, MyPayment, MySubscription } from '../types/memberBilling.types';
 import {

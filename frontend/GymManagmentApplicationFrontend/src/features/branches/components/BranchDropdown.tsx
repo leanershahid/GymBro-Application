@@ -7,7 +7,7 @@ import { useBranches } from '../api/branchQueries';
 import { Branch } from '../types/branch.types';
 import { T, withAlpha } from '../../../theme';
 import BottomSheet from '../../common/components/BottomSheet';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 
 interface Props {
   value: number | null;        // selected branch id

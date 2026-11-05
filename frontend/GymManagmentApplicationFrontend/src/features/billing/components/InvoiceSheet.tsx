@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Alert } from 'react-native';
+import { View, Text, ScrollView,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import BottomSheet from '../../common/components/BottomSheet';
 import StatusPill from '../../common/components/StatusPill';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import { useToast } from '../../common/components/Toast';
-import { Field } from '../../trainers/components/FormFields';
+import { Field } from '../../common/components/FormFields';
 import { apiErrorText } from '../../../api/apiError';
 import {
   useInvoice, useChargePayment, useMarkInvoicePaid, useSendInvoice, useSendPaymentReminder,
@@ -66,7 +67,7 @@ export default function InvoiceSheet({ invoice, onClose, onOpenMember }: Invoice
       { invoiceId: inv.id, memberId: inv.memberId, amount: amt, method, reference },
       {
         onSuccess: () => { toast.show({ message: `Payment of ${fmtMoney(amt, cur)} recorded.` }); back(); },
-        onError: e => Alert.alert('Payment not recorded', apiErrorText(e)),
+        onError: e => showAlert('Payment not recorded', apiErrorText(e)),
       },
     );
   };
@@ -76,7 +77,7 @@ export default function InvoiceSheet({ invoice, onClose, onOpenMember }: Invoice
       { id: inv.id, method, reference },
       {
         onSuccess: () => { toast.show({ message: `${inv.invoiceNo} marked as paid.` }); back(); },
-        onError: e => Alert.alert('Couldn’t mark as paid', apiErrorText(e)),
+        onError: e => showAlert('Couldn’t mark as paid', apiErrorText(e)),
       },
     );
 
@@ -85,7 +86,7 @@ export default function InvoiceSheet({ invoice, onClose, onOpenMember }: Invoice
       { id: inv.id, message },
       {
         onSuccess: m => { toast.show({ message: m || 'Invoice emailed.' }); back(); },
-        onError: e => Alert.alert('Email not sent', apiErrorText(e)),
+        onError: e => showAlert('Email not sent', apiErrorText(e)),
       },
     );
 
@@ -94,7 +95,7 @@ export default function InvoiceSheet({ invoice, onClose, onOpenMember }: Invoice
       { memberId: inv.memberId, message },
       {
         onSuccess: m => { toast.show({ message: m || 'Reminder sent.' }); back(); },
-        onError: e => Alert.alert('Reminder not sent', apiErrorText(e)),
+        onError: e => showAlert('Reminder not sent', apiErrorText(e)),
       },
     );
 

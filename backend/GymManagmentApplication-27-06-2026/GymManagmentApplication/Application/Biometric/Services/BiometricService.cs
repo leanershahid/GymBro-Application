@@ -51,7 +51,12 @@ public class BiometricService(AppDbContext db, ICurrentUser currentUser, GymMana
 
     /// <summary>
     /// A scanner that matched the member itself (face, fingerprint or card) reports the entry.
-    /// Entry is granted only for an active member of the device's gym whose membership allows it.
+    /// Entry is granted only for an active member of the device's gym whose membership allows it
+    /// (<see cref="MembershipRules"/>: not expired, cancelled, frozen or not yet started).
+    /// <para>
+    /// Devices currently call this with an Admin JWT. Per-device API keys (an AccessDevice secret,
+    /// hashed, checked by a device-auth filter) need a schema change and are not implemented yet.
+    /// </para>
     /// </summary>
     public async Task<BiometricVerifyResponse> RecordDeviceEntryAsync(DeviceEntryRequest request)
     {
@@ -66,14 +71,15 @@ public class BiometricService(AppDbContext db, ICurrentUser currentUser, GymMana
             "card" or "rfid" => AccessMethod.Card,
             _ => AccessMethod.Biometric,
         };
-        var granted = user is not null;
+        var blockReason = user is null ? "Unknown or inactive member." : await MembershipRules.BlockReasonAsync(db, user.Id);
+        var granted = blockReason is null;
         await LogAccessEventAsync(device, user?.Id, granted, method, granted ? 1m : 0m);
         return new BiometricVerifyResponse
         {
             Verified = granted, UserId = user?.Id,
             Name = user is null ? null : $"{user.FirstName} {user.LastName}".Trim(),
             Confidence = granted ? 1 : 0, VerifiedAt = DateTime.UtcNow,
-            Message = granted ? null : "Unknown or inactive member.",
+            Message = blockReason,
         };
     }
 
@@ -131,23 +137,21 @@ public class BiometricService(AppDbContext db, ICurrentUser currentUser, GymMana
         };
     }
 
+    /// <summary>
+    /// Like faces, fingerprints can't be matched on the server: two scans of the same finger are never
+    /// byte-identical, so the old "SHA-256 of the sample equals the enrolled hash" check never matched a
+    /// real scan, and when it did match it was a replayable secret, not a biometric. Scanners match on
+    /// the device and report through <see cref="RecordDeviceEntryAsync"/>.
+    /// </summary>
     public async Task<BiometricVerifyResponse> VerifyFingerprintAsync(VerifyFingerprintRequest request)
     {
         var tenantId = currentUser.ResolveTenantId(request.TenantId);
         var device = await ResolveDeviceAsync(request.DeviceId, tenantId);
-
-        var hash = Hash(request.FingerprintData);
-        var user = await db.Users
-            .Where(u => u.TenantId == tenantId && u.BiometricHash == hash && u.DeletedAt == null)
-            .FirstOrDefaultAsync();
-
-        var verified = user is not null;
-        await LogAccessEventAsync(device, user?.Id, verified, AccessMethod.Biometric, verified ? 0.99m : 0.0m);
-
+        await LogAccessEventAsync(device, null, false, AccessMethod.Biometric, 0m);
         return new BiometricVerifyResponse
         {
-            Verified = verified, UserId = verified ? user!.Id : null,
-            Confidence = verified ? 0.99 : 0.0, VerifiedAt = DateTime.UtcNow
+            Verified = false, Confidence = 0, VerifiedAt = DateTime.UtcNow,
+            Message = "Server-side fingerprint matching isn't available. Use a scanner that matches fingerprints on the device and reports entries to /api/biometric/entry.",
         };
     }
 

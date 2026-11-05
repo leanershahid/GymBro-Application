@@ -1,13 +1,11 @@
+import { formatMoney as sharedMoney } from '../../common/utils/format';
 // Money and status wording, as in the Unique Lights store (utils/format.ts).
 
-const whole = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
-const exact = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
 /** Whole rupees for cards and lists: ₹12,499. */
-export const formatPrice = (n: number | null | undefined) => whole.format(n ?? 0);
+export const formatPrice = (n: number | null | undefined) => sharedMoney(n, 'INR', { fractionDigits: 0, locale: 'en-IN' });
 
 /** With paise for carts and totals: ₹12,499.00. */
-export const formatMoney = (n: number | null | undefined) => exact.format(n ?? 0);
+export const formatMoney = (n: number | null | undefined) => sharedMoney(n, 'INR', { fractionDigits: 2, locale: 'en-IN' });
 
 /** Short form for chart axes: ₹1.2L, ₹15k. */
 export function formatCompact(n: number): string {

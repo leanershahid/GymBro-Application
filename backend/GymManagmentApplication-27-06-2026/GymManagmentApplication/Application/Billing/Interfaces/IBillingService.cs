@@ -44,6 +44,8 @@ public interface IPaymentService
     Task<GatewayStatusResponse> GetGatewayAsync();
     Task<GatewayStatusResponse> SaveGatewayAsync(SaveGatewayRequest request);
     Task<bool> RemoveGatewayAsync();
+    /// <summary>Signed Razorpay webhook for one gym; returns false when the signature is wrong.</summary>
+    Task<bool> HandleRazorpayWebhookAsync(ulong tenantId, string rawBody, string? signature);
 }
 
 public interface IInvoiceService
@@ -59,6 +61,8 @@ public interface IInvoiceService
 public interface IPricingService
 {
     Task<List<PricingRuleResponse>> GetRulesAsync(ulong tenantId);
+    Task<PricingRuleResponse?> GetRuleAsync(ulong id);
+    Task<DiscountResponse?> GetDiscountAsync(ulong id);
     Task<PricingRuleResponse> CreateRuleAsync(CreatePricingRuleRequest request);
     Task<PricingRuleResponse?> UpdateRuleAsync(ulong id, UpdatePricingRuleRequest request);
     Task<bool> DeleteRuleAsync(ulong id);

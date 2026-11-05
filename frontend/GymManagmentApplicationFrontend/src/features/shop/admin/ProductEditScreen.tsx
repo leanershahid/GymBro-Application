@@ -9,7 +9,7 @@ import PrimaryButton from '../../common/components/PrimaryButton';
 import StatusPill from '../../common/components/StatusPill';
 import Skeleton from '../../common/components/Skeleton';
 import { useToast } from '../../common/components/Toast';
-import { Field, SwitchRow, RowGrid, GridCell } from '../../trainers/components/FormFields';
+import { Field, SwitchRow, RowGrid, GridCell } from '../../common/components/FormFields';
 import { useApiAccess } from '../../access/context/AccessContext';
 import { apiErrorText } from '../../../api/apiError';
 import { PickedFile } from '../../../api/upload';

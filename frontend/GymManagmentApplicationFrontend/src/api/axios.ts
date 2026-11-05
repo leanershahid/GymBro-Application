@@ -1,8 +1,14 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from '../config';
 
+/** Default request timeout. Generous because the API host can cold-start (ARCH-060). */
+export const REQUEST_TIMEOUT_MS = 30_000;
+/** Multipart uploads (photos, videos) on mobile data need longer; see api/upload.ts. */
+export const UPLOAD_TIMEOUT_MS = 120_000;
+
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
+  timeout: REQUEST_TIMEOUT_MS,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -24,7 +30,8 @@ export function setAuthToken(token: string | null) {
 // ── Silent refresh ──────────────────────────────────────────────────────────
 // Access tokens are short-lived. On a 401 the request is retried once after swapping the
 // refresh token for a new pair; if that fails the session is over and the app returns to
-// sign-in. Concurrent 401s share one refresh call.
+// sign-in. Concurrent 401s share one refresh call, and a failed refresh ends the session
+// exactly once (inside the shared promise), not once per waiting request (ARCH-117).
 
 type Refresher = () => Promise<boolean>;
 let refresher: Refresher | null = null;
@@ -46,12 +53,23 @@ axiosInstance.interceptors.response.use(undefined, async (error: AxiosError) => 
     return Promise.reject(error);
 
   config._retried = true;
-  inflight ??= (refresher?.() ?? Promise.resolve(false)).finally(() => { inflight = null; });
+  // Sent with a token that has since been replaced (another request already refreshed): just retry.
+  const sentWith = String(config.headers.Authorization ?? '');
+  if (!inflight && sentWith && sentWith !== `Bearer ${authToken}`) {
+    config.headers.Authorization = `Bearer ${authToken}`;
+    return axiosInstance(config);
+  }
+  inflight ??= (refresher?.() ?? Promise.resolve(false))
+    .catch(() => false)
+    .then(ok => {
+      if (!ok) onSessionExpired?.();
+      return ok;
+    })
+    .finally(() => { inflight = null; });
   if (await inflight) {
     config.headers.Authorization = `Bearer ${authToken}`;
     return axiosInstance(config);
   }
-  onSessionExpired?.();
   return Promise.reject(error);
 });
 

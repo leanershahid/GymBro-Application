@@ -125,6 +125,8 @@ public class GatewayStatusResponse
     public bool IsActive { get; set; }
     /// <summary>Public key id (safe to show); the secret is never returned.</summary>
     public string? KeyId { get; set; }
+    /// <summary>True when a webhook secret is stored (payments are then recorded even if the app closes after checkout).</summary>
+    public bool WebhookConfigured { get; set; }
 }
 
 public class OnlineOrderResponse

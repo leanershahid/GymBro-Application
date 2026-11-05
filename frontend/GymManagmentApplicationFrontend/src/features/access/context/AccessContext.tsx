@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { T } from '../../../theme';
 import LoadingState from '../../common/components/LoadingState';
 import Screen from '../../common/components/Screen';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { fetchMyAccess } from '../api/accessApi';
 import { loadStoredAccess, storeAccess } from '../api/accessStore';
 import { AccessApp, AccessList, AccessModule } from '../types/access.types';
@@ -106,9 +106,10 @@ export function AccessProvider({ userId, homeApp, onLogout, children }: Provider
       return list;
     },
     enabled: restored,
-    // An admin's change to this user's access shows up within a minute, without signing out.
+    // An admin's change to this user's access shows up on the next focus / app resume, or
+    // within five minutes, without signing out (ARCH-123: was a 60 s poll for every user).
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
 

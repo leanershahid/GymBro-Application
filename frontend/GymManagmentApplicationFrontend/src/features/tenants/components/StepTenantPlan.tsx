@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, View, Text, TouchableOpacity } from 'react-native';
 import { TenantPayload, TenantPlan } from '../types/tenant.types';
-import { Field } from '../../trainers/components/FormFields';
+import { Field } from '../../common/components/FormFields';
 import { T, withAlpha } from '../../../theme';
 
 export type TenantPlanErrors = {

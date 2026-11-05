@@ -5,7 +5,7 @@ import SearchBar from '../../common/components/SearchBar';
 import Skeleton from '../../common/components/Skeleton';
 import StatusPill from '../../common/components/StatusPill';
 import PaginationFooter from '../../common/components/PaginationFooter';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useAdminOrders } from '../api/adminQueries';
 import { ShopOrderStatus } from '../api/shop.types';
 import { formatDate, formatMoney, ORDER_STATUS_LABEL } from '../common/format';

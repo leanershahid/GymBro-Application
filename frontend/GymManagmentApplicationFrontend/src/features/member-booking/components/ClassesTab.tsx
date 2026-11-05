@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, Alert } from 'react-native';
+import { View, Text,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { T, R, SP, withAlpha } from '../../../theme';
 import { apiErrorText } from '../../../api/apiError';
 import StatusPill, { PillTone } from '../../common/components/StatusPill';
 import Skeleton from '../../common/components/Skeleton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useToast } from '../../common/components/Toast';
 import { useClassSchedule, useBookClass, useCancelClassBooking } from '../api/bookingQueries';
 import { GymClass } from '../types/booking.types';
@@ -144,7 +145,7 @@ export default function ClassesTab({ userId }: { userId: number }) {
       const res = await bookM.mutateAsync(c.id);
       toast.show({ type: 'success', message: res.message || (res.cls.myBooking === 'Waitlisted' ? 'Added to the waitlist.' : 'Booked.') });
     } catch (e) {
-      Alert.alert("Couldn't book", apiErrorText(e));
+      showAlert("Couldn't book", apiErrorText(e));
     } finally {
       setPendingId(null);
     }
@@ -156,7 +157,7 @@ export default function ClassesTab({ userId }: { userId: number }) {
       await cancelM.mutateAsync(c.id);
       toast.show({ type: 'success', message: c.myBooking === 'Waitlisted' ? 'Removed from the waitlist.' : 'Booking cancelled.' });
     } catch (e) {
-      Alert.alert("Couldn't cancel", apiErrorText(e));
+      showAlert("Couldn't cancel", apiErrorText(e));
     } finally {
       setPendingId(null);
     }
@@ -164,7 +165,7 @@ export default function ClassesTab({ userId }: { userId: number }) {
 
   const cancel = (c: GymClass) => {
     const wl = c.myBooking === 'Waitlisted';
-    Alert.alert(
+    showAlert(
       wl ? 'Leave the waitlist?' : 'Cancel this booking?',
       `${c.title}${parseUtc(c.startsAt) ? ` · ${dayLabel(parseUtc(c.startsAt)!)}` : ''}`,
       [

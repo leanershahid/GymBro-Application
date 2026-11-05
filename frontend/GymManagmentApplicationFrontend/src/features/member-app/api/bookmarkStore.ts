@@ -1,12 +1,27 @@
 import { useSyncExternalStore } from 'react';
+import { onSessionChange } from '../../../api/session';
 
 /**
  * Client-side bookmark state. The API only toggles (POST /workouts/{id}/bookmark → data: null)
  * and has no "is bookmarked" field or list endpoint, so we remember toggles made in this
- * session. Unknown workouts are shown as not saved.
+ * session. Unknown workouts are shown as not saved. Cleared when the user changes.
  */
 const saved = new Map<number, boolean>();
 const listeners = new Set<() => void>();
+
+/** Forgets every remembered toggle (and re-renders readers). */
+export function clearBookmarks() {
+  if (!saved.size) return;
+  saved.clear();
+  listeners.forEach(l => l());
+}
+
+// Bookmarks belong to the signed-in user: drop them on sign-out or when another account signs
+// in, so the next person on a shared device never sees them (ARCH-126). A token refresh for
+// the same user keeps them.
+onSessionChange((next, prev) => {
+  if (!next || next.userId !== prev?.userId) clearBookmarks();
+});
 
 export function isBookmarked(id: number): boolean {
   return saved.get(id) ?? false;

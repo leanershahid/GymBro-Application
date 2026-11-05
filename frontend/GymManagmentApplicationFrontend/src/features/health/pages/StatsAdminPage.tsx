@@ -6,7 +6,7 @@ import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import Avatar from '../../common/components/Avatar';
 import LoadingState from '../../common/components/LoadingState';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import StatTile from '../../dashboard/components/Stattile';
 import { useHealthAdminOverview } from '../api/healthAdminQueries';
 import { ClientHealthRow } from '../types/health.types';

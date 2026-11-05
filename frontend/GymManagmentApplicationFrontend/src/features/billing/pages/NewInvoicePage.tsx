@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, Alert } from 'react-native';
+import { View, Text, Pressable,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
-import FormPage from '../../exercises/components/FormPage';
+import FormPage from '../../common/components/FormPage';
 import SearchBar from '../../common/components/SearchBar';
 import LoadingState from '../../common/components/LoadingState';
 import { useToast } from '../../common/components/Toast';
-import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
-import { DateField } from '../../trainers/components/DatePicker';
+import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
+import { DateField } from '../../common/components/DatePicker';
 import { useMembers } from '../../members/api/memberQueries';
 import { describeApiError, apiErrorText } from '../../../api/apiError';
 import { useCreateInvoice, usePlans } from '../api/billingQueries';
@@ -87,7 +88,7 @@ export default function NewInvoicePage({ memberId, onBack }: NewInvoicePageProps
       },
       {
         onSuccess: inv => { toast.show({ message: `Invoice ${inv?.invoiceNo ?? ''} created.` }); setCreated(inv); },
-        onError: e => Alert.alert('Invoice not created', apiErrorText(e)),
+        onError: e => showAlert('Invoice not created', apiErrorText(e)),
       },
     );
   };

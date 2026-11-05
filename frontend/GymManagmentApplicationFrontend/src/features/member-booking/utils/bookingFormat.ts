@@ -1,5 +1,6 @@
 import { T } from '../../../theme';
 import { GymClass, PtSession, UpcomingItem } from '../types/booking.types';
+import { formatMoney as sharedMoney } from '../../common/utils/format';
 
 /** Parses an API timestamp as UTC (the server may omit the trailing `Z`). */
 export function parseUtc(iso: string | null | undefined): Date | null {
@@ -39,12 +40,7 @@ export function dayLabel(d: Date, now = new Date()): string {
 export const whenLabel = (d: Date) => `${dayLabel(d)} · ${formatTime(d)}`;
 
 export function formatMoney(amount: number | null | undefined, currency: string | null | undefined): string {
-  if (amount == null) return '';
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || 'INR' }).format(amount);
-  } catch {
-    return `${amount.toFixed(2)} ${currency ?? ''}`.trim();
-  }
+  return sharedMoney(amount, currency, { defaultCurrency: 'INR', emptyForNull: true });
 }
 
 /** API colours are user data; fall back to the brand token if one isn't a usable hex. */

@@ -28,6 +28,17 @@ public interface IAccessService
     Task<List<ExtraRoleDto>> GetExtraRolesAsync(ulong userId);
     Task<List<ExtraRoleDto>> AddExtraRoleAsync(ulong userId, ulong roleId);
     Task<List<ExtraRoleDto>> RemoveExtraRoleAsync(ulong userId, ulong roleId);
+
+    /// <summary>People (main + additional role) and granted-module counts per role of the caller's gym.</summary>
+    Task<List<RoleSummaryDto>> GetRoleSummaryAsync();
+    /// <summary>Everyone of the caller's gym whose main role is admin, staff or a custom role.</summary>
+    Task<List<StaffMemberDto>> GetStaffAsync();
+
+    /// <summary>
+    /// Drops every cached access decision, so the next request recomputes. Call after anything that
+    /// changes grants, overrides, additional roles or legacy role permissions outside this service.
+    /// </summary>
+    void InvalidateCache();
 }
 
 /// <summary>
@@ -41,13 +52,18 @@ public interface IAccessService
 /// <item>Every granted module's ancestors, so menus have no orphans. Ancestors pulled in this way
 /// open no API — only real grants do.</item>
 /// </list>
-/// Super admins get every admin-app module. Results are cached for 30 seconds per user (the same
-/// window as the token check); any grant change bumps a version so the next request recomputes.
+/// Super admins get every admin-app module. Results — the effective modules and, for staff/custom
+/// roles, their legacy "module.action" RolePermissions — are cached in IMemoryCache for 30 seconds per
+/// user (the same window as the token check). The module catalog (only changed by the seeder at
+/// startup) is cached for 10 minutes. Any grant change bumps a version entry in the same cache, so
+/// the next request recomputes. With more than one API instance, another instance's cache catches up
+/// within the 30 seconds; a shared (distributed) version would be needed for instant propagation.
 /// </summary>
 public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCache cache) : IAccessService
 {
-    private static long _version;
+    private const string VersionKey = "access:version";
     private static readonly TimeSpan CacheFor = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan CatalogCacheFor = TimeSpan.FromMinutes(10);
 
     private sealed record Effective(Module Module, bool Implied, bool CanView, bool CanCreate, bool CanEdit, bool CanDelete, bool CanExport);
 
@@ -89,20 +105,46 @@ public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCac
             });
         if (granted || RoleNames.IsBuiltIn(roleSlug)) return granted;
 
-        // Staff/custom roles may also hold fine-grained "module.action" permissions.
-        var roleId = await db.Users.IgnoreQueryFilters().Where(u => u.Id == userId).Select(u => u.RoleId).FirstOrDefaultAsync();
-        return await db.RolePermissions.AnyAsync(rp =>
-            rp.RoleId == roleId && rp.Permission.Module == apiModule && rp.Permission.Action == action);
+        // Staff/custom roles may also hold fine-grained legacy "module.action" permissions (RolePermissions).
+        return (await GetLegacyPermissionsAsync(userId)).Contains($"{apiModule}.{action}");
     }
+
+    private long Version => cache.GetOrCreate(VersionKey, e => { e.Priority = CacheItemPriority.NeverRemove; return 0L; });
 
     private async Task<List<Effective>> GetEffectiveAsync(ulong userId)
     {
-        var key = $"access:{Interlocked.Read(ref _version)}:{userId}";
+        var key = $"access:{Version}:{userId}";
         if (cache.TryGetValue(key, out List<Effective>? hit) && hit is not null) return hit;
 
         var result = await ComputeEffectiveAsync(userId);
         cache.Set(key, result, CacheFor);
         return result;
+    }
+
+    /// <summary>The user's main role's legacy RolePermissions as "module.action" keys, cached like the grants.</summary>
+    private async Task<HashSet<string>> GetLegacyPermissionsAsync(ulong userId)
+    {
+        var key = $"access-legacy:{Version}:{userId}";
+        if (cache.TryGetValue(key, out HashSet<string>? hit) && hit is not null) return hit;
+
+        var roleId = await db.Users.IgnoreQueryFilters().Where(u => u.Id == userId).Select(u => u.RoleId).FirstOrDefaultAsync();
+        var keys = (await db.RolePermissions.Where(rp => rp.RoleId == roleId)
+                .Select(rp => rp.Permission.Module + "." + rp.Permission.Action)
+                .ToListAsync())
+            .ToHashSet(StringComparer.Ordinal);
+        cache.Set(key, keys, CacheFor);
+        return keys;
+    }
+
+    /// <summary>Every module with its parent, untracked (shared between requests through the cache).</summary>
+    private async Task<List<Module>> GetCatalogAsync()
+    {
+        var key = $"access-catalog:{Version}";
+        if (cache.TryGetValue(key, out List<Module>? hit) && hit is not null) return hit;
+
+        var modules = await db.Modules.AsNoTracking().Include(m => m.Parent).ToListAsync();
+        cache.Set(key, modules, CatalogCacheFor);
+        return modules;
     }
 
     private async Task<List<Effective>> ComputeEffectiveAsync(ulong userId)
@@ -114,7 +156,7 @@ public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCac
         if (user?.Slug is null) return [];
 
         // No tracking: these rows are cached and outlive this request's context.
-        var modules = await db.Modules.AsNoTracking().Include(m => m.Parent).ToListAsync();
+        var modules = await GetCatalogAsync();
         var byId = modules.ToDictionary(m => m.Id);
 
         var granted = new Dictionary<ulong, Flags>();
@@ -247,7 +289,7 @@ public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCac
         }
 
         await db.SaveChangesAsync();
-        Invalidate();
+        InvalidateCache();
         return await GetRoleGrantsAsync(role.Id);
     }
 
@@ -313,7 +355,7 @@ public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCac
         }
 
         await db.SaveChangesAsync();
-        Invalidate();
+        InvalidateCache();
         return await GetUserAccessAsync(userId);
     }
 
@@ -340,7 +382,7 @@ public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCac
         {
             db.UserRoles.Add(new UserRole { UserId = userId, RoleId = roleId });
             await db.SaveChangesAsync();
-            Invalidate();
+            InvalidateCache();
         }
         return await GetExtraRolesAsync(userId);
     }
@@ -353,15 +395,50 @@ public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCac
         {
             db.UserRoles.Remove(row);
             await db.SaveChangesAsync();
-            Invalidate();
+            InvalidateCache();
         }
         return await GetExtraRolesAsync(userId);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
 
+    // ── Role cards / staff list (moved from AccessController) ─────────────
+
+    public async Task<List<RoleSummaryDto>> GetRoleSummaryAsync()
+    {
+        // Every count goes through tenant-filtered Users / Roles; UserRoles and RoleModuleGrants
+        // are only counted for this gym's users and roles, never across tenants.
+        var roleIds = await db.Roles.Select(r => r.Id).ToListAsync();
+        var main = await db.Users.Where(u => u.DeletedAt == null)
+            .GroupBy(u => u.RoleId).Select(g => new { RoleId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.RoleId, x => x.Count);
+        var extra = await db.Users.Where(u => u.DeletedAt == null)
+            .Join(db.UserRoles, u => u.Id, ur => ur.UserId, (u, ur) => ur.RoleId)
+            .GroupBy(id => id).Select(g => new { RoleId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.RoleId, x => x.Count);
+        var modules = await db.Roles
+            .Join(db.RoleModuleGrants.Where(g => g.CanView), r => r.Id, g => g.RoleId, (r, g) => g.RoleId)
+            .GroupBy(id => id).Select(g => new { RoleId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.RoleId, x => x.Count);
+
+        return roleIds.Select(id => new RoleSummaryDto(id,
+            main.GetValueOrDefault(id) + extra.GetValueOrDefault(id),
+            modules.GetValueOrDefault(id))).ToList();
+    }
+
+    public async Task<List<StaffMemberDto>> GetStaffAsync()
+    {
+        string[] notStaff = [RoleNames.SuperAdmin, RoleNames.Trainer, RoleNames.Client];
+        return await db.Users
+            .Where(u => u.DeletedAt == null && !notStaff.Contains(u.Role.Slug))
+            .OrderBy(u => u.FirstName).ThenBy(u => u.LastName)
+            .Select(u => new StaffMemberDto(u.Id, ((u.FirstName ?? "") + " " + (u.LastName ?? "")).Trim(), u.Email, u.Role.Name, u.Role.Slug))
+            .ToListAsync();
+    }
+
     /// <summary>Drops every cached result; the next request per user recomputes.</summary>
-    public static void Invalidate() => Interlocked.Increment(ref _version);
+    public void InvalidateCache() =>
+        cache.Set(VersionKey, Version + 1, new MemoryCacheEntryOptions { Priority = CacheItemPriority.NeverRemove });
 
     private ulong RequireUserId() =>
         currentUser.UserId ?? throw new UnauthorizedAccessException("Unauthorized. Token is missing or invalid.");

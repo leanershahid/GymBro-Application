@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, Alert } from 'react-native';
-import FormPage from '../../exercises/components/FormPage';
+import { View, Text, Pressable,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
+import FormPage from '../../common/components/FormPage';
 import LoadingState from '../../common/components/LoadingState';
 import { useToast } from '../../common/components/Toast';
-import EmptyState from '../../dashboard/components/EmptyState';
-import { DateField } from '../../trainers/components/DatePicker';
+import EmptyState from '../../common/components/EmptyState';
+import { DateField } from '../../common/components/DatePicker';
 import { describeApiError, apiErrorText, fieldErrorsFrom } from '../../../api/apiError';
 import { usePlans, useCreateSubscription } from '../api/billingQueries';
 import ChargeOptionsFields, {
@@ -58,7 +59,7 @@ export default function NewMembershipPage({ memberId, memberName, onBack, onDone
           setErrors(fieldErrorsFrom(describeApiError(e).errors, {
             'start date': 'startDate', plan: 'plan', 'tax percent': 'taxPercent', discount: 'discount',
           }));
-          Alert.alert('Membership not created', apiErrorText(e));
+          showAlert('Membership not created', apiErrorText(e));
         },
       },
     );

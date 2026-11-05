@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Alert } from 'react-native';
+import { View, Text, ScrollView,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import StatusPill from '../../common/components/StatusPill';
 import LoadingState from '../../common/components/LoadingState';
 import BottomSheet from '../../common/components/BottomSheet';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import { useToast } from '../../common/components/Toast';
-import { Field } from '../../trainers/components/FormFields';
+import { Field } from '../../common/components/FormFields';
 import { describeApiError, apiErrorText } from '../../../api/apiError';
 import {
   useSubscriptions, useInvoices, useRenewSubscription, useFreezeSubscription,
@@ -44,17 +45,17 @@ export default function MemberBillingSection({ memberId, memberName, onNewMember
   const doUnfreeze = (s: Subscription) =>
     unfreeze.mutate(s.id, {
       onSuccess: () => toast.show({ message: `${s.planName} reactivated — frozen days added back.` }),
-      onError: e => Alert.alert('Couldn’t unfreeze', apiErrorText(e)),
+      onError: e => showAlert('Couldn’t unfreeze', apiErrorText(e)),
     });
 
   const confirmCancel = (s: Subscription) =>
-    Alert.alert('Cancel membership?', `${s.planName} for ${memberName ?? 'this member'} ends now. This can't be undone.`, [
+    showAlert('Cancel membership?', `${s.planName} for ${memberName ?? 'this member'} ends now. This can't be undone.`, [
       { text: 'Keep', style: 'cancel' },
       {
         text: 'Cancel membership', style: 'destructive',
         onPress: () => cancel.mutate(s.id, {
           onSuccess: () => toast.show({ message: 'Membership cancelled.' }),
-          onError: e => Alert.alert('Couldn’t cancel', apiErrorText(e)),
+          onError: e => showAlert('Couldn’t cancel', apiErrorText(e)),
         }),
       },
     ]);
@@ -143,7 +144,7 @@ export default function MemberBillingSection({ memberId, memberName, onNewMember
         onClose={() => setFreezing(null)}
         onSubmit={(s, reason) => freeze.mutate({ id: s.id, reason }, {
           onSuccess: () => { toast.show({ message: `${s.planName} frozen.` }); setFreezing(null); },
-          onError: e => Alert.alert('Couldn’t freeze', apiErrorText(e)),
+          onError: e => showAlert('Couldn’t freeze', apiErrorText(e)),
         })}
         loading={freeze.isPending}
       />
@@ -181,7 +182,7 @@ function RenewSheet({ sub, onClose }: { sub: Subscription | null; onClose: () =>
           toast.show({ message: `${sub.planName} renewed${r?.endDate ? ` until ${fmtDate(r.endDate)}` : ''}.` });
           onClose();
         },
-        onError: e => Alert.alert('Not renewed', apiErrorText(e)),
+        onError: e => showAlert('Not renewed', apiErrorText(e)),
       },
     );
   };

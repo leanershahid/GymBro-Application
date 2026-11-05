@@ -7,7 +7,12 @@ using GymManagmentApplication.Domain.Constants;
 
 namespace GymManagmentApplication.Controllers;
 
+/// <summary>
+/// Members' fitness/wellness metrics — not service health (the probes are /healthz and /healthz/ready).
+/// Served at api/wellness (preferred) and, for existing clients, at the original api/health.
+/// </summary>
 [ApiController]
+[Route("api/wellness")]
 [Route("api/health")]
 [RequireModule("stats")]
 public class HealthController(IHealthService service) : ControllerBase

@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { T, withAlpha } from '../../../theme';
 import { apiErrorText } from '../../../api/apiError';
 import LoadingState from '../../common/components/LoadingState';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useModuleTree, useSaveUserOverrides, useUserAccess } from '../../access/api/accessQueries';
 import PermissionCard, { BulkButton, SaveBar, orderTree } from '../../access/components/ModuleTreeRowCard';
 import AppPicker from '../../access/components/AppPicker';
@@ -110,7 +111,7 @@ export default function AccessPanel({ userId, intro }: Props) {
   });
 
   const onSave = () => save.mutate(Object.values(draft), {
-    onError: (e) => Alert.alert('Could not save', apiErrorText(e)),
+    onError: (e) => showAlert('Could not save', apiErrorText(e)),
   });
 
   if (accessQ.isLoading || treeQ.isLoading) return <LoadingState label="Loading access" />;

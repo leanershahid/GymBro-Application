@@ -24,7 +24,7 @@ public class TenantController(
     public async Task<ActionResult<ApiResponse<object>>> GetAll()
         => Ok(ApiResponse<object>.Ok(await service.GetAllAsync()));
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:long}")]
     public async Task<ActionResult<ApiResponse<object>>> GetById(ulong id)
     {
         var result = await service.GetByIdAsync(id);
@@ -45,7 +45,7 @@ public class TenantController(
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, ApiResponse<object>.Ok(result, "Tenant created."));
     }
 
-    [HttpPut("{id}")]
+    [HttpPut("{id:long}")]
     public async Task<ActionResult<ApiResponse<object>>> Update(ulong id, [FromBody] UpdateTenantRequest request)
     {
         var result = await service.UpdateAsync(id, request);
@@ -54,7 +54,7 @@ public class TenantController(
             : Ok(ApiResponse<object>.Ok(result));
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:long}")]
     [AuthorizeRoles(RoleNames.SuperAdmin)]
     public async Task<ActionResult<ApiResponse<object>>> Delete(ulong id)
     {
@@ -65,7 +65,7 @@ public class TenantController(
     }
 
     // Nested: GET api/tenants/{tenantId}/branches
-    [HttpGet("{tenantId}/branches")]
+    [HttpGet("{tenantId:long}/branches")]
     public async Task<ActionResult<ApiResponse<object>>> GetBranches(ulong tenantId)
         => Ok(ApiResponse<object>.Ok(await branchService.GetByTenantAsync(tenantId)));
 }

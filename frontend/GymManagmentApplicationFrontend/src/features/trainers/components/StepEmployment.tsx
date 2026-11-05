@@ -1,8 +1,8 @@
 import React from 'react';
 import { ScrollView, Text } from 'react-native';
 import { TrainerPayload } from '../types/trainer.types';
-import { Field, RowGrid, GridCell } from './FormFields';
-import { DateField } from './DatePicker';
+import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
+import { DateField } from '../../common/components/DatePicker';
 
 interface Props {
   data: Partial<TrainerPayload>;
@@ -14,7 +14,7 @@ function Section({ title }: { title: string }) {
 }
 
 export default function StepEmployment({ data, onChange }: Props) {
-  const emp    = data.employment ?? {} as any;
+  const emp    = data.employment ?? ({} as NonNullable<typeof data.employment>);
   const update = (f: object) => onChange({ employment: { ...emp, ...f } });
 
   return (

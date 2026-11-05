@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.RegularExpressions;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Shop.Common;
@@ -36,7 +35,7 @@ public sealed partial class ShopCouponService(AppDbContext db, ICurrentUser curr
 {
     private static readonly CouponType[] ShopTypes = [CouponType.Percentage, CouponType.Fixed];
 
-    public static string NormalizeCode(string? code) => (code ?? string.Empty).Trim().ToUpperInvariant();
+    public static string NormalizeCode(string? code) => CouponRules.NormalizeCode(code);
 
     public async Task<ShopCouponEvaluation> EvaluateAsync(ulong tenantId, string code, decimal subtotal)
     {
@@ -67,32 +66,10 @@ public sealed partial class ShopCouponService(AppDbContext db, ICurrentUser curr
         };
     }
 
-    public static string? Check(Coupon coupon, decimal subtotal, DateTime now)
-    {
-        if (!coupon.IsActive) return "Coupon code is invalid";
-        if (coupon.ValidFrom.HasValue && now < coupon.ValidFrom.Value) return "This coupon is not active yet";
-        if (coupon.ValidUntil.HasValue && now > coupon.ValidUntil.Value) return "This coupon has expired";
-        if (coupon.MaxUses.HasValue && coupon.UsesCount >= coupon.MaxUses.Value) return "This coupon has reached its usage limit";
-        if (coupon.MinOrder > 0 && subtotal < coupon.MinOrder)
-            return $"A minimum order of {FormatInr(coupon.MinOrder)} is required for this coupon";
-        return null;
-    }
+    // The rules themselves live in CouponRules, shared with membership pricing (ARCH-015).
+    public static string? Check(Coupon coupon, decimal subtotal, DateTime now) => CouponRules.Check(coupon, subtotal, now, "INR");
 
-    public static decimal CalculateDiscount(Coupon coupon, decimal subtotal)
-    {
-        if (subtotal <= 0) return 0;
-        var discount = coupon.Type == CouponType.Percentage ? subtotal * coupon.Value / 100m : coupon.Value;
-        if (coupon.MaxDiscount.HasValue) discount = Math.Min(discount, coupon.MaxDiscount.Value);
-        return ShopPricing.Round(Math.Min(discount, subtotal));
-    }
-
-    private static string FormatInr(decimal amount)
-    {
-        CultureInfo culture;
-        try { culture = CultureInfo.GetCultureInfo("en-IN"); }
-        catch (CultureNotFoundException) { culture = CultureInfo.InvariantCulture; }
-        return "₹" + amount.ToString(amount == decimal.Truncate(amount) ? "#,##0" : "#,##0.00", culture);
-    }
+    public static decimal CalculateDiscount(Coupon coupon, decimal subtotal) => CouponRules.CalculateDiscount(coupon, subtotal);
 
     // ---------- Admin ----------
 

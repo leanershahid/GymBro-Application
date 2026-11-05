@@ -1,4 +1,5 @@
 import axiosInstance from '../../../api/axios';
+import { unwrapResponse as unwrap, messageOf as message } from '../../../api/http';
 import { ApiResponse } from '../../../api/types';
 import { fetchBranches } from '../../branches/api/branchApi';
 import { fetchTrainers } from '../../trainers/api/trainerApi';
@@ -25,10 +26,6 @@ const EP = {
   ptStatus: (id: number) => `/pt/sessions/${id}/status`,
 };
 
-/** Unwraps the `{ success, message, data, errors }` envelope. */
-const unwrap = <T>(res: { data: ApiResponse<T> }): T => res.data.data as T;
-/** Server success message (e.g. "4 classes scheduled."). */
-const message = (res: { data: ApiResponse<unknown> }) => res.data.message;
 
 // ─── Class types ─────────────────────────────────────────────────
 

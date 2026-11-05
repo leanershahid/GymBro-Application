@@ -10,8 +10,9 @@ import Avatar from '../../common/components/Avatar';
 import SegmentedTabs from '../../common/components/SegmentedTabs';
 import StatusPill from '../../common/components/StatusPill';
 import LoadingState from '../../common/components/LoadingState';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import AccessPanel from '../../module-access/components/AccessPanel';
+import DetailRow from '../../common/components/DetailRow';
 
 type Tab = 'details' | 'access';
 
@@ -36,35 +37,6 @@ function Divider() {
   return <View style={{ height: 1, backgroundColor: T.lineSubtle }} />;
 }
 
-function DetailRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentProps<typeof Feather>['name'];
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: SP.md }}>
-      <View style={{
-        width: 40, height: 40, borderRadius: R.md,
-        backgroundColor: T.bgInputActive, alignItems: 'center', justifyContent: 'center',
-        marginRight: SP.md,
-      }}>
-        <Feather name={icon} size={17} color={T.brand} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: T.textFaint, fontSize: 11, fontWeight: '600', letterSpacing: 0.3, marginBottom: 2 }}>
-          {label.toUpperCase()}
-        </Text>
-        <Text style={{ color: T.text, fontSize: 15, fontWeight: '600' }}>
-          {value}
-        </Text>
-      </View>
-    </View>
-  );
-}
 
 function Chip({ label }: { label: string }) {
   return (

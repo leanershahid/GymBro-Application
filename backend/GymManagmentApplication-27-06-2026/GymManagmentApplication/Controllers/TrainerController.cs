@@ -39,7 +39,7 @@ public class TrainerController(ITrainerService service, IValidator<CreateTrainer
         return result is null ? NotFound(ApiResponse<object>.Fail("No trainer profile for this account.")) : Ok(ApiResponse<object>.Ok(result));
     }
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:long}")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
     public async Task<ActionResult<ApiResponse<object>>> GetById(ulong id)
     {
@@ -47,7 +47,7 @@ public class TrainerController(ITrainerService service, IValidator<CreateTrainer
         return result is null ? NotFound(ApiResponse<object>.Fail($"Trainer {id} not found.")) : Ok(ApiResponse<object>.Ok(result));
     }
 
-    [HttpPut("{id}")]
+    [HttpPut("{id:long}")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> Update(ulong id, [FromBody] UpdateTrainerRequest request)
     {
@@ -55,7 +55,7 @@ public class TrainerController(ITrainerService service, IValidator<CreateTrainer
         return result is null ? NotFound(ApiResponse<object>.Fail($"Trainer {id} not found.")) : Ok(ApiResponse<object>.Ok(result));
     }
 
-    [HttpPatch("{id}/status")]
+    [HttpPatch("{id:long}/status")]
     [AuthorizeRoles(RoleNames.Admin)]
     [RequireModule("trainers")]
     public async Task<ActionResult<ApiResponse<object>>> SetStatus(ulong id, [FromBody] SetStatusRequest request)
@@ -66,7 +66,7 @@ public class TrainerController(ITrainerService service, IValidator<CreateTrainer
             : NotFound(ApiResponse<object>.Fail($"Trainer {id} not found."));
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:long}")]
     [AuthorizeRoles(RoleNames.Admin)]
     [RequireModule("trainers")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(ulong id)
@@ -77,17 +77,17 @@ public class TrainerController(ITrainerService service, IValidator<CreateTrainer
             : NotFound(ApiResponse<object>.Fail($"Trainer {id} not found."));
     }
 
-    [HttpGet("{id}/clients")]
+    [HttpGet("{id:long}/clients")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> GetClients(ulong id)
         => Ok(ApiResponse<object>.Ok(await service.GetClientsAsync(id)));
 
-    [HttpPost("{id}/assign")]
+    [HttpPost("{id:long}/assign")]
     [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> AssignClient(ulong id, [FromBody] AssignClientRequest request)
         => Ok(ApiResponse<object>.Ok(await service.AssignClientAsync(id, request)));
 
-    [HttpDelete("{id}/clients/{cid}")]
+    [HttpDelete("{id:long}/clients/{cid:long}")]
     [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> UnassignClient(ulong id, ulong cid)
     {
@@ -95,22 +95,22 @@ public class TrainerController(ITrainerService service, IValidator<CreateTrainer
         return removed ? Ok(ApiResponse<object>.Ok((object)null!, "Client unassigned.")) : NotFound(ApiResponse<object>.Fail("Assignment not found."));
     }
 
-    [HttpGet("{id}/schedule")]
+    [HttpGet("{id:long}/schedule")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
     public async Task<ActionResult<ApiResponse<object>>> GetSchedule(ulong id)
         => Ok(ApiResponse<object>.Ok(await service.GetScheduleAsync(id)));
 
-    [HttpPut("{id}/schedule")]
+    [HttpPut("{id:long}/schedule")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> SetSchedule(ulong id, [FromBody] SetScheduleRequest request)
         => Ok(ApiResponse<object>.Ok(await service.SetScheduleAsync(id, request)));
 
-    [HttpGet("{id}/performance")]
+    [HttpGet("{id:long}/performance")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> GetPerformance(ulong id)
         => Ok(ApiResponse<object>.Ok(await service.GetPerformanceAsync(id)));
 
-    [HttpGet("{id}/earnings")]
+    [HttpGet("{id:long}/earnings")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> GetEarnings(ulong id, [FromQuery] int month = 0, [FromQuery] int year = 0)
         => Ok(ApiResponse<object>.Ok(await service.GetEarningsAsync(id, month == 0 ? DateTime.UtcNow.Month : month, year == 0 ? DateTime.UtcNow.Year : year)));

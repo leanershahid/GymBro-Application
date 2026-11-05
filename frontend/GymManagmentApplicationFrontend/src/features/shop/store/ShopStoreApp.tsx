@@ -5,7 +5,7 @@ import { useLayout } from '../../../utils/useLayout';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import SegmentedTabs from '../../common/components/SegmentedTabs';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { usePageTabs } from '../../access/context/AccessContext';
 import { useCart, useStoreSettings, useWishlist } from '../api/storeQueries';
 import { ShopNav, ShopNavContext, ShopRoute } from './shopNav';

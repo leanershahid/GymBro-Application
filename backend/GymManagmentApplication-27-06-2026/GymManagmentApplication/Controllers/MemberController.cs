@@ -30,7 +30,7 @@ public class MemberController(IMemberService service, IValidator<CreateMemberReq
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, ApiResponse<object>.Ok(result, "Member created."));
     }
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:long}")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
     public async Task<ActionResult<ApiResponse<object>>> GetById(ulong id)
     {
@@ -39,7 +39,7 @@ public class MemberController(IMemberService service, IValidator<CreateMemberReq
     }
 
     // Clients may update their own profile (enforced in MemberService).
-    [HttpPut("{id}")]
+    [HttpPut("{id:long}")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
     public async Task<ActionResult<ApiResponse<object>>> Update(ulong id, [FromBody] UpdateMemberRequest request)
     {
@@ -47,7 +47,7 @@ public class MemberController(IMemberService service, IValidator<CreateMemberReq
         return result is null ? NotFound(ApiResponse<object>.Fail($"Member {id} not found.")) : Ok(ApiResponse<object>.Ok(result));
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:long}")]
     [AuthorizeRoles(RoleNames.Admin)]
     [RequireModule("members")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(ulong id)
@@ -56,7 +56,7 @@ public class MemberController(IMemberService service, IValidator<CreateMemberReq
         return deleted ? Ok(ApiResponse<object>.Ok((object)null!, "Member archived.")) : NotFound(ApiResponse<object>.Fail($"Member {id} not found."));
     }
 
-    [HttpPatch("{id}/status")]
+    [HttpPatch("{id:long}/status")]
     [AuthorizeRoles(RoleNames.Admin)]
     [RequireModule("members")]
     public async Task<ActionResult<ApiResponse<object>>> SetStatus(ulong id, [FromBody] SetStatusRequest request)
@@ -72,12 +72,12 @@ public class MemberController(IMemberService service, IValidator<CreateMemberReq
     public async Task<ActionResult<ApiResponse<object>>> BulkImport([FromBody] BulkImportMemberRequest request)
         => Ok(ApiResponse<object>.Ok(await service.BulkImportAsync(request)));
 
-    [HttpGet("{id}/timeline")]
+    [HttpGet("{id:long}/timeline")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
     public async Task<ActionResult<ApiResponse<object>>> GetTimeline(ulong id)
         => Ok(ApiResponse<object>.Ok(await service.GetTimelineAsync(id)));
 
-    [HttpPost("{id}/photo")]
+    [HttpPost("{id:long}/photo")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
     public async Task<ActionResult<ApiResponse<object>>> UploadPhoto(ulong id, IFormFile photo)
     {
@@ -85,22 +85,22 @@ public class MemberController(IMemberService service, IValidator<CreateMemberReq
         return Ok(ApiResponse<object>.Ok(new { url }));
     }
 
-    [HttpGet("{id}/notes")]
+    [HttpGet("{id:long}/notes")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> GetNotes(ulong id)
         => Ok(ApiResponse<object>.Ok(await service.GetNotesAsync(id)));
 
-    [HttpPost("{id}/notes")]
+    [HttpPost("{id:long}/notes")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> AddNote(ulong id, [FromBody] AddMemberNoteRequest request)
         => Ok(ApiResponse<object>.Ok(await service.AddNoteAsync(id, request)));
 
-    [HttpGet("{id}/documents")]
+    [HttpGet("{id:long}/documents")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
     public async Task<ActionResult<ApiResponse<object>>> GetDocuments(ulong id)
         => Ok(ApiResponse<object>.Ok(await service.GetDocumentsAsync(id)));
 
-    [HttpPost("{id}/documents")]
+    [HttpPost("{id:long}/documents")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
     public async Task<ActionResult<ApiResponse<object>>> UploadDocument(ulong id, IFormFile file, [FromQuery] string? documentType)
         => Ok(ApiResponse<object>.Ok(await service.UploadDocumentAsync(id, file, documentType)));
@@ -110,12 +110,12 @@ public class MemberController(IMemberService service, IValidator<CreateMemberReq
     public async Task<ActionResult<ApiResponse<object>>> Search([FromQuery] MemberSearchRequest request)
         => Ok(ApiResponse<object>.Ok(await service.SearchAsync(request)));
 
-    [HttpGet("{id}/tags")]
+    [HttpGet("{id:long}/tags")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> GetTags(ulong id)
         => Ok(ApiResponse<object>.Ok(await service.GetTagsAsync(id)));
 
-    [HttpPost("{id}/tags")]
+    [HttpPost("{id:long}/tags")]
     [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> AssignTags(ulong id, [FromBody] AssignTagsRequest request)
         => Ok(ApiResponse<object>.Ok(await service.AssignTagsAsync(id, request)));

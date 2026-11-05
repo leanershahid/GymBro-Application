@@ -57,6 +57,9 @@ public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore bi
 
     // ── Sessions ────────────────────────────────────────────────────────────
 
+    /// <summary>Upper bound on one sessions read; narrow it with from/to (ARCH-087).</summary>
+    public const int MaxSessionRows = 500;
+
     public async Task<List<PtSessionResponse>> GetSessionsAsync(DateTime? from, DateTime? to, ulong? trainerId, ulong? clientId)
     {
         var q = Query();
@@ -66,7 +69,7 @@ public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore bi
         if (clientId is { } c) q = q.Where(s => s.ClientId == c);
         if (from is { } f) q = q.Where(s => s.StartsAt >= f);
         if (to is { } e) q = q.Where(s => s.StartsAt < e);
-        var rows = await q.OrderBy(s => s.StartsAt).Take(300).ToListAsync();
+        var rows = await q.AsNoTracking().OrderBy(s => s.StartsAt).Take(MaxSessionRows).ToListAsync();
         return await MapManyAsync(rows);
     }
 
@@ -84,6 +87,20 @@ public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore bi
 
         var start = r.StartsAt;
         var end = start.AddMinutes(type.DurationMin);
+
+        // ARCH-016 / ARCH-045: the trainer's row is locked while the slot is checked and taken, so two
+        // bookings can't both pass the clash check; the session and its invoice commit together.
+        return await db.InTransactionAsync(async () =>
+        {
+            await db.LockRowAsync<TrainerProfile>(type.TrainerId);
+            var session = await BookLockedAsync(type, client, clientId, start, end, r);
+            return (await MapManyAsync([await Query().FirstAsync(s => s.Id == session.Id)]))[0];
+        });
+    }
+
+    private async Task<PtSession> BookLockedAsync(PtSessionType type, Domain.Entities.Identity.User client, ulong clientId,
+        DateTime start, DateTime end, BookPtRequest r)
+    {
         await EnsureTrainerFreeAsync(type.TrainerId, start, end, null);
         if (await db.PtSessions.AnyAsync(s => s.ClientId == clientId && s.Status != PtSessionStatus.Cancelled && s.StartsAt < end && s.EndsAt > start))
             throw new ArgumentException("The member already has a session at that time.");
@@ -110,7 +127,7 @@ public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore bi
                 DueDate: DateOnly.FromDateTime(start), Notes: $"PT session #{session.Id}"));
             await db.SaveChangesAsync();
         }
-        return (await MapManyAsync([await Query().FirstAsync(s => s.Id == session.Id)]))[0];
+        return session;
     }
 
     public async Task<PtSessionResponse> UpdateStatusAsync(ulong id, UpdatePtStatusRequest r)

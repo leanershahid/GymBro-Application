@@ -1,3 +1,6 @@
+// Colours come from the same file as src/theme.ts `T`, so the two can't drift.
+const C = require('./src/theme.colors.json');
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -6,45 +9,46 @@ module.exports = {
     './src/**/*.{js,jsx,ts,tsx}',
   ],
   presets: [require('nativewind/preset')],
- theme: {
+  theme: {
     extend: {
+      // Generated from src/theme.colors.json — the same values as `T` in src/theme.ts (ARCH-127).
+      // Class names are kept for existing markup (e.g. `text-sub` = T.textSub).
       colors: {
         // Surfaces
-        bg:      '#0A0F0A', // app background
-        surface: '#151915', // card / surface
-        elevated:'#1C211C', // elevated surface
-
-        // Input-specific (used directly by FormFields.tsx)
-        input:       '#151915', // default input background
-        inputActive: '#151915', // focused input background (bg stays flat; border signals focus)
+        bg:          C.bg,
+        surface:     C.bgInput,
+        elevated:    C.bgInputActive,
+        input:       C.bgInput,
+        inputActive: C.bgInputActive,
 
         // Borders / dividers
-        line:       '#242B24', // default border
-        lineBright: '#7ED321', // focused border (accent)
-        lineSubtle: '#1C211C', // hairline / divider
+        line:       C.line,
+        lineBright: C.lineBright,
+        lineSubtle: C.lineSubtle,
 
         // Text
-        sub:   '#AAB2AA', // secondary text / labels
-        faint: '#6B726B', // helper / tertiary text
+        sub:      C.textSub,
+        faint:    C.textFaint,
+        disabled: C.textDisabled,
 
-        // Accent — green → gold gradient (see theme.ts `brandGradient` for LinearGradient usage)
-        brand:     '#7ED321', // CTA / accent green
-        brandDark: '#5FA317', // pressed/hover state for accent
-        brandGold: '#FFC107', // gradient second stop
-        logoLime:  '#D4ED35', // logo palette (boot loader)
-        logoDeep:  '#7B990B',
+        // Accent (see theme.ts `brandGradient` for LinearGradient usage)
+        brand:     C.brand,
+        brandDark: C.brandDark,
+        brandGold: C.brandGold,
+        logoLime:  C.logoLime,
+        logoDeep:  C.logoDeep,
 
         // Secondary accents for health metrics
-        rose:   '#FF4D6D', // heart rate
-        sky:    '#4DA6FF', // water / sleep
-        violet: '#9B7EF0', // sleep
+        rose:   C.rose,
+        sky:    C.sky,
+        violet: C.violet,
 
         // Status
-        ok:  '#22C55E',
-        err: '#EF4444',
+        ok:  C.ok,
+        err: C.err,
 
         // Bottom tab bars
-        nav: '#111111',
+        nav: C.bgNav,
       },
     },
   },

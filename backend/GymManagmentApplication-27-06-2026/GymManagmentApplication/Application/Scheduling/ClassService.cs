@@ -13,6 +13,8 @@ namespace GymManagmentApplication.Application.Scheduling;
 public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmentApplication.Application.Engagement.Notifier notifier)
 {
     private const int MaxRepeatWeeks = 26;
+    /// <summary>Upper bound on one schedule read (the window is already capped at 62 days).</summary>
+    public const int MaxScheduleRows = 1000;
 
     // ── Class types ─────────────────────────────────────────────────────────
 
@@ -47,8 +49,16 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
         if (branchId is { } b) q = q.Where(c => c.BranchId == b);
         if (trainerId is { } t) q = q.Where(c => c.TrainerId == t);
         if (currentUser.IsClient()) q = q.Where(c => c.Status != ClassStatus.Cancelled || c.Bookings.Any(x => x.ClientId == Me));
-        var classes = await q.OrderBy(c => c.StartsAt).Take(500).ToListAsync();
+        var classes = await q.AsNoTracking().AsSplitQuery().OrderBy(c => c.StartsAt).Take(MaxScheduleRows).ToListAsync();
         return await MapManyAsync(classes);
+    }
+
+    public async Task<ClassResponse> GetAsync(ulong id)
+    {
+        var c = await Query().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id) ?? throw new KeyNotFoundException("Class not found.");
+        if (currentUser.IsClient() && c.Status == ClassStatus.Cancelled && !c.Bookings.Any(b => b.ClientId == Me))
+            throw new KeyNotFoundException("Class not found.");
+        return (await MapManyAsync([c]))[0];
     }
 
     public async Task<List<ClassResponse>> CreateAsync(CreateClassRequest r)
@@ -88,8 +98,12 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
         return await MapManyAsync(await Query().Where(c => created.Select(x => x.Id).Contains(c.Id)).ToListAsync());
     }
 
-    public async Task<ClassResponse> UpdateAsync(ulong id, UpdateClassRequest r)
+    public Task<ClassResponse> UpdateAsync(ulong id, UpdateClassRequest r) =>
+        db.InTransactionAsync(() => UpdateLockedAsync(id, r));
+
+    private async Task<ClassResponse> UpdateLockedAsync(ulong id, UpdateClassRequest r)
     {
+        await db.LockRowAsync<GymClass>(id); // capacity check + waitlist promotion see a stable roster
         var c = await Query().FirstOrDefaultAsync(x => x.Id == id) ?? throw new KeyNotFoundException("Class not found.");
         if (c.Status == ClassStatus.Cancelled) throw new ArgumentException("This class was cancelled.");
         EnsureCanManage(c);
@@ -137,9 +151,18 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
 
     // ── Booking ─────────────────────────────────────────────────────────────
 
-    public async Task<ClassResponse> BookAsync(ulong classId, BookClassRequest r)
+    /// <summary>
+    /// Books a spot, or the waitlist when the class is full. ARCH-016: the class row is locked
+    /// (SELECT … FOR UPDATE) for the whole check-and-insert, so two members can't both take the
+    /// last spot — the second one sees the class full and is waitlisted.
+    /// </summary>
+    public Task<ClassResponse> BookAsync(ulong classId, BookClassRequest r) =>
+        db.InTransactionAsync(() => BookLockedAsync(classId, r));
+
+    private async Task<ClassResponse> BookLockedAsync(ulong classId, BookClassRequest r)
     {
         var clientId = currentUser.IsClient() ? Me : r.ClientId ?? throw new ArgumentException("Choose the member to book.");
+        await db.LockRowAsync<GymClass>(classId);
         var c = await Query().FirstOrDefaultAsync(x => x.Id == classId) ?? throw new KeyNotFoundException("Class not found.");
         if (c.Status == ClassStatus.Cancelled) throw new ArgumentException("This class was cancelled.");
         if (c.StartsAt <= DateTime.UtcNow) throw new ArgumentException("This class has already started.");
@@ -150,7 +173,7 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
 
         var existing = c.Bookings.FirstOrDefault(b => b.ClientId == clientId && b.Status is BookingStatus.Booked or BookingStatus.Waitlisted);
         if (existing is not null)
-            throw new ArgumentException(existing.Status == BookingStatus.Booked ? "Already booked for this class." : "Already on the waitlist.");
+            throw RuleException.Conflict(existing.Status == BookingStatus.Booked ? "Already booked for this class." : "Already on the waitlist.");
 
         var full = c.MaxCapacity is { } cap && c.Bookings.Count(b => b.Status == BookingStatus.Booked) >= cap;
         c.Bookings.Add(new ClassBooking
@@ -163,9 +186,13 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
         return (await MapManyAsync([c], clientId))[0];
     }
 
-    public async Task<ClassResponse> CancelBookingAsync(ulong classId, ulong? clientIdForStaff)
+    public Task<ClassResponse> CancelBookingAsync(ulong classId, ulong? clientIdForStaff) =>
+        db.InTransactionAsync(() => CancelBookingLockedAsync(classId, clientIdForStaff));
+
+    private async Task<ClassResponse> CancelBookingLockedAsync(ulong classId, ulong? clientIdForStaff)
     {
         var clientId = currentUser.IsClient() ? Me : clientIdForStaff ?? throw new ArgumentException("Choose the member.");
+        await db.LockRowAsync<GymClass>(classId); // waitlist promotion must not overfill the class
         var c = await Query().FirstOrDefaultAsync(x => x.Id == classId) ?? throw new KeyNotFoundException("Class not found.");
         var booking = c.Bookings.FirstOrDefault(b => b.ClientId == clientId && b.Status is BookingStatus.Booked or BookingStatus.Waitlisted)
                       ?? throw new ArgumentException("No booking to cancel.");
@@ -182,7 +209,7 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
         var since = DateTime.UtcNow.AddDays(-30);
         var classes = await Query()
             .Where(c => c.StartsAt >= since && c.Bookings.Any(b => b.ClientId == Me && b.Status != BookingStatus.Cancelled))
-            .OrderBy(c => c.StartsAt).Take(200).ToListAsync();
+            .AsNoTracking().AsSplitQuery().OrderBy(c => c.StartsAt).Take(200).ToListAsync();
         return await MapManyAsync(classes, Me);
     }
 

@@ -90,6 +90,11 @@ public class ChargeRequest
     /// <summary>Receipt / UPI transaction id / cheque number.</summary>
     public string? Reference { get; set; }
     public string? Notes { get; set; }
+    /// <summary>
+    /// Optional client key (or the Idempotency-Key header): repeating a charge with the same key
+    /// returns the payment already recorded instead of recording it twice.
+    /// </summary>
+    public string? IdempotencyKey { get; set; }
 }
 
 public class RefundRequest
@@ -133,6 +138,8 @@ public class SaveGatewayRequest
     public string KeyId { get; set; } = default!;
     /// <summary>Leave empty to keep the stored secret.</summary>
     public string? KeySecret { get; set; }
+    /// <summary>Razorpay webhook secret (Dashboard → Webhooks). Leave empty to keep the stored one.</summary>
+    public string? WebhookSecret { get; set; }
     public bool IsActive { get; set; } = true;
 }
 

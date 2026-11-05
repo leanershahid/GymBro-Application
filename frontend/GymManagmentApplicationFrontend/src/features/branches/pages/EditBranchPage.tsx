@@ -3,7 +3,7 @@ import WizardScaffold from '../../common/components/WizardScaffold';
 import LoadingState from '../../common/components/LoadingState';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useToast } from '../../common/components/Toast';
 import { describeApiError, fieldErrorsFrom } from '../../../api/apiError';
 import { useBranch, useUpdateBranch } from '../api/branchQueries';

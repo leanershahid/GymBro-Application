@@ -103,7 +103,8 @@ public class InvoiceService(AppDbContext db, ICurrentUser currentUser, BillingCo
             """);
         var sent = await email.SendAsync(inv.User.Email, $"Invoice {inv.InvoiceNo} from {inv.Tenant.Name}", html,
             [($"{inv.InvoiceNo}.pdf", BuildPdf(inv), "application/pdf")]);
-        if (!sent) throw new InvalidOperationException("The invoice email couldn't be sent. Check the email settings.");
+        // The mail server failed: an upstream error (HttpRequestException → 502, ARCH-095), not a bug.
+        if (!sent) throw new HttpRequestException("The invoice email couldn't be sent. Check the email settings.");
         if (inv.Status == InvoiceStatus.Draft) inv.Status = InvoiceStatus.Sent;
         await db.SaveChangesAsync();
         return true;

@@ -38,12 +38,19 @@ public class ClassesController(ClassService service) : ControllerBase
         return Ok(ApiResponse<object>.Ok(await service.GetScheduleAsync(start, to ?? start.AddDays(7), branchId, trainerId)));
     }
 
+    [HttpGet("{id:long}")]
+    [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
+    public async Task<ActionResult<ApiResponse<object>>> Get(ulong id)
+        => Ok(ApiResponse<object>.Ok(await service.GetAsync(id)));
+
+    /// <summary>201 Created; Location points at the first class of the series (ARCH-101).</summary>
     [HttpPost]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> Create([FromBody] CreateClassRequest request)
     {
         var created = await service.CreateAsync(request);
-        return Ok(ApiResponse<object>.Ok(created, created.Count > 1 ? $"{created.Count} classes scheduled." : "Class scheduled."));
+        return CreatedAtAction(nameof(Get), new { id = created[0].Id },
+            ApiResponse<object>.Ok(created, created.Count > 1 ? $"{created.Count} classes scheduled." : "Class scheduled."));
     }
 
     [HttpPut("{id:long}")]

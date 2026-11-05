@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace GymManagmentApplication.Domain.Entities.Identity;
 
-public class User : BaseEntity
+public class User : BaseEntity, ISoftDeletable
 {
     public ulong TenantId { get; set; }
     public ulong? BranchId { get; set; }

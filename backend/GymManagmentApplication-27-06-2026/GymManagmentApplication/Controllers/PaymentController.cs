@@ -14,9 +14,14 @@ namespace GymManagmentApplication.Controllers;
 [AuthorizeRoles(RoleNames.Admin)]
 public class PaymentController(IPaymentService service) : ControllerBase
 {
+    /// <summary>Desk payment. Send an Idempotency-Key header (or body field) to make retries safe.</summary>
     [HttpPost("charge")]
-    public async Task<ActionResult<ApiResponse<object>>> Charge([FromBody] ChargeRequest request)
-        => Ok(ApiResponse<object>.Ok(await service.ChargeAsync(request), "Payment recorded."));
+    public async Task<ActionResult<ApiResponse<object>>> Charge([FromBody] ChargeRequest request,
+        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey = null)
+    {
+        if (string.IsNullOrWhiteSpace(request.IdempotencyKey)) request.IdempotencyKey = idempotencyKey;
+        return Ok(ApiResponse<object>.Ok(await service.ChargeAsync(request), "Payment recorded."));
+    }
 
     [HttpGet("{id:long}")]
     public async Task<ActionResult<ApiResponse<object>>> GetById(ulong id)
@@ -38,15 +43,19 @@ public class PaymentController(IPaymentService service) : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> GetHistory(
         [FromQuery] ulong tenantId,
         [FromQuery] ulong? memberId,
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 20)
+        [FromQuery] int? pageNumber = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] int? page = null,
+        [FromQuery] int? size = null)
+        // ARCH-102: "page"/"size" are accepted as aliases of "pageNumber"/"pageSize".
         => Ok(ApiResponse<object>.Ok(
-            await service.GetHistoryAsync(tenantId, memberId, pageNumber, pageSize)));
+            await service.GetHistoryAsync(tenantId, memberId, pageNumber ?? page ?? 1, pageSize ?? size ?? 20)));
 
+    /// <summary>Not implemented (ARCH-078): cards aren't stored; members pay through Razorpay Checkout.</summary>
     [HttpPost("methods")]
-    public async Task<ActionResult<ApiResponse<object>>> SaveMethod(
-        [FromBody] SavePaymentMethodRequest request)
-        => Ok(ApiResponse<object>.Ok(await service.SaveMethodAsync(request), "Payment method saved."));
+    public ActionResult<ApiResponse<object>> SaveMethod([FromBody] SavePaymentMethodRequest request)
+        => StatusCode(StatusCodes.Status501NotImplemented,
+            ApiResponse<object>.Fail(GymManagmentApplication.Application.Billing.Services.PaymentService.SavedMethodsNotSupported));
 
     [HttpGet("methods")]
     public async Task<ActionResult<ApiResponse<object>>> GetMethods([FromQuery] ulong memberId)

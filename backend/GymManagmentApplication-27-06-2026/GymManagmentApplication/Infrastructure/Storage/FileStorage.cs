@@ -28,6 +28,17 @@ public class StorageSettings
     public string? ServiceKey { get; set; }
     public string Bucket { get; set; } = "gymbro";
 
+    /// <summary>
+    /// Storage__PrivateDocuments. When true, files uploaded as <see cref="FileKind.Document"/> (ID proofs,
+    /// certificates) are stored privately — Cloudinary "authenticated" delivery, or the private Supabase
+    /// bucket "{Bucket}-private" — and can only be opened through a signed URL from
+    /// <see cref="IFileStorage.GetSignedUrlAsync"/> (GET api/uploads/signed-url). Off by default, because
+    /// clients that open document URLs directly must call signed-url first. Images stay public.
+    /// </summary>
+    public bool PrivateDocuments { get; set; }
+    /// <summary>How long a Supabase signed URL stays valid (Cloudinary signed URLs don't expire on standard plans).</summary>
+    public int SignedUrlMinutes { get; set; } = 10;
+
     public bool UseCloudinary =>
         !string.IsNullOrWhiteSpace(CloudinaryCloudName) && !string.IsNullOrWhiteSpace(CloudinaryApiKey) && !string.IsNullOrWhiteSpace(CloudinaryApiSecret);
     public bool UseSupabase => !string.IsNullOrWhiteSpace(SupabaseUrl) && !string.IsNullOrWhiteSpace(ServiceKey);
@@ -37,11 +48,21 @@ public enum FileKind { Image, Document, Video }
 
 public interface IFileStorage
 {
-    /// <summary>Validates type/size, stores the file under <paramref name="folder"/> with a generated name, and returns its public URL.</summary>
+    /// <summary>
+    /// Validates size and type — the type from the file's first bytes (magic number), not the client's
+    /// Content-Type or file name — stores the file under <paramref name="folder"/> with a generated name,
+    /// and returns its URL.
+    /// </summary>
     Task<string> SaveAsync(IFormFile file, string folder, FileKind kind);
 
     /// <summary>Best-effort delete of a file previously returned by <see cref="SaveAsync"/>.</summary>
     Task DeleteAsync(string? url);
+
+    /// <summary>
+    /// A URL that can be opened for a stored file: a signed (and on Supabase, short-lived) URL for a
+    /// private document, or the URL itself for public files.
+    /// </summary>
+    Task<string> GetSignedUrlAsync(string url);
 }
 
 public class FileStorage(
@@ -51,23 +72,28 @@ public class FileStorage(
     IHttpContextAccessor http,
     ILogger<FileStorage> logger) : IFileStorage
 {
-    private readonly StorageSettings _s = options.Value;
-    private static bool _bucketReady;
+    /// <summary>Named HttpClient (registered in Program.cs with a long timeout, for video uploads).</summary>
+    public const string HttpClientName = "storage";
 
-    private static readonly Dictionary<FileKind, (long MaxBytes, Dictionary<string, string> Types)> Rules = new()
+    private readonly StorageSettings _s = options.Value;
+    private static readonly HashSet<string> ReadyBuckets = [];
+
+    private sealed record FileType(string ContentType, string Extension);
+
+    private static readonly FileType Jpeg = new("image/jpeg", ".jpg");
+    private static readonly FileType Png = new("image/png", ".png");
+    private static readonly FileType Webp = new("image/webp", ".webp");
+    private static readonly FileType Heic = new("image/heic", ".heic");
+    private static readonly FileType Pdf = new("application/pdf", ".pdf");
+    private static readonly FileType Mp4 = new("video/mp4", ".mp4");
+    private static readonly FileType Mov = new("video/quicktime", ".mov");
+    private static readonly FileType Webm = new("video/webm", ".webm");
+
+    private static readonly Dictionary<FileKind, (long MaxBytes, FileType[] Types)> Rules = new()
     {
-        [FileKind.Image] = (5 * 1024 * 1024, new()
-        {
-            ["image/jpeg"] = ".jpg", ["image/jpg"] = ".jpg", ["image/png"] = ".png", ["image/webp"] = ".webp", ["image/heic"] = ".heic",
-        }),
-        [FileKind.Document] = (10 * 1024 * 1024, new()
-        {
-            ["application/pdf"] = ".pdf", ["image/jpeg"] = ".jpg", ["image/jpg"] = ".jpg", ["image/png"] = ".png", ["image/webp"] = ".webp",
-        }),
-        [FileKind.Video] = (100 * 1024 * 1024, new()
-        {
-            ["video/mp4"] = ".mp4", ["video/quicktime"] = ".mov", ["video/webm"] = ".webm",
-        }),
+        [FileKind.Image] = (5 * 1024 * 1024, [Jpeg, Png, Webp, Heic]),
+        [FileKind.Document] = (10 * 1024 * 1024, [Pdf, Jpeg, Png, Webp]),
+        [FileKind.Video] = (100 * 1024 * 1024, [Mp4, Mov, Webm]),
     };
 
     public async Task<string> SaveAsync(IFormFile file, string folder, FileKind kind)
@@ -76,19 +102,49 @@ public class FileStorage(
         var (maxBytes, types) = Rules[kind];
         if (file.Length > maxBytes)
             throw new ArgumentException($"The file is too large (max {maxBytes / (1024 * 1024)} MB).");
-        var contentType = (file.ContentType ?? string.Empty).ToLowerInvariant();
-        if (!types.TryGetValue(contentType, out var ext))
-            throw new ArgumentException($"This file type isn't allowed. Use {string.Join(", ", types.Values.Distinct()).ToUpperInvariant().Replace(".", "")}.");
+
+        // The file's own bytes decide its type; the client's Content-Type and name are ignored.
+        var allowed = $"This file type isn't allowed. Use {string.Join(", ", types.Select(t => t.Extension.TrimStart('.').ToUpperInvariant()).Distinct())}.";
+        var header = new byte[32];
+        int read;
+        await using (var probe = file.OpenReadStream())
+            read = await probe.ReadAtLeastAsync(header, header.Length, throwOnEndOfStream: false);
+        var type = Sniff(header.AsSpan(0, read));
+        if (type is null || !types.Contains(type)) throw new ArgumentException(allowed);
 
         // Never trust the client's file name: generated name, folder made of safe segments only.
         var safeFolder = string.Join('/', folder.Split('/', StringSplitOptions.RemoveEmptyEntries)
             .Select(p => new string(p.Where(c => char.IsLetterOrDigit(c) || c is '-' or '_').ToArray()))
             .Where(p => p.Length > 0));
-        var path = $"{safeFolder}/{Guid.NewGuid():N}{ext}";
+        var path = $"{safeFolder}/{Guid.NewGuid():N}{type.Extension}";
+        var isPrivate = _s.PrivateDocuments && kind == FileKind.Document;
 
         await using var stream = file.OpenReadStream();
-        if (_s.UseCloudinary) return await SaveToCloudinaryAsync(stream, safeFolder, file.FileName, kind);
-        return _s.UseSupabase ? await SaveToSupabaseAsync(stream, path, contentType) : await SaveLocallyAsync(stream, path);
+        if (_s.UseCloudinary) return await SaveToCloudinaryAsync(stream, safeFolder, type, kind, isPrivate);
+        return _s.UseSupabase ? await SaveToSupabaseAsync(stream, path, type.ContentType, isPrivate) : await SaveLocallyAsync(stream, path);
+    }
+
+    /// <summary>Recognises the allowed formats by their magic numbers; null for anything else.</summary>
+    private static FileType? Sniff(ReadOnlySpan<byte> b)
+    {
+        static bool At(ReadOnlySpan<byte> data, int offset, string ascii) =>
+            data.Length >= offset + ascii.Length && data.Slice(offset, ascii.Length).SequenceEqual(Encoding.ASCII.GetBytes(ascii));
+
+        if (b.Length >= 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) return Jpeg;
+        if (b.Length >= 8 && b[..8].SequenceEqual(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A })) return Png;
+        if (At(b, 0, "RIFF") && At(b, 8, "WEBP")) return Webp;
+        if (At(b, 0, "%PDF-")) return Pdf;
+        if (b.Length >= 4 && b[0] == 0x1A && b[1] == 0x45 && b[2] == 0xDF && b[3] == 0xA3) return Webm;
+        if (At(b, 4, "ftyp") && b.Length >= 12)
+        {
+            var brand = Encoding.ASCII.GetString(b.Slice(8, 4));
+            if (brand is "heic" or "heix" or "heim" or "heis" or "hevc" or "hevx" or "mif1" or "msf1") return Heic;
+            if (brand == "qt  ") return Mov;
+            return Mp4; // isom, mp41, mp42, avc1, M4V, 3gp…
+        }
+        // Older QuickTime files start with other atoms.
+        if (At(b, 4, "moov") || At(b, 4, "mdat") || At(b, 4, "wide") || At(b, 4, "free")) return Mov;
+        return null;
     }
 
     public async Task DeleteAsync(string? url)
@@ -102,12 +158,14 @@ public class FileStorage(
             }
             else if (_s.UseSupabase)
             {
-                var marker = $"/storage/v1/object/public/{_s.Bucket}/";
-                var i = url.IndexOf(marker, StringComparison.Ordinal);
-                if (i < 0) return;
-                using var req = new HttpRequestMessage(HttpMethod.Delete, $"{Base}/storage/v1/object/{_s.Bucket}/{url[(i + marker.Length)..]}");
-                Authorize(req);
-                await httpFactory.CreateClient().SendAsync(req);
+                foreach (var bucket in new[] { _s.Bucket, PrivateBucket })
+                {
+                    if (SupabaseObjectPath(url, bucket) is not { } objectPath) continue;
+                    using var req = new HttpRequestMessage(HttpMethod.Delete, $"{Base}/storage/v1/object/{bucket}/{objectPath}");
+                    Authorize(req);
+                    await Client.SendAsync(req);
+                    return;
+                }
             }
             else
             {
@@ -123,8 +181,49 @@ public class FileStorage(
         }
     }
 
+    public async Task<string> GetSignedUrlAsync(string url)
+    {
+        if (_s.UseCloudinary && url.Contains("/authenticated/", StringComparison.Ordinal))
+            return SignCloudinaryUrl(url) ?? url;
+
+        if (_s.UseSupabase && SupabaseObjectPath(url, PrivateBucket) is { } objectPath)
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, $"{Base}/storage/v1/object/sign/{PrivateBucket}/{objectPath}")
+            {
+                Content = JsonContent.Create(new { expiresIn = Math.Max(60, _s.SignedUrlMinutes * 60) }),
+            };
+            Authorize(req);
+            var res = await Client.SendAsync(req);
+            var body = await res.Content.ReadAsStringAsync();
+            if (!res.IsSuccessStatusCode)
+            {
+                logger.LogError("Supabase signed URL failed ({Status}).", (int)res.StatusCode);
+                throw new HttpRequestException("The file link couldn't be created. Please try again.");
+            }
+            using var json = JsonDocument.Parse(body);
+            var signed = json.RootElement.TryGetProperty("signedURL", out var s) ? s.GetString() : null;
+            if (string.IsNullOrEmpty(signed)) throw new HttpRequestException("The file link couldn't be created. Please try again.");
+            return signed.StartsWith("http", StringComparison.Ordinal) ? signed : $"{Base}/storage/v1{signed}";
+        }
+
+        return url;
+    }
+
+    private HttpClient Client => httpFactory.CreateClient(HttpClientName);
     private string Base => _s.SupabaseUrl!.TrimEnd('/');
+    private string PrivateBucket => _s.Bucket + "-private";
     private string WebRoot => env.WebRootPath ?? Path.Combine(env.ContentRootPath, "wwwroot");
+
+    /// <summary>The object path inside <paramref name="bucket"/> for a URL returned by SaveAsync (public or private form).</summary>
+    private static string? SupabaseObjectPath(string url, string bucket)
+    {
+        foreach (var marker in new[] { $"/storage/v1/object/public/{bucket}/", $"/storage/v1/object/authenticated/{bucket}/" })
+        {
+            var i = url.IndexOf(marker, StringComparison.Ordinal);
+            if (i >= 0) return url[(i + marker.Length)..].Split('?')[0];
+        }
+        return null;
+    }
 
     private void Authorize(HttpRequestMessage req)
     {
@@ -132,42 +231,43 @@ public class FileStorage(
         req.Headers.Add("apikey", _s.ServiceKey);
     }
 
-    private async Task<string> SaveToSupabaseAsync(Stream stream, string path, string contentType)
+    private async Task<string> SaveToSupabaseAsync(Stream stream, string path, string contentType, bool isPrivate)
     {
-        var client = httpFactory.CreateClient();
-        await EnsureBucketAsync(client);
+        var bucket = isPrivate ? PrivateBucket : _s.Bucket;
+        await EnsureBucketAsync(bucket, isPublic: !isPrivate);
 
-        using var req = new HttpRequestMessage(HttpMethod.Post, $"{Base}/storage/v1/object/{_s.Bucket}/{path}")
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"{Base}/storage/v1/object/{bucket}/{path}")
         {
             Content = new StreamContent(stream),
         };
         req.Content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
         req.Headers.Add("x-upsert", "true");
         Authorize(req);
-        var res = await client.SendAsync(req);
+        var res = await Client.SendAsync(req);
         if (!res.IsSuccessStatusCode)
         {
             logger.LogError("Supabase upload failed ({Status}): {Body}", (int)res.StatusCode, await res.Content.ReadAsStringAsync());
-            throw new InvalidOperationException("The file couldn't be stored. Please try again.");
+            throw new HttpRequestException("The file couldn't be stored. Please try again.");
         }
-        return $"{Base}/storage/v1/object/public/{_s.Bucket}/{path}";
+        // A private object's URL only identifies it; it opens through GetSignedUrlAsync.
+        return $"{Base}/storage/v1/object/{(isPrivate ? "authenticated" : "public")}/{bucket}/{path}";
     }
 
-    /// <summary>Creates the public bucket on first use (an existing bucket is fine).</summary>
-    private async Task EnsureBucketAsync(HttpClient client)
+    /// <summary>Creates the bucket on first use (an existing bucket is fine).</summary>
+    private async Task EnsureBucketAsync(string bucket, bool isPublic)
     {
-        if (_bucketReady) return;
+        lock (ReadyBuckets) if (ReadyBuckets.Contains(bucket)) return;
         using var req = new HttpRequestMessage(HttpMethod.Post, $"{Base}/storage/v1/bucket")
         {
-            Content = JsonContent.Create(new { id = _s.Bucket, name = _s.Bucket, @public = true }),
+            Content = JsonContent.Create(new { id = bucket, name = bucket, @public = isPublic }),
         };
         Authorize(req);
-        var res = await client.SendAsync(req);
+        var res = await Client.SendAsync(req);
         var body = await res.Content.ReadAsStringAsync();
         if (res.IsSuccessStatusCode || body.Contains("already exists", StringComparison.OrdinalIgnoreCase) || body.Contains("Duplicate", StringComparison.OrdinalIgnoreCase))
-            _bucketReady = true;
+            lock (ReadyBuckets) ReadyBuckets.Add(bucket);
         else
-            logger.LogWarning("Could not create storage bucket '{Bucket}' ({Status}): {Body}", _s.Bucket, (int)res.StatusCode, body);
+            logger.LogWarning("Could not create storage bucket '{Bucket}' ({Status}): {Body}", bucket, (int)res.StatusCode, body);
     }
 
     // ── Cloudinary (signed uploads over its REST API) ──────────────────────
@@ -186,7 +286,7 @@ public class FileStorage(
         return Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(toSign))).ToLowerInvariant();
     }
 
-    private async Task<string> SaveToCloudinaryAsync(Stream stream, string folder, string? fileName, FileKind kind)
+    private async Task<string> SaveToCloudinaryAsync(Stream stream, string folder, FileType type, FileKind kind, bool isPrivate)
     {
         var parameters = new SortedDictionary<string, string>(StringComparer.Ordinal)
         {
@@ -194,38 +294,62 @@ public class FileStorage(
             ["public_id"] = Guid.NewGuid().ToString("N"),
             ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(),
         };
+        if (isPrivate) parameters["type"] = "authenticated";
 
         using var form = new MultipartFormDataContent();
         foreach (var (k, v) in parameters) form.Add(new StringContent(v), k);
         form.Add(new StringContent(_s.CloudinaryApiKey!), "api_key");
         form.Add(new StringContent(Sign(parameters)), "signature");
-        form.Add(new StreamContent(stream), "file", string.IsNullOrWhiteSpace(fileName) ? "upload" : Path.GetFileName(fileName));
+        var content = new StreamContent(stream);
+        content.Headers.ContentType = new MediaTypeHeaderValue(type.ContentType);
+        form.Add(content, "file", "upload" + type.Extension);
 
         var url = $"https://api.cloudinary.com/v1_1/{_s.CloudinaryCloudName}/{ResourceType(kind)}/upload";
-        var res = await httpFactory.CreateClient().PostAsync(url, form);
+        var res = await Client.PostAsync(url, form);
         var body = await res.Content.ReadAsStringAsync();
         if (!res.IsSuccessStatusCode)
         {
             logger.LogError("Cloudinary upload failed ({Status}): {Body}", (int)res.StatusCode, body);
-            throw new InvalidOperationException("The file couldn't be stored. Please try again.");
+            throw new HttpRequestException("The file couldn't be stored. Please try again.");
         }
         using var json = JsonDocument.Parse(body);
         return json.RootElement.GetProperty("secure_url").GetString()
-            ?? throw new InvalidOperationException("The file couldn't be stored. Please try again.");
+            ?? throw new HttpRequestException("The file couldn't be stored. Please try again.");
     }
 
     /// <summary>
+    /// Signed delivery URL for an "authenticated" asset:
+    /// https://res.cloudinary.com/{cloud}/{type}/authenticated/s--SIG--/v123/folder/id.pdf, where SIG is the
+    /// first 8 chars of URL-safe base64(SHA-1("folder/id.pdf" + api secret)).
+    /// </summary>
+    private string? SignCloudinaryUrl(string url)
+    {
+        var marker = "/authenticated/";
+        var i = url.IndexOf(marker, StringComparison.Ordinal);
+        if (i < 0) return null;
+        var prefix = url[..(i + marker.Length)];
+        var parts = url[(i + marker.Length)..].Split('?')[0].Split('/').Where(p => !p.StartsWith("s--", StringComparison.Ordinal)).ToList();
+        var version = parts.Count > 0 && IsVersion(parts[0]) ? parts[0] : null;
+        var source = string.Join('/', version is null ? parts : parts.Skip(1));
+        var hash = SHA1.HashData(Encoding.UTF8.GetBytes(source + _s.CloudinaryApiSecret));
+        var signature = Convert.ToBase64String(hash).Replace('+', '-').Replace('/', '_')[..8];
+        return $"{prefix}s--{signature}--/{(version is null ? "" : version + "/")}{source}";
+    }
+
+    private static bool IsVersion(string p) => p.Length > 1 && p[0] == 'v' && p[1..].All(char.IsDigit);
+
+    /// <summary>
     /// Deletes by public id, read from a delivery URL like
-    /// https://res.cloudinary.com/{cloud}/{type}/upload/v123/gymbro/folder/id.jpg.
+    /// https://res.cloudinary.com/{cloud}/{type}/upload/v123/gymbro/folder/id.jpg (or …/authenticated/…).
     /// </summary>
     private async Task DeleteFromCloudinaryAsync(string url)
     {
         var marker = $"res.cloudinary.com/{_s.CloudinaryCloudName}/";
         var i = url.IndexOf(marker, StringComparison.Ordinal);
         if (i < 0) return;
-        var parts = url[(i + marker.Length)..].Split('/');           // {type}/upload/v123/…/id.ext
-        if (parts.Length < 4 || parts[1] != "upload") return;
-        var rest = parts.Skip(2).SkipWhile(p => p.Length > 1 && p[0] == 'v' && p[1..].All(char.IsDigit));
+        var parts = url[(i + marker.Length)..].Split('?')[0].Split('/');   // {type}/{upload|authenticated}/v123/…/id.ext
+        if (parts.Length < 4 || parts[1] is not ("upload" or "authenticated")) return;
+        var rest = parts.Skip(2).Where(p => !p.StartsWith("s--", StringComparison.Ordinal)).SkipWhile(IsVersion);
         var publicId = string.Join('/', rest);
         var dot = publicId.LastIndexOf('.');
         if (dot > 0) publicId = publicId[..dot];
@@ -235,12 +359,13 @@ public class FileStorage(
             ["public_id"] = publicId,
             ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(),
         };
+        if (parts[1] == "authenticated") parameters["type"] = "authenticated";
         var fields = new Dictionary<string, string>(parameters)
         {
             ["api_key"] = _s.CloudinaryApiKey!,
             ["signature"] = Sign(parameters),
         };
-        await httpFactory.CreateClient().PostAsync(
+        await Client.PostAsync(
             $"https://api.cloudinary.com/v1_1/{_s.CloudinaryCloudName}/{parts[0]}/destroy", new FormUrlEncodedContent(fields));
     }
 

@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView, ActivityIndicator,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import BottomSheet from '../../common/components/BottomSheet';
 import Avatar from '../../common/components/Avatar';
 import SearchBar from '../../common/components/SearchBar';
 import LoadingState from '../../common/components/LoadingState';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useToast } from '../../common/components/Toast';
 import { useTrainers } from '../../trainers/api/trainerQueries';
 import { useAssignTrainer, useUnassignTrainer } from '../api/memberQueries';
@@ -56,14 +57,14 @@ export default function AssignTrainerSheet({ visible, onClose, memberId, memberN
           setSearch('');
           onClose();
         },
-        onError: (e) => Alert.alert('Could not assign trainer', apiErrorText(e)),
+        onError: (e) => showAlert('Could not assign trainer', apiErrorText(e)),
         onSettled: () => setPendingId(null),
       },
     );
   };
 
   const remove = (t: AssignedTrainer) => {
-    Alert.alert(
+    showAlert(
       'Remove trainer?',
       `${t.displayName} will no longer be assigned to ${memberName}.`,
       [
@@ -74,7 +75,7 @@ export default function AssignTrainerSheet({ visible, onClose, memberId, memberN
             { memberId, trainerId: t.trainerId },
             {
               onSuccess: () => showToast({ type: 'success', message: `${t.displayName} removed.` }),
-              onError: (e) => Alert.alert('Could not remove trainer', apiErrorText(e)),
+              onError: (e) => showAlert('Could not remove trainer', apiErrorText(e)),
             },
           ),
         },

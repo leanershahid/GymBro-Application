@@ -1,9 +1,9 @@
 // Admin side of the shop (/shop/admin). Every call unwraps the ApiResponse envelope and throws
 // when the server answers success: false, so screens only deal with data or an error.
-import { Platform } from 'react-native';
 import axiosInstance from '../../../api/axios';
 import { ApiResponse } from '../../../api/types';
-import { PickedFile } from '../../../api/upload';
+import { PickedFile, uploadFile } from '../../../api/upload';
+import { unwrap } from '../../../api/http';
 import {
   Paged, ShopSettings, ShopCategory, ShopCategoryInput, ShopAdminProductRow, ShopAdminProduct, ShopProductInput,
   ShopVariantInput, ShopInventoryRow, ShopInventoryUpdate, ShopOrderSummary, ShopOrder, ShopOrderStatus,
@@ -22,34 +22,12 @@ function clean(params: Record<string, unknown>): Record<string, string | number 
   return out;
 }
 
-function unwrap<T>(res: ApiResponse<T>): T {
-  if (!res.success) {
-    const err = new Error(res.errors?.length ? `${res.message}\n\n• ${res.errors.join('\n• ')}` : res.message || 'Request failed.');
-    throw err;
-  }
-  return res.data as T;
-}
-
 const get = async <T>(url: string, params: Record<string, unknown> = {}) =>
   unwrap((await axiosInstance.get<ApiResponse<T>>(BASE + url, { params: clean(params) })).data);
 const post = async <T>(url: string, body?: unknown) => unwrap((await axiosInstance.post<ApiResponse<T>>(BASE + url, body)).data);
 const put = async <T>(url: string, body?: unknown) => unwrap((await axiosInstance.put<ApiResponse<T>>(BASE + url, body)).data);
 const patch = async <T>(url: string, body?: unknown) => unwrap((await axiosInstance.patch<ApiResponse<T>>(BASE + url, body)).data);
 const del = async <T>(url: string) => unwrap((await axiosInstance.delete<ApiResponse<T>>(BASE + url)).data);
-
-/** Same file part as api/upload.ts (Blob on web, { uri, name, type } on native), plus room for extra fields. */
-async function imageForm(file: PickedFile): Promise<FormData> {
-  const type = file.mimeType || (/\.png$/i.test(file.uri) ? 'image/png' : /\.webp$/i.test(file.uri) ? 'image/webp' : 'image/jpeg');
-  const name = file.fileName || `image.${type.split('/')[1] ?? 'jpg'}`;
-  const form = new FormData();
-  if (Platform.OS === 'web') {
-    const blob = await (await fetch(file.uri)).blob();
-    form.append('file', new File([blob], name, { type: blob.type || type }));
-  } else {
-    form.append('file', { uri: file.uri, name, type } as unknown as Blob);
-  }
-  return form;
-}
 
 export type ProductStatusFilter = 'all' | 'active' | 'inactive';
 
@@ -72,15 +50,11 @@ export const shopAdminApi = {
   deleteVariant: (id: number, variantId: number) => del<ShopAdminProduct>(`/products/${id}/variants/${variantId}`),
 
   /** Multipart: `file`, `altText`, `isPrimary`. */
-  uploadImage: async (id: number, file: PickedFile, altText: string, isPrimary: boolean) => {
-    const form = await imageForm(file);
-    form.append('altText', altText);
-    form.append('isPrimary', String(isPrimary));
-    const { data } = await axiosInstance.post<ApiResponse<ShopAdminProduct>>(`${BASE}/products/${id}/images`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return unwrap(data);
-  },
+  uploadImage: async (id: number, file: PickedFile, altText: string, isPrimary: boolean) =>
+    unwrap(await uploadFile<ShopAdminProduct>(`${BASE}/products/${id}/images`, 'file', file, {
+      altText,
+      isPrimary: String(isPrimary),
+    })),
   addImageUrl: (id: number, body: { url: string; altText: string | null; isPrimary: boolean }) =>
     post<ShopAdminProduct>(`/products/${id}/images/url`, body),
   updateImage: (id: number, imageId: number, body: { altText: string | null; sortOrder: number; isPrimary: boolean }) =>

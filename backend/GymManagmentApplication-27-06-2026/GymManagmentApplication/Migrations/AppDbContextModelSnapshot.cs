@@ -23,352 +23,6 @@ namespace GymManagmentApplication.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.AI.AiChatMessage", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Role")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("SessionId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<int?>("Tokens")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SessionId");
-
-                    b.ToTable("AiChatMessages");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.AI.AiChatSession", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Context")
-                        .HasColumnType("jsonb");
-
-                    b.Property<DateTime?>("EndedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("SessionKey")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("StartedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("UserId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("AiChatSessions");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.AI.MlPrediction", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal?>("Confidence")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("numeric(18,6)");
-
-                    b.Property<decimal>("EntityId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("EntityType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FeaturesUsed")
-                        .HasColumnType("jsonb");
-
-                    b.Property<string>("ModelType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("PredictedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("Score")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("numeric(18,6)");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("MlPredictions");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.AI.PoseLog", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("CapturedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Corrections")
-                        .HasColumnType("jsonb");
-
-                    b.Property<decimal>("ExerciseId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Keypoints")
-                        .HasColumnType("jsonb");
-
-                    b.Property<decimal>("LogId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal?>("Score")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("numeric(18,6)");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExerciseId");
-
-                    b.HasIndex("LogId");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("PoseLogs");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Analytics.AnalyticsDaily", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<int?>("AvgSessionMin")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("BranchId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<int>("ChurnedMembers")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ClassesHeld")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("LeadsConverted")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("LeadsCreated")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("NewMembers")
-                        .HasColumnType("integer");
-
-                    b.Property<DateOnly>("ReportDate")
-                        .HasColumnType("date");
-
-                    b.Property<decimal>("Revenue")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<long>("TotalCheckins")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("UniqueMembers")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("WorkoutsDone")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BranchId");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("AnalyticsDailys");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Analytics.TrainerAnalyticsDaily", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal?>("AvgRating")
-                        .HasPrecision(10, 4)
-                        .HasColumnType("numeric(10,4)");
-
-                    b.Property<int>("ClientsTrained")
-                        .HasColumnType("integer");
-
-                    b.Property<DateOnly>("ReportDate")
-                        .HasColumnType("date");
-
-                    b.Property<decimal>("RevenueGenerated")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<int>("SessionsDone")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("TrainerId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<int>("WorkoutsCreated")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TrainerId");
-
-                    b.ToTable("TrainerAnalyticsDailys");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Automation.AutomationLog", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal?>("EntityId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("EntityType")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("ExecutedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Result")
-                        .HasColumnType("jsonb");
-
-                    b.Property<decimal>("RuleId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RuleId");
-
-                    b.ToTable("AutomationLogs");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Automation.AutomationRule", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Actions")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("LastRunAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<long>("RunCount")
-                        .HasColumnType("bigint");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("TriggerConditions")
-                        .HasColumnType("jsonb");
-
-                    b.Property<string>("TriggerEvent")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("AutomationRules");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Automation.ScheduledTask", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<byte>("Attempts")
-                        .HasColumnType("smallint");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("LastError")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Payload")
-                        .HasColumnType("jsonb");
-
-                    b.Property<DateTime>("RunAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("TaskType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("ScheduledTasks");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Billing.Coupon", b =>
                 {
                     b.Property<decimal>("Id")
@@ -537,12 +191,12 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
-
                     b.HasIndex("TenantId", "InvoiceNo")
                         .IsUnique();
 
                     b.HasIndex("TenantId", "UserId");
+
+                    b.HasIndex("UserId", "Status");
 
                     b.ToTable("Invoices");
                 });
@@ -571,6 +225,10 @@ namespace GymManagmentApplication.Migrations
 
                     b.Property<string>("GatewayResponse")
                         .HasColumnType("jsonb");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<decimal>("InvoiceId")
                         .HasColumnType("numeric(20,0)");
@@ -603,6 +261,14 @@ namespace GymManagmentApplication.Migrations
                     b.HasIndex("InvoiceId");
 
                     b.HasIndex("TenantId", "CreatedAt");
+
+                    b.HasIndex("TenantId", "GatewayRef")
+                        .IsUnique()
+                        .HasFilter("\"GatewayRef\" IS NOT NULL");
+
+                    b.HasIndex("TenantId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("\"IdempotencyKey\" IS NOT NULL");
 
                     b.ToTable("Payments");
                 });
@@ -739,148 +405,13 @@ namespace GymManagmentApplication.Migrations
                     b.ToTable("LeadActivities");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.CRM.Referral", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("ConvertedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("ProgramId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("RefereeEmail")
-                        .HasColumnType("text");
-
-                    b.Property<decimal?>("RefereeId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("ReferrerId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime?>("RewardedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProgramId");
-
-                    b.HasIndex("RefereeId");
-
-                    b.HasIndex("ReferrerId");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("Referrals");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.CRM.ReferralProgram", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime?>("EndsAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<long?>("MaxUses")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("RefereeReward")
-                        .HasColumnType("jsonb");
-
-                    b.Property<string>("ReferrerReward")
-                        .HasColumnType("jsonb");
-
-                    b.Property<DateTime?>("StartsAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<long>("UsesCount")
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("ReferralPrograms");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.Campaign", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Audience")
-                        .HasColumnType("jsonb");
-
-                    b.Property<long>("ClickCount")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Content")
-                        .HasColumnType("jsonb");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<long>("OpenCount")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime?>("ScheduledAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<long>("SentCount")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("Campaigns");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.CommunicationLog", b =>
                 {
                     b.Property<decimal>("Id")
                         .HasColumnType("numeric(20,0)");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Body")
                         .HasColumnType("text");
@@ -925,80 +456,11 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CampaignId");
+                    b.HasIndex("TenantId", "ProviderRef");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("Status", "Channel", "CreatedAt");
 
                     b.ToTable("CommunicationLogs");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.FeedbackResponse", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Responses")
-                        .HasColumnType("jsonb");
-
-                    b.Property<short?>("Score")
-                        .HasColumnType("smallint");
-
-                    b.Property<DateTime>("SubmittedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("SurveyId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("UserId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SurveyId");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("FeedbackResponses");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.FeedbackSurvey", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Questions")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("TriggerEvent")
-                        .HasColumnType("text");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("FeedbackSurveys");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.Notification", b =>
@@ -1041,134 +503,9 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "ReadAt");
 
                     b.ToTable("Notifications");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.NotificationTemplate", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Channel")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("EventType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Subject")
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Variables")
-                        .HasColumnType("jsonb");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("NotificationTemplates");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.Webhook", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Events")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
-
-                    b.Property<byte>("FailureCount")
-                        .HasColumnType("smallint");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("LastFiredAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("SecretHash")
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Url")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("Webhooks");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.WebhookDelivery", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<byte>("Attempt")
-                        .HasColumnType("smallint");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DeliveredAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("EventType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Payload")
-                        .HasColumnType("jsonb");
-
-                    b.Property<string>("ResponseBody")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("ResponseCode")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("WebhookId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("WebhookId");
-
-                    b.ToTable("WebhookDeliveries");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Core.Branch", b =>
@@ -1417,249 +754,6 @@ namespace GymManagmentApplication.Migrations
                     b.ToTable("AccessEvents");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Facility.EquipmentBooking", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("EndsAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("EquipmentId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("StartsAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("UserId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EquipmentId");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("EquipmentBookings");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Facility.EquipmentMaintenanceLog", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal?>("Cost")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("EquipmentId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateOnly?>("NextDue")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime>("PerformedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal?>("PerformedBy")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal?>("PerformerId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EquipmentId");
-
-                    b.HasIndex("PerformerId");
-
-                    b.ToTable("EquipmentMaintenanceLogs");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Facility.FacilityEquipment", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("BranchId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("EquipmentId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("IotDeviceId")
-                        .HasColumnType("text");
-
-                    b.Property<DateOnly?>("LastServiced")
-                        .HasColumnType("date");
-
-                    b.Property<string>("LocationTag")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateOnly?>("NextService")
-                        .HasColumnType("date");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text");
-
-                    b.Property<DateOnly?>("PurchaseDate")
-                        .HasColumnType("date");
-
-                    b.Property<string>("SerialNumber")
-                        .HasColumnType("text");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateOnly?>("WarrantyExpiry")
-                        .HasColumnType("date");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BranchId");
-
-                    b.HasIndex("EquipmentId");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("FacilityEquipments");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Facility.Locker", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("BranchId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Number")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Zone")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BranchId");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("Lockers");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Facility.LockerAssignment", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("AssignedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<decimal>("LockerId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime?>("ReleasedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("UserId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("LockerId");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("LockerAssignments");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Gamification.Achievement", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Criteria")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
-                    b.Property<string>("IconUrl")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Points")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("Achievements");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Gamification.Challenge", b =>
                 {
                     b.Property<decimal>("Id")
@@ -1743,218 +837,6 @@ namespace GymManagmentApplication.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("ChallengeParticipants");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Gamification.UserAchievement", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("AchievementId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("EarnedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("UserId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AchievementId");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("UserAchievements");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.HR.PayrollConfig", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("BaseSalary")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<string>("CommissionRules")
-                        .HasColumnType("jsonb");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<int>("PayCycle")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("UserId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("PayrollConfigs");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.HR.PayrollPeriod", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateOnly>("PeriodEnd")
-                        .HasColumnType("date");
-
-                    b.Property<DateOnly>("PeriodStart")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime?>("ProcessedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("PayrollPeriods");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.HR.PayrollSlip", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("BaseSalary")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<decimal>("Bonuses")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<string>("Breakdown")
-                        .HasColumnType("jsonb");
-
-                    b.Property<decimal>("Commission")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("Deductions")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<decimal>("NetPay")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<DateTime?>("PaidAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("PeriodId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("UserId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PeriodId");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("PayrollSlips");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Health.ClientGoal", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("ClientId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("CurrentValue")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<DateOnly?>("TargetDate")
-                        .HasColumnType("date");
-
-                    b.Property<decimal?>("TargetValue")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Unit")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClientId");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("ClientGoals");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Health.ClientProfile", b =>
@@ -2154,65 +1036,6 @@ namespace GymManagmentApplication.Migrations
                     b.ToTable("HealthMetrics");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Health.InjuryRecord", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<bool>("AiDetected")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("BodyPart")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("ClientId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("InjuryType")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text");
-
-                    b.Property<DateOnly?>("OccurredAt")
-                        .HasColumnType("date");
-
-                    b.Property<DateOnly?>("RecoveredAt")
-                        .HasColumnType("date");
-
-                    b.Property<decimal?>("ReportedBy")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal?>("ReporterId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Restrictions")
-                        .HasColumnType("jsonb");
-
-                    b.Property<int>("Severity")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClientId");
-
-                    b.HasIndex("ReporterId");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("InjuryRecords");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Health.TransformationJournal", b =>
                 {
                     b.Property<decimal>("Id")
@@ -2249,48 +1072,6 @@ namespace GymManagmentApplication.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("TransformationJournals");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Health.WearableDevice", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("AccessTokenEnc")
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("ClientId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("DeviceName")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("LastSyncedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Provider")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("RefreshTokenEnc")
-                        .HasColumnType("text");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime?>("TokenExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClientId");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("WearableDevices");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Identity.AuthCode", b =>
@@ -2894,9 +1675,9 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasIndex("PlanId");
 
-                    b.HasIndex("TenantId");
-
                     b.HasIndex("UserId", "Status");
+
+                    b.HasIndex("TenantId", "Status", "EndsAt");
 
                     b.ToTable("GymMemberships");
                 });
@@ -2958,219 +1739,6 @@ namespace GymManagmentApplication.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("MembershipPlans");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Nutrition.DietPlan", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<int?>("CaloriesTarget")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("CarbsG")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("ClientId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("CreatedBy")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateOnly?>("EndsOn")
-                        .HasColumnType("date");
-
-                    b.Property<int?>("FatG")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Goal")
-                        .HasColumnType("integer");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsAiGenerated")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("ProteinG")
-                        .HasColumnType("integer");
-
-                    b.Property<DateOnly?>("StartsOn")
-                        .HasColumnType("date");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClientId");
-
-                    b.HasIndex("CreatedBy");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("DietPlans");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Nutrition.FoodItem", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Barcode")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Brand")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("Calories")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("CarbsG")
-                        .HasPrecision(10, 3)
-                        .HasColumnType("numeric(10,3)");
-
-                    b.Property<decimal?>("FatG")
-                        .HasPrecision(10, 3)
-                        .HasColumnType("numeric(10,3)");
-
-                    b.Property<decimal?>("FiberG")
-                        .HasPrecision(10, 3)
-                        .HasColumnType("numeric(10,3)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<decimal?>("ProteinG")
-                        .HasPrecision(10, 3)
-                        .HasColumnType("numeric(10,3)");
-
-                    b.Property<decimal?>("ServingG")
-                        .HasPrecision(10, 3)
-                        .HasColumnType("numeric(10,3)");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("FoodItems");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Nutrition.NutritionLog", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<int?>("Calories")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("ClientId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal?>("DietPlanId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal?>("FoodId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("FoodName")
-                        .HasColumnType("text");
-
-                    b.Property<DateOnly>("LogDate")
-                        .HasColumnType("date");
-
-                    b.Property<int>("MealType")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text");
-
-                    b.Property<decimal?>("QuantityG")
-                        .HasPrecision(10, 3)
-                        .HasColumnType("numeric(10,3)");
-
-                    b.Property<decimal?>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClientId");
-
-                    b.HasIndex("DietPlanId");
-
-                    b.HasIndex("FoodId");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("NutritionLogs");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.ApiKey", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("KeyHash")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("KeyPrefix")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("LastUsedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<long>("RateLimit")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Scopes")
-                        .HasColumnType("jsonb");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal?>("UserId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("ApiKeys");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.AssessmentTemplate", b =>
@@ -3294,161 +1862,6 @@ namespace GymManagmentApplication.Migrations
                     b.ToTable("ClientAssessments");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.CustomFieldDefinition", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("EntityType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("FieldKey")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("FieldType")
-                        .HasColumnType("integer");
-
-                    b.Property<bool>("IsRequired")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Options")
-                        .HasColumnType("jsonb");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("CustomFieldDefinitions");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.CustomPage", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Content")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsPublished")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Layout")
-                        .HasColumnType("jsonb");
-
-                    b.Property<string>("MetaDesc")
-                        .HasColumnType("text");
-
-                    b.Property<string>("MetaTitle")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("CustomPages");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.ExportJob", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ErrorMsg")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<long?>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("FileUrl")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Filters")
-                        .HasColumnType("jsonb");
-
-                    b.Property<string>("ReportType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("RequestedBy")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<long?>("RowCount")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("ExportJobs");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.FeatureFlag", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
-                    b.Property<string>("FeatureKey")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Label")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Plans")
-                        .HasColumnType("jsonb");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("FeatureFlags");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.MediaLibrary", b =>
                 {
                     b.Property<decimal>("Id")
@@ -3507,39 +1920,6 @@ namespace GymManagmentApplication.Migrations
                     b.ToTable("MediaLibraries");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.NavigationMenu", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Items")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
-
-                    b.Property<string>("Location")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("RoleIds")
-                        .HasColumnType("jsonb");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("NavigationMenus");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.OnboardingStep", b =>
                 {
                     b.Property<decimal>("Id")
@@ -3579,39 +1959,6 @@ namespace GymManagmentApplication.Migrations
                         .IsUnique();
 
                     b.ToTable("OnboardingSteps");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.Plugin", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Author")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ConfigSchema")
-                        .HasColumnType("jsonb");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
-                    b.Property<int>("MinPlan")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Version")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Plugins");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.PricingRule", b =>
@@ -3707,121 +2054,6 @@ namespace GymManagmentApplication.Migrations
                     b.ToTable("Ratings");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.SearchIndexCache", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Embedding")
-                        .HasColumnType("jsonb");
-
-                    b.Property<decimal>("EntityId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("EntityType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("SearchText")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("SearchIndexCaches");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.SupportTicket", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<bool>("AiRouted")
-                        .HasColumnType("boolean");
-
-                    b.Property<decimal?>("AssignedTo")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Category")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Priority")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("ResolvedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Subject")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("UserId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AssignedTo");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("SupportTickets");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.SupportTicketReply", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Attachments")
-                        .HasColumnType("jsonb");
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsInternal")
-                        .HasColumnType("boolean");
-
-                    b.Property<decimal>("TicketId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("UserId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TicketId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("SupportTicketReplies");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.Tag", b =>
                 {
                     b.Property<decimal>("Id")
@@ -3864,167 +2096,24 @@ namespace GymManagmentApplication.Migrations
                     b.ToTable("Taggables");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.TenantFeatureOverride", b =>
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.TenantCounter", b =>
                 {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("FeatureKey")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsEnabled")
-                        .HasColumnType("boolean");
-
                     b.Property<decimal>("TenantId")
                         .HasColumnType("numeric(20,0)");
 
-                    b.Property<DateTime?>("ValidUntil")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("TenantFeatureOverrides");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.TenantPlugin", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Config")
-                        .HasColumnType("jsonb");
-
-                    b.Property<DateTime>("InstalledAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<decimal>("PluginId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PluginId");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("TenantPlugins");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.UiTheme", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CustomCss")
-                        .HasColumnType("text");
-
-                    b.Property<string>("FaviconUrl")
-                        .HasColumnType("text");
-
-                    b.Property<string>("FontBody")
-                        .HasColumnType("text");
-
-                    b.Property<string>("FontHeading")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("LayoutConfig")
-                        .HasColumnType("jsonb");
-
-                    b.Property<string>("LogoUrl")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("PrimaryColor")
-                        .HasColumnType("text");
-
-                    b.Property<string>("SecondaryColor")
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
+                    b.Property<string>("Key")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.HasKey("Id");
+                    b.Property<long>("Value")
+                        .HasColumnType("bigint");
 
-                    b.HasIndex("TenantId");
+                    b.HasKey("TenantId", "Key");
 
-                    b.ToTable("UiThemes");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.VirtualSession", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("ClientId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("EndsAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("MeetingId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("MeetingUrl")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Passcode")
-                        .HasColumnType("text");
-
-                    b.Property<int>("Provider")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("PtSessionId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("RecordingUrl")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("StartsAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("TenantId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("TrainerId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClientId");
-
-                    b.HasIndex("PtSessionId");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("TrainerId");
-
-                    b.ToTable("VirtualSessions");
+                    b.ToTable("TenantCounters");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Scheduling.Attendance", b =>
@@ -4202,9 +2291,9 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasIndex("ClassTypeId");
 
-                    b.HasIndex("TenantId");
-
                     b.HasIndex("TrainerId");
+
+                    b.HasIndex("TenantId", "StartsAt");
 
                     b.ToTable("GymClasses");
                 });
@@ -5634,6 +3723,35 @@ namespace GymManagmentApplication.Migrations
                     b.ToTable("WorkoutAutomationRules");
                 });
 
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutBookmark", b =>
+                {
+                    b.Property<decimal>("Id")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("TenantId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal>("UserId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal>("WorkoutTemplateId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("WorkoutTemplateId");
+
+                    b.HasIndex("UserId", "WorkoutTemplateId")
+                        .IsUnique();
+
+                    b.ToTable("WorkoutBookmarks");
+                });
+
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutExercise", b =>
                 {
                     b.Property<decimal>("Id")
@@ -5754,49 +3872,6 @@ namespace GymManagmentApplication.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("WorkoutLogs");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutLogSet", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal?>("DistanceM")
-                        .HasPrecision(10, 3)
-                        .HasColumnType("numeric(10,3)");
-
-                    b.Property<short?>("DurationSec")
-                        .HasColumnType("smallint");
-
-                    b.Property<decimal>("ExerciseId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<decimal>("LogId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("text");
-
-                    b.Property<int?>("Reps")
-                        .HasColumnType("integer");
-
-                    b.Property<byte?>("Rpe")
-                        .HasColumnType("smallint");
-
-                    b.Property<byte>("SetNo")
-                        .HasColumnType("smallint");
-
-                    b.Property<decimal?>("WeightKg")
-                        .HasPrecision(10, 3)
-                        .HasColumnType("numeric(10,3)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExerciseId");
-
-                    b.HasIndex("LogId");
-
-                    b.ToTable("WorkoutLogSets");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutPlan", b =>
@@ -5965,33 +4040,6 @@ namespace GymManagmentApplication.Migrations
                     b.ToTable("WorkoutPlanWeeks");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutProgression", b =>
-                {
-                    b.Property<decimal>("Id")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<string>("Condition")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
-
-                    b.Property<decimal>("NextTemplate")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.Property<byte>("SortOrder")
-                        .HasColumnType("smallint");
-
-                    b.Property<decimal>("TemplateId")
-                        .HasColumnType("numeric(20,0)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NextTemplate");
-
-                    b.HasIndex("TemplateId");
-
-                    b.ToTable("WorkoutProgressions");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutSection", b =>
                 {
                     b.Property<decimal>("Id")
@@ -6080,128 +4128,6 @@ namespace GymManagmentApplication.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("WorkoutTemplates");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.AI.AiChatMessage", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.AI.AiChatSession", "Session")
-                        .WithMany("Messages")
-                        .HasForeignKey("SessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Session");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.AI.AiChatSession", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.AI.MlPrediction", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.AI.PoseLog", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.Exercise", "Exercise")
-                        .WithMany()
-                        .HasForeignKey("ExerciseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.WorkoutLog", "Log")
-                        .WithMany()
-                        .HasForeignKey("LogId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Exercise");
-
-                    b.Navigation("Log");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Analytics.AnalyticsDaily", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Branch", null)
-                        .WithMany()
-                        .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Analytics.TrainerAnalyticsDaily", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.TrainerProfile", "Trainer")
-                        .WithMany()
-                        .HasForeignKey("TrainerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Trainer");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Automation.AutomationLog", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Automation.AutomationRule", "Rule")
-                        .WithMany("Logs")
-                        .HasForeignKey("RuleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Rule");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Automation.AutomationRule", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Automation.ScheduledTask", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Billing.Coupon", b =>
@@ -6339,100 +4265,7 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Lead");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.CRM.Referral", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.CRM.ReferralProgram", "Program")
-                        .WithMany("Referrals")
-                        .HasForeignKey("ProgramId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Referee")
-                        .WithMany()
-                        .HasForeignKey("RefereeId");
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Referrer")
-                        .WithMany()
-                        .HasForeignKey("ReferrerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Program");
-
-                    b.Navigation("Referee");
-
-                    b.Navigation("Referrer");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.CRM.ReferralProgram", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.Campaign", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.CommunicationLog", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Communication.Campaign", "Campaign")
-                        .WithMany()
-                        .HasForeignKey("CampaignId");
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Campaign");
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.FeedbackResponse", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Communication.FeedbackSurvey", "Survey")
-                        .WithMany("Responses")
-                        .HasForeignKey("SurveyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Survey");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.FeedbackSurvey", b =>
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
                         .WithMany()
@@ -6460,44 +4293,6 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Tenant");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.NotificationTemplate", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.Webhook", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.WebhookDelivery", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Communication.Webhook", "Webhook")
-                        .WithMany("Deliveries")
-                        .HasForeignKey("WebhookId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Webhook");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Core.Branch", b =>
@@ -6556,123 +4351,6 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Facility.EquipmentBooking", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Facility.FacilityEquipment", "Equipment")
-                        .WithMany("Bookings")
-                        .HasForeignKey("EquipmentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Equipment");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Facility.EquipmentMaintenanceLog", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Facility.FacilityEquipment", "Equipment")
-                        .WithMany("MaintenanceLogs")
-                        .HasForeignKey("EquipmentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Performer")
-                        .WithMany()
-                        .HasForeignKey("PerformerId");
-
-                    b.Navigation("Equipment");
-
-                    b.Navigation("Performer");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Facility.FacilityEquipment", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.Equipment", "Equipment")
-                        .WithMany()
-                        .HasForeignKey("EquipmentId");
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Branch");
-
-                    b.Navigation("Equipment");
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Facility.Locker", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Branch");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Facility.LockerAssignment", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Facility.Locker", "Locker")
-                        .WithMany("Assignments")
-                        .HasForeignKey("LockerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Locker");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Gamification.Achievement", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Gamification.Challenge", b =>
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
@@ -6706,100 +4384,6 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Challenge");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Gamification.UserAchievement", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Gamification.Achievement", "Achievement")
-                        .WithMany("UserAchievements")
-                        .HasForeignKey("AchievementId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Achievement");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.HR.PayrollConfig", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.HR.PayrollPeriod", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.HR.PayrollSlip", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.HR.PayrollPeriod", "Period")
-                        .WithMany("Slips")
-                        .HasForeignKey("PeriodId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Period");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Health.ClientGoal", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Client")
-                        .WithMany()
-                        .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Client");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Health.ClientProfile", b =>
@@ -6866,45 +4450,7 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Client");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Health.InjuryRecord", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Client")
-                        .WithMany()
-                        .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Reporter")
-                        .WithMany()
-                        .HasForeignKey("ReporterId");
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Client");
-
-                    b.Navigation("Reporter");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Health.TransformationJournal", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Client")
-                        .WithMany()
-                        .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Client");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Health.WearableDevice", b =>
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Client")
                         .WithMany()
@@ -7167,78 +4713,6 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Tenant");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Nutrition.DietPlan", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Client")
-                        .WithMany()
-                        .HasForeignKey("ClientId");
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Creator")
-                        .WithMany()
-                        .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Client");
-
-                    b.Navigation("Creator");
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Nutrition.FoodItem", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade);
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Nutrition.NutritionLog", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Client")
-                        .WithMany()
-                        .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Nutrition.DietPlan", "DietPlan")
-                        .WithMany("NutritionLogs")
-                        .HasForeignKey("DietPlanId");
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Nutrition.FoodItem", "Food")
-                        .WithMany()
-                        .HasForeignKey("FoodId");
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Client");
-
-                    b.Navigation("DietPlan");
-
-                    b.Navigation("Food");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.ApiKey", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.AssessmentTemplate", b =>
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
@@ -7282,39 +4756,6 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Template");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.CustomFieldDefinition", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.CustomPage", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.ExportJob", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.MediaLibrary", b =>
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
@@ -7330,17 +4771,6 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Tenant");
 
                     b.Navigation("Uploader");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.NavigationMenu", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.OnboardingStep", b =>
@@ -7391,60 +4821,6 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Tenant");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.SearchIndexCache", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.SupportTicket", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "AssignedUser")
-                        .WithMany()
-                        .HasForeignKey("AssignedTo")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("AssignedUser");
-
-                    b.Navigation("Tenant");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.SupportTicketReply", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Platform.SupportTicket", "Ticket")
-                        .WithMany("Replies")
-                        .HasForeignKey("TicketId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Ticket");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.Tag", b =>
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
@@ -7465,80 +4841,6 @@ namespace GymManagmentApplication.Migrations
                         .IsRequired();
 
                     b.Navigation("Tag");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.TenantFeatureOverride", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.TenantPlugin", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Platform.Plugin", "Plugin")
-                        .WithMany("TenantPlugins")
-                        .HasForeignKey("PluginId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Plugin");
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.UiTheme", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.VirtualSession", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", "Client")
-                        .WithMany()
-                        .HasForeignKey("ClientId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.PtSession", "PtSession")
-                        .WithMany()
-                        .HasForeignKey("PtSessionId");
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.TrainerProfile", "Trainer")
-                        .WithMany()
-                        .HasForeignKey("TrainerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Client");
-
-                    b.Navigation("PtSession");
-
-                    b.Navigation("Tenant");
-
-                    b.Navigation("Trainer");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Scheduling.Attendance", b =>
@@ -8212,6 +5514,27 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutBookmark", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.WorkoutTemplate", null)
+                        .WithMany()
+                        .HasForeignKey("WorkoutTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutExercise", b =>
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Training.Exercise", "Exercise")
@@ -8265,25 +5588,6 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Template");
 
                     b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutLogSet", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.Exercise", "Exercise")
-                        .WithMany()
-                        .HasForeignKey("ExerciseId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.WorkoutLog", "Log")
-                        .WithMany("Sets")
-                        .HasForeignKey("LogId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Exercise");
-
-                    b.Navigation("Log");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutPlan", b =>
@@ -8378,25 +5682,6 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Plan");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutProgression", b =>
-                {
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.WorkoutTemplate", "NextWorkoutTemplate")
-                        .WithMany()
-                        .HasForeignKey("NextTemplate")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.WorkoutTemplate", "Template")
-                        .WithMany()
-                        .HasForeignKey("TemplateId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("NextWorkoutTemplate");
-
-                    b.Navigation("Template");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutSection", b =>
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Training.WorkoutTemplate", "Template")
@@ -8427,16 +5712,6 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Tenant");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.AI.AiChatSession", b =>
-                {
-                    b.Navigation("Messages");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Automation.AutomationRule", b =>
-                {
-                    b.Navigation("Logs");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Billing.Coupon", b =>
                 {
                     b.Navigation("Redemptions");
@@ -8455,21 +5730,6 @@ namespace GymManagmentApplication.Migrations
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.CRM.Lead", b =>
                 {
                     b.Navigation("Activities");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.CRM.ReferralProgram", b =>
-                {
-                    b.Navigation("Referrals");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.FeedbackSurvey", b =>
-                {
-                    b.Navigation("Responses");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Communication.Webhook", b =>
-                {
-                    b.Navigation("Deliveries");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Core.Branch", b =>
@@ -8493,31 +5753,9 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Events");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Facility.FacilityEquipment", b =>
-                {
-                    b.Navigation("Bookings");
-
-                    b.Navigation("MaintenanceLogs");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Facility.Locker", b =>
-                {
-                    b.Navigation("Assignments");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Gamification.Achievement", b =>
-                {
-                    b.Navigation("UserAchievements");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Gamification.Challenge", b =>
                 {
                     b.Navigation("Participants");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.HR.PayrollPeriod", b =>
-                {
-                    b.Navigation("Slips");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Health.HabitTracker", b =>
@@ -8557,24 +5795,9 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Memberships");
                 });
 
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Nutrition.DietPlan", b =>
-                {
-                    b.Navigation("NutritionLogs");
-                });
-
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.AssessmentTemplate", b =>
                 {
                     b.Navigation("Assessments");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.Plugin", b =>
-                {
-                    b.Navigation("TenantPlugins");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.SupportTicket", b =>
-                {
-                    b.Navigation("Replies");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Platform.Tag", b =>
@@ -8678,11 +5901,6 @@ namespace GymManagmentApplication.Migrations
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutAutomationRule", b =>
                 {
                     b.Navigation("Logs");
-                });
-
-            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutLog", b =>
-                {
-                    b.Navigation("Sets");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutPlan", b =>

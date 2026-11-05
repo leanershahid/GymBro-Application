@@ -18,7 +18,8 @@ public class CommunicationLog
     public decimal? Cost { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? DeliveredAt { get; set; }
+    /// <summary>Delivery attempts made by the email outbox (Status stays Queued until sent or given up).</summary>
+    public int Attempts { get; set; }
 
     public Core.Tenant Tenant { get; set; } = default!;
-    public Campaign? Campaign { get; set; }
 }

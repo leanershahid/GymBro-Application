@@ -29,7 +29,7 @@ public class LeadController(ILeadService service, IValidator<CreateLeadRequest> 
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, ApiResponse<object>.Ok(result, "Lead created."));
     }
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:long}")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> GetById(ulong id)
     {
@@ -37,7 +37,7 @@ public class LeadController(ILeadService service, IValidator<CreateLeadRequest> 
         return result is null ? NotFound(ApiResponse<object>.Fail($"Lead {id} not found.")) : Ok(ApiResponse<object>.Ok(result));
     }
 
-    [HttpPut("{id}")]
+    [HttpPut("{id:long}")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> Update(ulong id, [FromBody] UpdateLeadRequest request)
     {
@@ -45,7 +45,7 @@ public class LeadController(ILeadService service, IValidator<CreateLeadRequest> 
         return result is null ? NotFound(ApiResponse<object>.Fail($"Lead {id} not found.")) : Ok(ApiResponse<object>.Ok(result));
     }
 
-    [HttpPost("{id}/convert")]
+    [HttpPost("{id:long}/convert")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> Convert(ulong id)
     {
@@ -53,7 +53,7 @@ public class LeadController(ILeadService service, IValidator<CreateLeadRequest> 
         return result is null ? NotFound(ApiResponse<object>.Fail($"Lead {id} not found.")) : Ok(ApiResponse<object>.Ok(result, "Lead converted to member."));
     }
 
-    [HttpGet("{id}/score")]
+    [HttpGet("{id:long}/score")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> GetScore(ulong id)
     {
@@ -61,7 +61,7 @@ public class LeadController(ILeadService service, IValidator<CreateLeadRequest> 
         return result is null ? NotFound(ApiResponse<object>.Fail($"Lead {id} not found.")) : Ok(ApiResponse<object>.Ok(result));
     }
 
-    [HttpPost("{id}/followup")]
+    [HttpPost("{id:long}/followup")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> AddFollowup(ulong id, [FromBody] LeadFollowupRequest request)
         => Ok(ApiResponse<object>.Ok(await service.AddFollowupAsync(id, request)));

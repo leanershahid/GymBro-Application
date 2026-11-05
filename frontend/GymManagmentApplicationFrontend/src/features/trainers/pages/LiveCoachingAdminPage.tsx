@@ -5,7 +5,7 @@ import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import Avatar from '../../common/components/Avatar';
 import LoadingState from '../../common/components/LoadingState';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useTrainers, useUpdateTrainerAvailability } from '../api/trainerQueries';
 import { TrainerSummary } from '../types/trainer.types';
 

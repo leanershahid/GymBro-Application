@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, Text, Alert, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import BottomSheet from '../../common/components/BottomSheet';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
 import { useToast } from '../../common/components/Toast';
-import ChipSelect from '../../exercises/components/ChipSelect';
-import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
-import { DateField } from '../../trainers/components/DatePicker';
+import ChipSelect from '../../common/components/ChipSelect';
+import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
+import { DateField } from '../../common/components/DatePicker';
 import { TimeField } from '../../trainers/components/TimePicker';
 import { apiErrorText, describeApiError, fieldErrorsFrom } from '../../../api/apiError';
 import { useClassTypes, useBranchOptions, useTrainerOptions, useCreateClass, useUpdateClass } from '../api/classesQueries';
@@ -97,7 +98,7 @@ export default function ClassFormSheet({ visible, onClose, mode, existing, defau
       capacity: 'capacity', 'max capacity': 'capacity', 'repeat weeks': 'repeat',
     }));
     // Clashes and similar business-rule failures come back as a plain message.
-    Alert.alert(title, apiErrorText(e));
+    showAlert(title, apiErrorText(e));
   };
 
   const save = () => {

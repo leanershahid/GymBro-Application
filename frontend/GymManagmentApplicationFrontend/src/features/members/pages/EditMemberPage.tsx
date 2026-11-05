@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
+  View, Text, ScrollView, Pressable, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,9 +16,9 @@ import ScreenHeader from '../../common/components/ScreenHeader';
 import Avatar from '../../common/components/Avatar';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
-import EmptyState from '../../dashboard/components/EmptyState';
-import { Field } from '../../trainers/components/FormFields';
-import { DateField } from '../../trainers/components/DatePicker';
+import EmptyState from '../../common/components/EmptyState';
+import { Field } from '../../common/components/FormFields';
+import { DateField } from '../../common/components/DatePicker';
 import { describeApiError, fieldErrorsFrom, apiErrorText } from '../../../api/apiError';
 import { useToast } from '../../common/components/Toast';
 
@@ -160,7 +161,7 @@ export default function EditMemberPage({ memberId, onBack, onSaved }: Props) {
   const changePhoto = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission required', 'Please allow access to your photo library.');
+      showAlert('Permission required', 'Please allow access to your photo library.');
       return;
     }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
@@ -170,7 +171,7 @@ export default function EditMemberPage({ memberId, onBack, onSaved }: Props) {
       { id: memberId, file: { uri: a.uri, mimeType: a.mimeType, fileName: a.fileName } },
       {
         onSuccess: (r) => showToast({ type: r.success ? 'success' : 'error', message: r.success ? 'Photo updated.' : r.message }),
-        onError: (e) => Alert.alert('Upload failed', apiErrorText(e)),
+        onError: (e) => showAlert('Upload failed', apiErrorText(e)),
       },
     );
   };

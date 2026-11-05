@@ -6,5 +6,5 @@ public class JwtSettings
     public string Issuer { get; set; } = default!;
     public string Audience { get; set; } = default!;
     public int AccessTokenExpiryMinutes { get; set; } = 15; // short: the app refreshes silently
-    public int RefreshTokenExpiryDays { get; set; } = 7;
+    public int RefreshTokenExpiryDays { get; set; } = 30; // matches appsettings.json
 }

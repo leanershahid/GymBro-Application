@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
+import {} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import WizardScaffold from '../../common/components/WizardScaffold';
 import { useCreateTrainer } from '../api/trainerQueries';
 import { defaultTrainerValues } from '../hooks/useTrainerDefaults';
@@ -141,7 +142,7 @@ export default function AddTrainerPage({ onBack }: AddTrainerPageProps) {
         if (pwd) {
           // A one-time secret needs an explicit acknowledgment, not an auto-dismissing toast —
           // redirect only once the admin has seen and dismissed it.
-          Alert.alert(
+          showAlert(
             'Trainer created',
             `${res.message ?? 'Trainer created.'}\n\nTemporary password: ${pwd}\nShare it with the trainer — it is shown only once.`,
             [{ text: 'OK', onPress: () => onBack?.() }],

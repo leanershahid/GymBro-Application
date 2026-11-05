@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import { Field, SwitchRow, RowGrid, GridCell } from '../../trainers/components/FormFields';
+import { Field, SwitchRow, RowGrid, GridCell } from '../../common/components/FormFields';
 import { PayMethod, ChargeOptions } from '../types/billing.types';
 import { MethodChips, KeyValue, Divider, fmtMoney, computeTotals, toNumber } from './billingUi';
 

@@ -7,6 +7,8 @@ import { useMemberSearch } from '../api/classesQueries';
 import { describeApiError } from '../../../api/apiError';
 import { MemberOption } from '../types/classes.types';
 import { T, SP, R, withAlpha } from '../../../theme';
+import SmallButton from '../../common/components/SmallButton';
+import { formatMoney } from '../../common/utils/format';
 
 // ─── Dates (API = UTC ISO; UI = device local) ────────────────────
 
@@ -62,12 +64,7 @@ export const toDecimal = (s: string): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-export const fmtMoney = (amount: number | null | undefined, currency?: string | null) => {
-  const n = Number.isFinite(amount) ? Number(amount) : 0;
-  if (!currency) return n.toFixed(2);
-  try { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(n); }
-  catch { return `${currency} ${n.toFixed(2)}`; }
-};
+export const fmtMoney = (amount: number | null | undefined, currency?: string | null) => formatMoney(amount, currency);
 
 // ─── Status → pill ───────────────────────────────────────────────
 
@@ -134,30 +131,7 @@ export function FilterRow<V extends number | string>({ label, options, value, on
   );
 }
 
-export function SmallButton({ icon, label, tone = T.brand, onPress, disabled, busy }: {
-  icon: React.ComponentProps<typeof Feather>['name']; label: string; tone?: string;
-  onPress: () => void; disabled?: boolean; busy?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled || busy}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: !!disabled, busy: !!busy }}
-      hitSlop={6}
-      style={({ pressed }) => ({
-        flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 34,
-        paddingHorizontal: 12, borderRadius: R.pill, opacity: disabled ? 0.45 : 1,
-        backgroundColor: pressed ? withAlpha(tone, 0.18) : withAlpha(tone, 0.10),
-        borderWidth: 1, borderColor: withAlpha(tone, 0.28),
-      })}
-    >
-      {busy ? <ActivityIndicator size="small" color={tone} /> : <Feather name={icon} size={13} color={tone} />}
-      <Text style={{ color: tone, fontSize: 12, fontWeight: '700' }}>{label}</Text>
-    </Pressable>
-  );
-}
+export { SmallButton };
 
 /** Debounced member search with a tappable result list. */
 export function MemberPicker({ selected, onSelect, label = 'Member' }: {

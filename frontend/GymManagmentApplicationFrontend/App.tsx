@@ -4,13 +4,13 @@ import { Asset } from 'expo-asset';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import QueryProvider, { queryClient } from './src/app/providers/QueryProvider';
 import { ToastProvider } from './src/features/common/components/Toast';
+import { DialogHost } from './src/features/common/components/dialogs';
 import { BootSplash } from './src/features/common/components/LogoLoader';
 import LoginPage      from './src/features/auth/components/LoginPage';
 import { configureSessionHandling } from './src/api/axios';
 import { isAdminRole, isDelegatedRole } from './src/api/session';
 import { applyAuth, clearAuth, currentRefreshToken, loadStoredAuth } from './src/api/authStore';
 import { logoutSession, refreshSession } from './src/features/auth/api/authApi';
-import { getPreviewRole, startPreview } from './src/dev/previewMode';
 import { AccessProvider } from './src/features/access/context/AccessContext';
 import AppShell from './src/features/access/components/AppShell';
 import { clearStoredAccess } from './src/features/access/api/accessStore';
@@ -20,6 +20,13 @@ type AppState =
   | { status: 'admin';   userId: number }
   | { status: 'member';  userId: number }
   | { status: 'trainer'; userId: number };
+
+// Dev-only design preview (?preview=admin|trainer|member on web) — see src/dev/previewMode.ts.
+// Required only inside a __DEV__ branch: Metro folds `__DEV__` to false in production builds and
+// drops the branch before resolving dependencies, so src/dev (mocks included) never ships (ARCH-066).
+const previewMode: typeof import('./src/dev/previewMode') | null =
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  __DEV__ ? require('./src/dev/previewMode') : null;
 
 // Images the first screen needs; the boot splash stays up until they're ready.
 const BOOT_ASSETS = [
@@ -41,11 +48,10 @@ async function renewSession(token: string | null): Promise<boolean> {
 }
 
 export default function App() {
-  // Dev-only design preview (?preview=admin|trainer|member on web) — see src/dev/previewMode.ts.
   const [appState, setAppState] = useState<AppState>(() => {
-    const preview = getPreviewRole();
-    if (!preview) return { status: 'unauthenticated' };
-    const userId = startPreview(preview);
+    const preview = previewMode?.getPreviewRole() ?? null;
+    if (!preview || !previewMode) return { status: 'unauthenticated' };
+    const userId = previewMode.startPreview(preview);
     return preview === 'member' ? { status: 'member', userId }
          : preview === 'trainer' ? { status: 'trainer', userId }
          : { status: 'admin', userId };
@@ -121,6 +127,7 @@ export default function App() {
             )}
           </View>
           <BootSplash loading={booting} />
+          <DialogHost />
         </ToastProvider>
       </QueryProvider>
     </SafeAreaProvider>

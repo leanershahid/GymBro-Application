@@ -49,7 +49,6 @@ public class ChallengesService(AppDbContext db, ICurrentUser currentUser) : ICha
 
         var challenge = new Domain.Entities.Gamification.Challenge
         {
-            Id = await NextIdAsync(),
             TenantId = request.TenantId,
             Title = request.Title,
             Description = request.Description,
@@ -103,9 +102,6 @@ public class ChallengesService(AppDbContext db, ICurrentUser currentUser) : ICha
             EndsAt = challenge.EndsAt
         };
     }
-
-    private async Task<ulong> NextIdAsync() =>
-        (await db.Challenges.IgnoreQueryFilters().MaxAsync(c => (ulong?)c.Id) ?? 0) + 1;
 
     public async Task<List<ActiveChallengeResponse>> GetActiveAsync(ulong userId)
     {

@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { T, SP, R } from '../../../theme';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import Skeleton from '../../common/components/Skeleton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useToast } from '../../common/components/Toast';
 import { apiErrorText } from '../../../api/apiError';
 import { formatMoney, formatPrice } from '../common/format';

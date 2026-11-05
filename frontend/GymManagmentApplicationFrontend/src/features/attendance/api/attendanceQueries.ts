@@ -49,7 +49,7 @@ export const useCheckInMember = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (userId: number) => checkInMember(userId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['attendance-log'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: K.logAll }),
   });
 };
 
@@ -57,7 +57,7 @@ export const useCheckOutMember = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (userId: number) => checkOutMember(userId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['attendance-log'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: K.logAll }),
   });
 };
 
@@ -74,7 +74,7 @@ export const useCheckIn = () => {
     mutationFn: (fix: LocationFix) => checkIn(fix),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: K.myStatus });
-      qc.invalidateQueries({ queryKey: ['attendance-me'] });
+      qc.invalidateQueries({ queryKey: K.myHistoryAll });
     },
   });
 };
@@ -85,7 +85,7 @@ export const useCheckOut = () => {
     mutationFn: (fix?: LocationFix) => checkOut(fix),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: K.myStatus });
-      qc.invalidateQueries({ queryKey: ['attendance-me'] });
+      qc.invalidateQueries({ queryKey: K.myHistoryAll });
     },
   });
 };

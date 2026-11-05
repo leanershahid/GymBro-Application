@@ -34,7 +34,7 @@ export const fetchMembers = async (
 };
 
 export const createMember = async (payload: MemberPayload): Promise<MemberCreateResponse> => {
-  const { data } = await axiosInstance.post<MemberCreateResponse>(ENDPOINTS.ADD_MEMBER, payload);
+  const { data } = await axiosInstance.post<MemberCreateResponse>(ENDPOINTS.MEMBERS, payload);
   return data;
 };
 

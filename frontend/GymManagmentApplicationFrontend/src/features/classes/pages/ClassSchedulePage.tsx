@@ -6,7 +6,7 @@ import ScreenHeader from '../../common/components/ScreenHeader';
 import SegmentedTabs from '../../common/components/SegmentedTabs';
 import LoadingState from '../../common/components/LoadingState';
 import StatusPill from '../../common/components/StatusPill';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { describeApiError } from '../../../api/apiError';
 import { getSession } from '../../../api/session';
 import { useSchedule, useBranchOptions, useTrainerOptions, useMyTrainerProfile } from '../api/classesQueries';

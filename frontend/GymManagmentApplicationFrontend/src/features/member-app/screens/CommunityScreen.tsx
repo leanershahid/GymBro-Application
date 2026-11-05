@@ -3,8 +3,8 @@ import { View, Text, ScrollView } from 'react-native';
 import { T } from '../../../theme';
 import { useActiveChallenges } from '../api/memberAppQueries';
 import { useTrainers } from '../../trainers/api/trainerQueries';
-import { useModuleAccess } from '../../module-access/context/ModuleAccessContext';
-import EmptyState from '../../dashboard/components/EmptyState';
+import { useApiAccess } from '../../access/context/AccessContext';
+import EmptyState from '../../common/components/EmptyState';
 import CoachCard from '../components/CoachCard';
 import ChallengeCard from '../components/ChallengeCard';
 import Screen from '../../common/components/Screen';
@@ -19,8 +19,8 @@ export default function CommunityScreen({ userId }: Props) {
   const trainerPage = trainersQ.data;
   const trainers = trainerPage?.items ?? [];
 
-  const canLiveCoaching = useModuleAccess('live-coaching');
-  const canChallenges   = useModuleAccess('challenges');
+  const canLiveCoaching = useApiAccess('live-coaching').canView;
+  const canChallenges   = useApiAccess('challenges').canView;
 
   return (
     <Screen>

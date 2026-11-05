@@ -3,12 +3,12 @@ import { View, Text, ScrollView, RefreshControl } from 'react-native';
 import {
   useTrainerProfile, useTrainerPerformance, useTrainerEarnings, useMyClients, useTrainerSchedule,
 } from '../api/trainerAppQueries';
-import { useModuleAccess } from '../../module-access/context/ModuleAccessContext';
+import { useApiAccess } from '../../access/context/AccessContext';
 import { T, R, SP, withAlpha } from '../../../theme';
 import { useLayout } from '../../../utils/useLayout';
 import Screen from '../../common/components/Screen';
 import LoadingState from '../../common/components/LoadingState';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import SectionHeader from '../../dashboard/components/Sectionheader';
 import PhotoHero from '../../common/components/dashboard/PhotoHero';
 import CheckInCard from '../../attendance/components/CheckInCard';
@@ -51,7 +51,7 @@ export default function TrainerHomeScreen({ trainerId, onNavigate }: Props) {
   const earningsQ = useTrainerEarnings(trainerId);
   const clientsQ  = useMyClients(trainerId);
   const scheduleQ = useTrainerSchedule(trainerId);
-  const canWorkouts = useModuleAccess('workouts');
+  const canWorkouts = useApiAccess('workouts').canView;
   const { hPad, tileW } = useLayout();
   const kpiW = tileW(2, KPI_GAP);
 

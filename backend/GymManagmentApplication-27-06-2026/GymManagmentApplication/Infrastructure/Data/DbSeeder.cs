@@ -10,18 +10,18 @@ namespace GymManagmentApplication.Infrastructure.Data;
 public static class DbSeeder
 {
     /// <summary>
-    /// Ensures the default Tenant and system Roles exist in the database.
-    /// Safe to call on every startup — skips inserts when rows already exist.
+    /// Ensures the default Tenant, the module catalog and every tenant's system roles exist.
+    /// Safe to call on every startup. Existing rows are read once per table and diffed in memory,
+    /// so the number of queries stays constant as tenants grow (ARCH-041). Ids come from
+    /// <see cref="AppDbContext"/>'s id assignment on tracking.
     /// </summary>
     public static async Task SeedAsync(AppDbContext db)
     {
         // ── Tenant ────────────────────────────────────────────────────────────
         if (!await db.Tenants.AnyAsync())
         {
-            var tenantId = await GetNextIdAsync(db, "Tenants");
             db.Tenants.Add(new Tenant
             {
-                Id        = tenantId,
                 Uuid      = Guid.NewGuid().ToString(),
                 Name      = "Default Gym",
                 Slug      = "default-gym",
@@ -39,35 +39,39 @@ public static class DbSeeder
         // ── Modules ───────────────────────────────────────────────────────────
         // Before the roles, so a newly created role can be given its default grants.
         // No grant rows at all means the access data still lives in the old tables.
-        var legacyAccessToMove = !await db.RoleModuleGrants.IgnoreQueryFilters().AnyAsync();
+        var legacyAccessToMove = !await db.RoleModuleGrants.AcrossTenants().AnyAsync();
         var newModuleKeys = await UpsertModulesAsync(db);
 
         // ── Roles ─────────────────────────────────────────────────────────────
         // Every tenant gets its own copy of the system roles (role checks are by slug, but
         // users must hold a role row from their own tenant). The platform tenant — the first
         // one — additionally owns the 'superadmin' role.
-        var platformTenant = await db.Tenants.OrderBy(t => t.Id).FirstAsync();
-        var superRoleIsNew = !await db.Roles.AnyAsync(r => r.TenantId == platformTenant.Id && r.Slug == RoleNames.SuperAdmin);
-        await EnsureSystemRolesAsync(db, platformTenant.Id, includeSuperAdmin: true);
-        foreach (var tenantId in await db.Tenants.Where(t => t.Id != platformTenant.Id).Select(t => t.Id).ToListAsync())
-            await EnsureSystemRolesAsync(db, tenantId, includeSuperAdmin: false);
+        var tenantIds = await db.Tenants.OrderBy(t => t.Id).Select(t => t.Id).ToListAsync();
+        var platformTenantId = tenantIds[0];
+        var superRoleIsNew = !await db.Roles.AcrossTenants()
+            .AnyAsync(r => r.TenantId == platformTenantId && r.Slug == RoleNames.SuperAdmin);
+        await EnsureSystemRolesAsync(db, tenantIds.Select(id => (id, id == platformTenantId)).ToList());
 
         // One-time bootstrap: before 'superadmin' existed, the platform tenant's admin managed
         // all gyms. Promote the earliest such admin so tenant management stays reachable.
         // Runs only in the deploy that creates the role — never again — so archiving the super
         // admin can't be used to get some other admin promoted on the next restart.
-        var superRole = await db.Roles.FirstAsync(r => r.TenantId == platformTenant.Id && r.Slug == RoleNames.SuperAdmin);
-        if (superRoleIsNew && !await db.Users.AnyAsync(u => u.RoleId == superRole.Id && u.DeletedAt == null))
+        if (superRoleIsNew)
         {
-            var adminRoleIds = await db.Roles.Where(r => r.Slug == RoleNames.Admin).Select(r => r.Id).ToListAsync();
-            var firstAdmin = await db.Users
-                .Where(u => adminRoleIds.Contains(u.RoleId) && u.TenantId == platformTenant.Id && u.DeletedAt == null)
-                .OrderBy(u => u.Id)
-                .FirstOrDefaultAsync();
-            if (firstAdmin is not null)
+            var superRole = await db.Roles.AcrossTenants()
+                .FirstAsync(r => r.TenantId == platformTenantId && r.Slug == RoleNames.SuperAdmin);
+            if (!await db.Users.AnyAsync(u => u.RoleId == superRole.Id && u.DeletedAt == null))
             {
-                firstAdmin.RoleId = superRole.Id;
-                await db.SaveChangesAsync();
+                var adminRoleIds = await db.Roles.Where(r => r.Slug == RoleNames.Admin).Select(r => r.Id).ToListAsync();
+                var firstAdmin = await db.Users
+                    .Where(u => adminRoleIds.Contains(u.RoleId) && u.TenantId == platformTenantId && u.DeletedAt == null)
+                    .OrderBy(u => u.Id)
+                    .FirstOrDefaultAsync();
+                if (firstAdmin is not null)
+                {
+                    firstAdmin.RoleId = superRole.Id;
+                    await db.SaveChangesAsync();
+                }
             }
         }
 
@@ -77,12 +81,19 @@ public static class DbSeeder
             .Join(db.Roles, u => u.RoleId, r => r.Id, (u, r) => new { User = u, r.Slug, RoleTenant = r.TenantId })
             .Where(x => x.RoleTenant != x.User.TenantId && x.Slug != RoleNames.SuperAdmin)
             .ToListAsync();
-        foreach (var x in mismatched)
+        if (mismatched.Count > 0)
         {
-            var ownRole = await db.Roles.FirstOrDefaultAsync(r => r.TenantId == x.User.TenantId && r.Slug == x.Slug);
-            if (ownRole is not null) x.User.RoleId = ownRole.Id;
+            var userTenants = mismatched.Select(x => x.User.TenantId).Distinct().ToList();
+            var ownRoles = (await db.Roles.AcrossTenants()
+                    .Where(r => userTenants.Contains(r.TenantId))
+                    .Select(r => new { r.Id, r.TenantId, r.Slug })
+                    .ToListAsync())
+                .GroupBy(r => (r.TenantId, r.Slug))
+                .ToDictionary(g => g.Key, g => g.Min(r => r.Id));
+            foreach (var x in mismatched)
+                if (ownRoles.TryGetValue((x.User.TenantId, x.Slug), out var ownRoleId)) x.User.RoleId = ownRoleId;
+            await db.SaveChangesAsync();
         }
-        if (mismatched.Count > 0) await db.SaveChangesAsync();
 
         // ── Module master + access grants ───────────────────────────────────────
         // Modules were upserted before the roles (above), so roles created this boot already
@@ -96,31 +107,50 @@ public static class DbSeeder
     }
 
     /// <summary>Creates any missing system roles for a tenant. Idempotent.</summary>
-    public static async Task EnsureSystemRolesAsync(AppDbContext db, ulong tenantId, bool includeSuperAdmin)
+    public static Task EnsureSystemRolesAsync(AppDbContext db, ulong tenantId, bool includeSuperAdmin) =>
+        EnsureSystemRolesAsync(db, [(tenantId, includeSuperAdmin)]);
+
+    /// <summary>
+    /// Creates the missing system roles of several tenants with one read of the existing roles and
+    /// one save, then gives the new roles their default module grants.
+    /// </summary>
+    private static async Task EnsureSystemRolesAsync(AppDbContext db, IReadOnlyCollection<(ulong TenantId, bool IncludeSuperAdmin)> tenants)
     {
-        var roles = RoleNames.TenantSystemRoles.AsEnumerable();
-        if (includeSuperAdmin)
-            roles = roles.Prepend((RoleNames.SuperAdmin, "Super Admin", "Platform-wide access across all gyms"));
+        var ids = tenants.Select(t => t.TenantId).ToList();
+        var existing = (await db.Roles.AcrossTenants()
+                .Where(r => ids.Contains(r.TenantId))
+                .Select(r => new { r.TenantId, r.Slug })
+                .ToListAsync())
+            .Select(r => (r.TenantId, r.Slug))
+            .ToHashSet();
 
-        foreach (var (slug, name, desc) in roles)
+        var created = new List<Role>();
+        foreach (var (tenantId, includeSuperAdmin) in tenants)
         {
-            if (await db.Roles.IgnoreQueryFilters().AnyAsync(r => r.TenantId == tenantId && r.Slug == slug))
-                continue;
+            var roles = RoleNames.TenantSystemRoles.AsEnumerable();
+            if (includeSuperAdmin)
+                roles = roles.Prepend((RoleNames.SuperAdmin, "Super Admin", "Platform-wide access across all gyms"));
 
-            var role = new Role
+            foreach (var (slug, name, desc) in roles)
             {
-                Id          = await GetNextIdAsync(db, "Roles"),
-                TenantId    = tenantId,
-                Name        = name,
-                Slug        = slug,
-                Description = desc,
-                IsSystem    = true,
-                CreatedAt   = DateTime.UtcNow
-            };
-            db.Roles.Add(role);
-            await db.SaveChangesAsync();
-            await GrantDefaultModulesAsync(db, role);
+                if (!existing.Add((tenantId, slug))) continue;
+                var role = new Role
+                {
+                    TenantId    = tenantId,
+                    Name        = name,
+                    Slug        = slug,
+                    Description = desc,
+                    IsSystem    = true,
+                    CreatedAt   = DateTime.UtcNow
+                };
+                db.Roles.Add(role);
+                created.Add(role);
+            }
         }
+        if (created.Count == 0) return;
+
+        await db.SaveChangesAsync();
+        await GrantDefaultModulesAsync(db, created);
     }
 
     // ── Module master ─────────────────────────────────────────────────────────
@@ -174,12 +204,19 @@ public static class DbSeeder
     {
         var builtIn = new[] { RoleNames.Admin, RoleNames.Trainer, RoleNames.Client };
         var modules = await db.Modules.Where(m => newKeys.Contains(m.Key)).ToDictionaryAsync(m => m.Key, m => m.Id);
-        foreach (var role in await db.Roles.IgnoreQueryFilters().Where(r => builtIn.Contains(r.Slug)).ToListAsync())
+        var moduleIds = modules.Values.ToList();
+        var granted = (await db.RoleModuleGrants.AcrossTenants()
+                .Where(g => moduleIds.Contains(g.ModuleId))
+                .Select(g => new { g.RoleId, g.ModuleId })
+                .ToListAsync())
+            .Select(g => (g.RoleId, g.ModuleId))
+            .ToHashSet();
+        foreach (var role in await db.Roles.AcrossTenants().Where(r => builtIn.Contains(r.Slug)).ToListAsync())
         {
             foreach (var key in ModuleCatalog.DefaultKeysFor(role.Slug).Where(modules.ContainsKey))
             {
                 var moduleId = modules[key];
-                if (await db.RoleModuleGrants.IgnoreQueryFilters().AnyAsync(g => g.RoleId == role.Id && g.ModuleId == moduleId)) continue;
+                if (!granted.Add((role.Id, moduleId))) continue;
                 db.RoleModuleGrants.Add(new RoleModuleGrant
                 {
                     TenantId = role.TenantId, RoleId = role.Id, ModuleId = moduleId,
@@ -199,7 +236,7 @@ public static class DbSeeder
 
         var staleIds = stale.Select(m => m.Id).ToList();
         db.UserModuleAccesses.RemoveRange(db.UserModuleAccesses.Where(a => staleIds.Contains(a.ModuleId)));
-        db.RoleModuleGrants.RemoveRange(db.RoleModuleGrants.IgnoreQueryFilters().Where(g => staleIds.Contains(g.ModuleId)));
+        db.RoleModuleGrants.RemoveRange(db.RoleModuleGrants.AcrossTenants().Where(g => staleIds.Contains(g.ModuleId)));
         foreach (var module in stale)
         {
             db.Modules.Remove(module);
@@ -208,21 +245,34 @@ public static class DbSeeder
     }
 
     /// <summary>Gives a built-in role its <see cref="ModuleCatalog.DefaultKeysFor"/> modules, with every action allowed.</summary>
-    public static async Task GrantDefaultModulesAsync(AppDbContext db, Role role)
+    public static Task GrantDefaultModulesAsync(AppDbContext db, Role role) => GrantDefaultModulesAsync(db, [role]);
+
+    /// <summary>Batch form: one read of the modules and of the roles' existing grants, one save.</summary>
+    private static async Task GrantDefaultModulesAsync(AppDbContext db, IReadOnlyCollection<Role> roles)
     {
-        var keys = ModuleCatalog.DefaultKeysFor(role.Slug).ToList();
-        if (keys.Count == 0) return;
+        var keysByRole = roles.ToDictionary(r => r, r => ModuleCatalog.DefaultKeysFor(r.Slug).ToList());
+        var allKeys = keysByRole.Values.SelectMany(k => k).Distinct().ToList();
+        if (allKeys.Count == 0) return;
 
-        var moduleIds = await db.Modules.Where(m => keys.Contains(m.Key)).Select(m => m.Id).ToListAsync();
-        var granted = await db.RoleModuleGrants.IgnoreQueryFilters()
-            .Where(g => g.RoleId == role.Id).Select(g => g.ModuleId).ToListAsync();
+        var moduleIds = await db.Modules.Where(m => allKeys.Contains(m.Key)).ToDictionaryAsync(m => m.Key, m => m.Id);
+        var roleIds = roles.Select(r => r.Id).ToList();
+        var granted = (await db.RoleModuleGrants.AcrossTenants()
+                .Where(g => roleIds.Contains(g.RoleId))
+                .Select(g => new { g.RoleId, g.ModuleId })
+                .ToListAsync())
+            .Select(g => (g.RoleId, g.ModuleId))
+            .ToHashSet();
 
-        foreach (var moduleId in moduleIds.Except(granted))
-            db.RoleModuleGrants.Add(new RoleModuleGrant
+        foreach (var (role, keys) in keysByRole)
+            foreach (var key in keys)
             {
-                TenantId = role.TenantId, RoleId = role.Id, ModuleId = moduleId,
-                CanView = true, CanCreate = true, CanEdit = true, CanDelete = true, CanExport = true,
-            });
+                if (!moduleIds.TryGetValue(key, out var moduleId) || !granted.Add((role.Id, moduleId))) continue;
+                db.RoleModuleGrants.Add(new RoleModuleGrant
+                {
+                    TenantId = role.TenantId, RoleId = role.Id, ModuleId = moduleId,
+                    CanView = true, CanCreate = true, CanEdit = true, CanDelete = true, CanExport = true,
+                });
+            }
         await db.SaveChangesAsync();
     }
 
@@ -243,15 +293,14 @@ public static class DbSeeder
     {
         var modules = await db.Modules.Where(m => m.App != "").ToListAsync();
         var builtIn = new[] { RoleNames.Admin, RoleNames.Trainer, RoleNames.Client };
-        foreach (var role in await db.Roles.IgnoreQueryFilters().Where(r => builtIn.Contains(r.Slug)).ToListAsync())
-            await GrantDefaultModulesAsync(db, role);
+        await GrantDefaultModulesAsync(db, await db.Roles.AcrossTenants().Where(r => builtIn.Contains(r.Slug)).ToListAsync());
 
         List<Module> AppModulesFor(string app, string apiKey) =>
             modules.Where(m => m.App == app && ModuleCatalog.SplitApiModules(m.ApiModules).Contains(apiKey)).ToList();
 
         // Role matrix → role grants.
-        var matrix = await db.ModuleAccesses.IgnoreQueryFilters().Include(m => m.Role).Where(m => m.IsActive).ToListAsync();
-        var grants = await db.RoleModuleGrants.IgnoreQueryFilters().ToListAsync();
+        var matrix = await db.ModuleAccesses.AcrossTenants().Include(m => m.Role).Where(m => m.IsActive).ToListAsync();
+        var grants = await db.RoleModuleGrants.AcrossTenants().ToListAsync();
         var replacedForAdmin = new HashSet<(ulong RoleId, ulong ModuleId)>();
         foreach (var row in matrix.Where(r => r.Role.Slug != RoleNames.SuperAdmin))
         {
@@ -310,30 +359,5 @@ public static class DbSeeder
         }
 
         await db.SaveChangesAsync();
-    }
-
-    /// <summary>
-    /// Returns MAX("Id") + 1 for a table, or 1 if the table is empty.
-    /// Uses raw ADO.NET to avoid EF scalar query quirks.
-    /// </summary>
-    private static async Task<ulong> GetNextIdAsync(AppDbContext db, string tableName)
-    {
-        var conn = db.Database.GetDbConnection();
-        var wasOpen = conn.State == System.Data.ConnectionState.Open;
-        if (!wasOpen) await conn.OpenAsync();
-
-        try
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = $"SELECT COALESCE(MAX(\"Id\"), 0) FROM \"{tableName}\"";
-            var result = await cmd.ExecuteScalarAsync();
-            // result is decimal for numeric(20,0) in Npgsql
-            var maxId = result is DBNull or null ? 0UL : (ulong)Convert.ToDecimal(result);
-            return maxId + 1;
-        }
-        finally
-        {
-            if (!wasOpen) await conn.CloseAsync();
-        }
     }
 }

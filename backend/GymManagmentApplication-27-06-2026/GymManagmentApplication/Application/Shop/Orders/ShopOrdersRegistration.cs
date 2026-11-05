@@ -5,8 +5,12 @@ public static class ShopOrdersRegistration
 {
     public static IServiceCollection AddShopOrders(this IServiceCollection services)
     {
-        // Development stub: no money moves. Swap for a real provider here.
-        services.AddScoped<IShopPaymentGateway, DevelopmentShopPaymentGateway>();
+        // ARCH-001: cash on delivery only. The logging development gateway is used only in
+        // Development; everywhere else the COD gateway refuses Card / UPI. Register a real
+        // provider here when online shop payments are added.
+        services.AddScoped<IShopPaymentGateway>(sp => sp.GetRequiredService<IHostEnvironment>().IsDevelopment()
+            ? ActivatorUtilities.CreateInstance<DevelopmentShopPaymentGateway>(sp)
+            : new CashOnDeliveryShopPaymentGateway());
         services.AddScoped<ShopOrderCore>();
         services.AddScoped<IShopCartService, ShopCartService>();
         services.AddScoped<IShopAddressService, ShopAddressService>();

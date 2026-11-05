@@ -24,7 +24,7 @@ export const fetchWorkouts = async (pageNumber = 1, pageSize = 20): Promise<Work
 };
 
 export const createWorkout = async (payload: WorkoutPayload): Promise<WorkoutCreateResponse> => {
-  const { data } = await axiosInstance.post<WorkoutCreateResponse>(ENDPOINTS.ADD_WORKOUT, normalizeEnums(payload));
+  const { data } = await axiosInstance.post<WorkoutCreateResponse>(ENDPOINTS.WORKOUTS, normalizeEnums(payload));
   return data;
 };
 
@@ -48,7 +48,7 @@ export const fetchPlans = async (pageNumber = 1, pageSize = 20): Promise<PlanLis
 };
 
 export const createPlan = async (payload: WorkoutPlanPayload): Promise<PlanCreateResponse> => {
-  const { data } = await axiosInstance.post<PlanCreateResponse>(ENDPOINTS.ADD_PLAN, normalizeEnums(payload));
+  const { data } = await axiosInstance.post<PlanCreateResponse>(ENDPOINTS.PLANS, normalizeEnums(payload));
   return data;
 };
 

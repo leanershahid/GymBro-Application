@@ -18,10 +18,21 @@ public class PricingController(IPricingService service) : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> GetRules([FromQuery] ulong tenantId = 0)
         => Ok(ApiResponse<object>.Ok(await service.GetRulesAsync(tenantId)));
 
+    [HttpGet("rules/{id:long}")]
+    public async Task<ActionResult<ApiResponse<object>>> GetRule(ulong id)
+    {
+        var result = await service.GetRuleAsync(id);
+        return result is null ? NotFound(ApiResponse<object>.Fail("Rule not found.")) : Ok(ApiResponse<object>.Ok(result));
+    }
+
+    /// <summary>201 Created + Location (ARCH-101).</summary>
     [HttpPost("rules")]
     public async Task<ActionResult<ApiResponse<object>>> CreateRule(
         [FromBody] CreatePricingRuleRequest request)
-        => Ok(ApiResponse<object>.Ok(await service.CreateRuleAsync(request), "Pricing rule created."));
+    {
+        var rule = await service.CreateRuleAsync(request);
+        return CreatedAtAction(nameof(GetRule), new { id = rule.Id }, ApiResponse<object>.Ok(rule, "Pricing rule created."));
+    }
 
     [HttpPut("rules/{id:long}")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateRule(ulong id,
@@ -56,10 +67,21 @@ public class PricingController(IPricingService service) : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> GetDiscounts([FromQuery] ulong tenantId = 0)
         => Ok(ApiResponse<object>.Ok(await service.GetDiscountsAsync(tenantId)));
 
+    [HttpGet("discounts/{id:long}")]
+    public async Task<ActionResult<ApiResponse<object>>> GetDiscount(ulong id)
+    {
+        var result = await service.GetDiscountAsync(id);
+        return result is null ? NotFound(ApiResponse<object>.Fail("Discount code not found.")) : Ok(ApiResponse<object>.Ok(result));
+    }
+
+    /// <summary>201 Created + Location (ARCH-101).</summary>
     [HttpPost("discounts")]
     public async Task<ActionResult<ApiResponse<object>>> CreateDiscount(
         [FromBody] CreateDiscountRequest request)
-        => Ok(ApiResponse<object>.Ok(await service.CreateDiscountAsync(request), "Discount code created."));
+    {
+        var discount = await service.CreateDiscountAsync(request);
+        return CreatedAtAction(nameof(GetDiscount), new { id = discount.Id }, ApiResponse<object>.Ok(discount, "Discount code created."));
+    }
 
     [HttpPost("discounts/validate")]
     public async Task<ActionResult<ApiResponse<object>>> ValidateDiscount(

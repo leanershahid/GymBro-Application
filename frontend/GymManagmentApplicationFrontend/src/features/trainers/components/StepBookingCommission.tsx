@@ -2,6 +2,7 @@ import React, { useRef, useCallback, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput, Switch,
   PanResponder, LayoutChangeEvent,
+  DimensionValue,
 } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { TrainerPayload } from '../types/trainer.types';
@@ -149,7 +150,7 @@ function Slider({ icon, label, value, onChange }: {
         <View className="absolute left-0 right-0 h-[4px] rounded-full bg-line" />
         <View
           className="absolute left-0 h-[4px] rounded-full bg-brand"
-          style={{ width: `${pct}%` as any }}
+          style={{ width: `${pct}%` as DimensionValue }}
         />
         <View
           className="absolute w-5 h-5 rounded-full bg-bg border-2 border-brand items-center justify-center"
@@ -157,7 +158,7 @@ function Slider({ icon, label, value, onChange }: {
             top: '50%',
             marginTop: -10,
             marginLeft: -10,
-            left: `${pct}%` as any,
+            left: `${pct}%` as DimensionValue,
             transform: drag ? [{ scale: 1.3 }] : [],
           }}
         >
@@ -176,8 +177,8 @@ function Slider({ icon, label, value, onChange }: {
 
 /* ── Main component ────────────────────────────────────────────── */
 export default function StepBookingCommission({ data, onChange }: Props) {
-  const bs = data.bookingSettings    ?? {} as any;
-  const cs = data.commissionSettings ?? {} as any;
+  const bs = data.bookingSettings    ?? ({} as NonNullable<typeof data.bookingSettings>);
+  const cs = data.commissionSettings ?? ({} as NonNullable<typeof data.commissionSettings>);
   const updateBs = (f: object) => onChange({ bookingSettings:    { ...bs, ...f } });
   const updateCs = (f: object) => onChange({ commissionSettings: { ...cs, ...f } });
 

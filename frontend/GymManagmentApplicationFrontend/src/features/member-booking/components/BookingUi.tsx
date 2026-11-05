@@ -3,7 +3,7 @@ import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleProp, ViewSt
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { T, R, SP, withAlpha } from '../../../theme';
 import { apiErrorText } from '../../../api/apiError';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { addDays, startOfLocalDay, sameLocalDay } from '../utils/bookingFormat';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];

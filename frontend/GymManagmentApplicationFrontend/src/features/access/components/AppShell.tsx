@@ -11,10 +11,9 @@ import TrainerApp from '../../trainer-app/TrainerApp';
 import MemberApp from '../../member-app/MemberApp';
 import { AppScope, moduleIcon, normalizeRoute, useAccess } from '../context/AccessContext';
 import { AccessApp, AccessModule, OpenRequest } from '../types/access.types';
+import { MENU_CONTAINER_ROUTES } from '../../common/constants/menuRoutes';
 
 const MORE = 'more';
-/** Menu holders that only exist to list other modules — the shell's own More replaces them. */
-const CONTAINER_ROUTES = new Set(['more-actions']);
 /** Each area's profile screen, always reachable from More. */
 const PROFILE_ROUTE: Record<AccessApp, string> = { admin: 'profile-details', trainer: 'profile', member: 'profile' };
 const AREAS: AccessApp[] = ['admin', 'trainer', 'member'];
@@ -31,7 +30,7 @@ function useShellItems(): Item[] {
   return useMemo(() => {
     const order = [homeApp, ...AREAS.filter(a => a !== homeApp)];
     const visible = allModules.filter(m =>
-      !m.isTab && !m.hideFromMenu && !CONTAINER_ROUTES.has(normalizeRoute(m)) && normalizeRoute(m) !== PROFILE_ROUTE[m.app]);
+      !m.isTab && !m.hideFromMenu && !MENU_CONTAINER_ROUTES.has(normalizeRoute(m)) && normalizeRoute(m) !== PROFILE_ROUTE[m.app]);
     const byOrder = (a: AccessModule, b: AccessModule) => a.sortOrder - b.sortOrder;
     const list = order.flatMap(app => [
       ...visible.filter(m => m.app === app && m.level === 1).sort(byOrder),

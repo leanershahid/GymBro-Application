@@ -21,7 +21,7 @@ public class BranchController(IBranchService service, IValidator<CreateBranchReq
     public async Task<ActionResult<ApiResponse<object>>> GetAll()
         => Ok(ApiResponse<object>.Ok(await service.GetAllAsync()));
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:long}")]
     public async Task<ActionResult<ApiResponse<object>>> GetById(ulong id)
     {
         var result = await service.GetByIdAsync(id);
@@ -37,14 +37,14 @@ public class BranchController(IBranchService service, IValidator<CreateBranchReq
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, ApiResponse<object>.Ok(result, "Branch created."));
     }
 
-    [HttpPut("{id}")]
+    [HttpPut("{id:long}")]
     public async Task<ActionResult<ApiResponse<object>>> Update(ulong id, [FromBody] UpdateBranchRequest request)
     {
         var result = await service.UpdateAsync(id, request);
         return result is null ? NotFound(ApiResponse<object>.Fail($"Branch {id} not found.")) : Ok(ApiResponse<object>.Ok(result));
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:long}")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(ulong id)
     {
         var deleted = await service.DeleteAsync(id);
@@ -52,7 +52,7 @@ public class BranchController(IBranchService service, IValidator<CreateBranchReq
     }
 
     /// <summary>Moves every member/trainer of this branch to another branch — required before deactivating or removing it.</summary>
-    [HttpPost("{id}/transfer")]
+    [HttpPost("{id:long}/transfer")]
     public async Task<ActionResult<ApiResponse<object>>> Transfer(ulong id, [FromBody] TransferBranchRequest request)
     {
         var moved = await service.TransferAsync(id, request.TargetBranchId);

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, Pressable, ActivityIndicator, Alert } from 'react-native';
+import React, { memo, useCallback, useState } from 'react';
+import { useStableCallback } from '../../common/hooks/useStableCallback';
+import { View, Text, FlatList, Pressable, ActivityIndicator,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { useTrainers, useSetTrainerStatus, useDeleteTrainer } from '../api/trainerQueries';
 import { TrainerSummary } from '../types/trainer.types';
@@ -10,13 +12,14 @@ import Avatar from '../../common/components/Avatar';
 import SearchBar from '../../common/components/SearchBar';
 import StatusPill from '../../common/components/StatusPill';
 import PaginationFooter from '../../common/components/PaginationFooter';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import StatsStrip from '../../common/StatsStrip';
 import Skeleton from '../../common/components/Skeleton';
 import TrainerDetailPage from './TrainerDetailPage';
 import EditTrainerPage from './EditTrainerPage';
 import { useToast } from '../../common/components/Toast';
-import { useRoleModuleAccess } from '../../module-access/hooks/useRoleModuleAccess';
+import { useApiAccess } from '../../access/context/AccessContext';
+import SmallButton from '../../common/components/SmallButton';
 
 const TINTS = [
   { bg: withAlpha(T.sky, 0.08),  accent: T.sky },
@@ -26,32 +29,29 @@ const TINTS = [
 ];
 const tint = (id: number) => TINTS[id % TINTS.length];
 
-function ActionButton({
-  icon, label, tone, onPress,
-}: {
-  icon: React.ComponentProps<typeof Feather>['name'];
-  label: string;
-  tone: string;
-  onPress: () => void;
+
+const trainerKey = (t: TrainerSummary) => String(t.id);
+
+/** One list row: binds the trainer to the page's stable callbacks; memoised so unchanged rows skip re-rendering. */
+const TrainerRow = memo(function TrainerRow({ trainer, onOpen, onToggle, onRemove, canEdit, canDelete }: {
+  trainer: TrainerSummary;
+  onOpen: (t: TrainerSummary) => void;
+  onToggle: (t: TrainerSummary) => void;
+  onRemove: (t: TrainerSummary) => void;
+  canEdit: boolean;
+  canDelete: boolean;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      hitSlop={6}
-      style={({ pressed }) => ({
-        flexDirection: 'row', alignItems: 'center', gap: 5,
-        paddingHorizontal: 10, paddingVertical: 6, borderRadius: R.pill,
-        backgroundColor: pressed ? withAlpha(tone, 0.18) : withAlpha(tone, 0.10),
-        borderWidth: 1, borderColor: withAlpha(tone, 0.28),
-      })}
-    >
-      <Feather name={icon} size={12} color={tone} />
-      <Text style={{ color: tone, fontSize: 11, fontWeight: '700' }}>{label}</Text>
-    </Pressable>
+    <TrainerCard
+      trainer={trainer}
+      onPress={() => onOpen(trainer)}
+      onToggleStatus={() => onToggle(trainer)}
+      onRemove={() => onRemove(trainer)}
+      canEdit={canEdit}
+      canDelete={canDelete}
+    />
   );
-}
+});
 
 // ─── Trainer card ─────────────────────────────────────────────────
 function TrainerCard({
@@ -186,7 +186,7 @@ function TrainerCard({
         {(canEdit || canDelete) && (
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
             {canEdit && (
-              <ActionButton
+              <SmallButton size="sm"
                 icon={trainer.isAvailable ? 'user-x' : 'user-check'}
                 label={trainer.isAvailable ? 'Deactivate' : 'Activate'}
                 tone={trainer.isAvailable ? T.brandGold : T.ok}
@@ -194,7 +194,7 @@ function TrainerCard({
               />
             )}
             {canDelete && (
-              <ActionButton icon="trash-2" label="Remove" tone={T.err} onPress={onRemove} />
+              <SmallButton size="sm" icon="trash-2" label="Remove" tone={T.err} onPress={onRemove} />
             )}
           </View>
         )}
@@ -223,32 +223,13 @@ export default function ViewTrainersPage({ onBack, onAddTrainer, onOpenTrainer }
   const { mutate: setStatus } = useSetTrainerStatus();
   const { mutate: removeTrainer } = useDeleteTrainer();
   const { show: showToast } = useToast();
-  const trainersAccess = useRoleModuleAccess('trainers');
+  const trainersAccess = useApiAccess('trainers');
   const canEditTrainers = trainersAccess.canEdit;
   const canDeleteTrainers = trainersAccess.canDelete;
 
-  if (selectedTrainer && editing) {
-    return (
-      <EditTrainerPage
-        trainerId={selectedTrainer.id}
-        onBack={() => setEditing(false)}
-      />
-    );
-  }
-
-  if (selectedTrainer) {
-    return (
-      <TrainerDetailPage
-        trainer={selectedTrainer}
-        onBack={() => setSelectedTrainer(null)}
-        onEdit={canEditTrainers ? () => setEditing(true) : undefined}
-      />
-    );
-  }
-
   const handleToggleStatus = (trainer: TrainerSummary) => {
     const isActive = trainer.isAvailable;
-    Alert.alert(
+    showAlert(
       isActive ? 'Deactivate trainer?' : 'Activate trainer?',
       isActive
         ? `${trainer.displayName} will no longer be able to sign in, and their assigned members will be flagged as needing a new trainer.`
@@ -271,7 +252,7 @@ export default function ViewTrainersPage({ onBack, onAddTrainer, onOpenTrainer }
   };
 
   const handleRemove = (trainer: TrainerSummary) => {
-    Alert.alert(
+    showAlert(
       'Remove trainer?',
       `${trainer.displayName} will be archived and can no longer sign in. Their assigned members will be flagged as needing a new trainer. This can't be undone from here.`,
       [
@@ -287,6 +268,33 @@ export default function ViewTrainersPage({ onBack, onAddTrainer, onOpenTrainer }
       ],
     );
   };
+
+  // Stable row callbacks so the memoised TrainerCard rows don't all re-render with the page (ARCH-134).
+  const openRow = useStableCallback((t: TrainerSummary) => (onOpenTrainer ? onOpenTrainer(t.id) : setSelectedTrainer(t)));
+  const toggleRow = useStableCallback(handleToggleStatus);
+  const removeRow = useStableCallback(handleRemove);
+  const renderTrainer = useCallback(({ item }: { item: TrainerSummary }) => (
+    <TrainerRow trainer={item} onOpen={openRow} onToggle={toggleRow} onRemove={removeRow} canEdit={canEditTrainers} canDelete={canDeleteTrainers} />
+  ), [openRow, toggleRow, removeRow, canEditTrainers, canDeleteTrainers]);
+
+  if (selectedTrainer && editing) {
+    return (
+      <EditTrainerPage
+        trainerId={selectedTrainer.id}
+        onBack={() => setEditing(false)}
+      />
+    );
+  }
+
+  if (selectedTrainer) {
+    return (
+      <TrainerDetailPage
+        trainer={selectedTrainer}
+        onBack={() => setSelectedTrainer(null)}
+        onEdit={canEditTrainers ? () => setEditing(true) : undefined}
+      />
+    );
+  }
 
   const items        = paged?.items        ?? [];
   const totalRecords = paged?.totalRecords;
@@ -354,17 +362,8 @@ export default function ViewTrainersPage({ onBack, onAddTrainer, onOpenTrainer }
 
       <FlatList
         data={isLoading || isError ? [] : filtered}
-        keyExtractor={(t) => String(t.id)}
-        renderItem={({ item }) => (
-          <TrainerCard
-            trainer={item}
-            onPress={() => (onOpenTrainer ? onOpenTrainer(item.id) : setSelectedTrainer(item))}
-            onToggleStatus={() => handleToggleStatus(item)}
-            onRemove={() => handleRemove(item)}
-            canEdit={canEditTrainers}
-            canDelete={canDeleteTrainers}
-          />
-        )}
+        keyExtractor={trainerKey}
+        renderItem={renderTrainer}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={
           !isLoading && !isError ? (

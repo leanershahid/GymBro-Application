@@ -5,7 +5,7 @@ import ScreenHeader from '../../common/components/ScreenHeader';
 import SegmentedTabs from '../../common/components/SegmentedTabs';
 import LoadingState from '../../common/components/LoadingState';
 import StatusPill from '../../common/components/StatusPill';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { describeApiError } from '../../../api/apiError';
 import { usePtSessions, useTrainerOptions } from '../api/classesQueries';
 import { PtSession } from '../types/classes.types';

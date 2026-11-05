@@ -1,6 +1,12 @@
+import { useSyncExternalStore } from 'react';
+
 // In-memory session for the signed-in user, set at login alongside the JWT (see axios.ts).
 // The backend derives tenant/branch from the token, so these values are for UI decisions
 // (which screens to show, default branch) — never a security boundary.
+//
+// Components should read it with useSession() so they re-render when it changes (ARCH-125);
+// getSession() is for non-React code (API calls, query keys built inside a queryFn).
+// Per-user in-memory caches register with onSessionChange() to clear themselves on sign-out.
 
 export interface Session {
   userId: number;
@@ -10,13 +16,29 @@ export interface Session {
 }
 
 let current: Session | null = null;
+const listeners = new Set<(next: Session | null, prev: Session | null) => void>();
 
 export function setSession(session: Session | null) {
+  const prev = current;
   current = session;
+  if (prev !== session) listeners.forEach(l => l(session, prev));
 }
 
 export function getSession(): Session | null {
   return current;
+}
+
+/** Called after every session change (sign-in, refresh, sign-out). Returns an unsubscribe. */
+export function onSessionChange(listener: (next: Session | null, prev: Session | null) => void): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+
+const subscribe = (l: () => void) => onSessionChange(() => l());
+
+/** The current session, re-rendering the component when it changes. */
+export function useSession(): Session | null {
+  return useSyncExternalStore(subscribe, getSession, getSession);
 }
 
 // The signed-in user's gym. Sent where an API still accepts a tenantId; the server

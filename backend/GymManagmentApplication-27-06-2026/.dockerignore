@@ -28,3 +28,19 @@ README.md
 !.git/config
 !.git/packed-refs
 !.git/refs/heads/**
+# App-specific (ARCH-055): never bake local secrets, tests, tooling or docs into the image.
+**/appsettings.Development.json
+**/.env
+**/.env.*
+**/*.Tests
+**/GymManagmentApplication.Tests
+**/Scripts
+**/docs
+**/*.md
+**/*.pdf
+**/*.txt
+**/*.http
+**/wwwroot/uploads
+**/pdfpig*
+**/PdfReaderTool
+**/.amazonq

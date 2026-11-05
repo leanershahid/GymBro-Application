@@ -1,5 +1,6 @@
-import React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React, { useEffect } from 'react';
+import { AppState, AppStateStatus, Platform } from 'react-native';
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 
 /**
  * App-wide data defaults. The API is a round trip away (0.5 s+ before the database is even touched), so
@@ -11,6 +12,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
  *  - failed requests retry once, and never when the server answered 4xx (retrying a 403/404/422 can't help
  *    and used to add ~7 s of back-off before the error showed).
  * A query can still override any of these with its own staleTime / refetch options.
+ *
+ * Focus on phones (ARCH-121): React Query only knows about browser focus, so on iOS/Android the
+ * provider maps AppState "active" onto focusManager. Queries that opt into refetchOnWindowFocus
+ * (e.g. the access list) then refetch when the app returns to the foreground, like a web tab.
+ * Online state: the web uses the browser's online/offline events (React Query default). Native
+ * would need @react-native-community/netinfo wired into onlineManager — not installed yet.
  */
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,6 +35,16 @@ export const queryClient = new QueryClient({
   },
 });
 
+function onAppStateChange(status: AppStateStatus) {
+  if (Platform.OS !== 'web') focusManager.setFocused(status === 'active');
+}
+
 export default function QueryProvider({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const sub = AppState.addEventListener('change', onAppStateChange);
+    return () => sub.remove();
+  }, []);
+
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }

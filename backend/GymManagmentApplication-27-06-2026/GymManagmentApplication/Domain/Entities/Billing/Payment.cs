@@ -14,6 +14,8 @@ public class Payment
     public PaymentMethod Method { get; set; }
     public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
     public string? GatewayRef { get; set; }
+    /// <summary>Client-supplied key (Idempotency-Key header) so a retried desk charge is recorded once.</summary>
+    public string? IdempotencyKey { get; set; }
     /// <summary>Receipt / UPI transaction / cheque number entered at the desk.</summary>
     public string? Reference { get; set; }
     public decimal RefundedAmount { get; set; }

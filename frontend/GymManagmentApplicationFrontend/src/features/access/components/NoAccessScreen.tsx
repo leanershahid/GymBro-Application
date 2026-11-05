@@ -1,6 +1,6 @@
 import React from 'react';
 import Screen from '../../common/components/Screen';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 
 /** Shown for a screen the user's access list doesn't include — even if it was reached some other way. */
 export default function NoAccessScreen({ onBack }: { onBack: () => void }) {

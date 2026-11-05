@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
 import {
   View, Text, ScrollView, Pressable, TextInput,
-  Platform, Alert, ImageBackground, KeyboardAvoidingView, useWindowDimensions,
+  Platform, ImageBackground, KeyboardAvoidingView, useWindowDimensions,
 } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import {
@@ -19,7 +20,7 @@ import LoadingState from '../../common/components/LoadingState';
 import StatusPill, { PillTone } from '../../common/components/StatusPill';
 import Skeleton from '../../common/components/Skeleton';
 import { useToast } from '../../common/components/Toast';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { difficultyTone } from '../components/pillTones';
 import { fmtSeconds, statusLabel } from '../components/trainingUtils';
 
@@ -113,7 +114,7 @@ export default function WorkoutDetailScreen({ workoutId, userId, onBack }: Props
     }));
 
     if (allSets.length === 0) {
-      Alert.alert('No sets logged', 'Mark at least one set as done before finishing.');
+      showAlert('No sets logged', 'Mark at least one set as done before finishing.');
       return;
     }
 

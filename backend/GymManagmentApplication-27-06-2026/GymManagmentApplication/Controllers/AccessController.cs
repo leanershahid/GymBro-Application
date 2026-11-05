@@ -3,9 +3,7 @@ using GymManagmentApplication.Application.Access;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Filters;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Controllers;
 
@@ -13,10 +11,18 @@ namespace GymManagmentApplication.Controllers;
 /// The module master: what the signed-in user may see (every app builds its menus from
 /// <c>me</c>), and the admin endpoints that grant modules to roles and people. The management
 /// endpoints are deliberately not module-gated, so an admin can't lock themselves out.
+/// <para>
+/// This is the authoritative access API (ARCH-050): module grants per role
+/// (<c>roles/{roleId}/grants</c>), per-user overrides and additional roles
+/// (<c>users/{id}/extra-roles</c>). The older RolesController endpoints —
+/// <c>POST api/users/{id}/roles</c> (changes the MAIN role) and <c>api/roles/{id}/permissions</c> /
+/// <c>api/permissions/matrix</c> (legacy "module.action" RolePermissions) — remain for compatibility
+/// and are deprecated for new clients.
+/// </para>
 /// </summary>
 [ApiController]
 [Route("api/access")]
-public class AccessController(IAccessService service, AppDbContext db) : ControllerBase
+public class AccessController(IAccessService service) : ControllerBase
 {
     private ulong CurrentUserId => ulong.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
 
@@ -52,68 +58,47 @@ public class AccessController(IAccessService service, AppDbContext db) : Control
     [HttpGet("roles/summary")]
     [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> GetRoleSummary()
-    {
-        var main = await db.Users.Where(u => u.DeletedAt == null)
-            .GroupBy(u => u.RoleId).Select(g => new { RoleId = g.Key, Count = g.Count() }).ToListAsync();
-        var extra = await db.UserRoles.Where(ur => ur.User.DeletedAt == null)
-            .GroupBy(ur => ur.RoleId).Select(g => new { RoleId = g.Key, Count = g.Count() }).ToListAsync();
-        var modules = await db.RoleModuleGrants.Where(g => g.CanView)
-            .GroupBy(g => g.RoleId).Select(g => new { RoleId = g.Key, Count = g.Count() }).ToListAsync();
-        var roleIds = await db.Roles.Select(r => r.Id).ToListAsync();
-
-        var result = roleIds.Select(id => new RoleSummaryDto(id,
-            (main.FirstOrDefault(m => m.RoleId == id)?.Count ?? 0) + (extra.FirstOrDefault(m => m.RoleId == id)?.Count ?? 0),
-            modules.FirstOrDefault(m => m.RoleId == id)?.Count ?? 0)).ToList();
-        return Ok(ApiResponse<object>.Ok(result));
-    }
+        => Ok(ApiResponse<object>.Ok(await service.GetRoleSummaryAsync()));
 
     /// <summary>Everyone whose main role is admin, staff or a custom role — the "Staff" list on the access screen.</summary>
     [HttpGet("staff")]
     [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> GetStaff()
-    {
-        string[] notStaff = [RoleNames.SuperAdmin, RoleNames.Trainer, RoleNames.Client];
-        var staff = await db.Users
-            .Where(u => u.DeletedAt == null && !notStaff.Contains(u.Role.Slug))
-            .OrderBy(u => u.FirstName).ThenBy(u => u.LastName)
-            .Select(u => new StaffMemberDto(u.Id, ((u.FirstName ?? "") + " " + (u.LastName ?? "")).Trim(), u.Email, u.Role.Name, u.Role.Slug))
-            .ToListAsync();
-        return Ok(ApiResponse<object>.Ok(staff));
-    }
+        => Ok(ApiResponse<object>.Ok(await service.GetStaffAsync()));
 
-    [HttpGet("roles/{roleId}/grants")]
+    [HttpGet("roles/{roleId:long}/grants")]
     [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> GetRoleGrants(ulong roleId)
         => Ok(ApiResponse<object>.Ok(await service.GetRoleGrantsAsync(roleId)));
 
     /// <summary>Replaces every grant of a role. Modules left out are removed.</summary>
-    [HttpPut("roles/{roleId}/grants")]
+    [HttpPut("roles/{roleId:long}/grants")]
     [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> SetRoleGrants(ulong roleId, [FromBody] SetRoleGrantsRequest request)
         => Ok(ApiResponse<object>.Ok(await service.SetRoleGrantsAsync(roleId, request), "Role access updated."));
 
-    [HttpGet("users/{id}")]
+    [HttpGet("users/{id:long}")]
     [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> GetUserAccess(ulong id)
         => Ok(ApiResponse<object>.Ok(await service.GetUserAccessAsync(id)));
 
     /// <summary>Replaces a user's overrides. Modules left out go back to what their roles grant.</summary>
-    [HttpPut("users/{id}/overrides")]
+    [HttpPut("users/{id:long}/overrides")]
     [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> SetUserOverrides(ulong id, [FromBody] SetUserOverridesRequest request)
         => Ok(ApiResponse<object>.Ok(await service.SetUserOverridesAsync(id, CurrentUserId, request), "Access updated."));
 
-    [HttpGet("users/{id}/extra-roles")]
+    [HttpGet("users/{id:long}/extra-roles")]
     [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> GetExtraRoles(ulong id)
         => Ok(ApiResponse<object>.Ok(await service.GetExtraRolesAsync(id)));
 
-    [HttpPost("users/{id}/extra-roles")]
+    [HttpPost("users/{id:long}/extra-roles")]
     [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> AddExtraRole(ulong id, [FromBody] AddExtraRoleRequest request)
         => Ok(ApiResponse<object>.Ok(await service.AddExtraRoleAsync(id, request.RoleId), "Role added."));
 
-    [HttpDelete("users/{id}/extra-roles/{roleId}")]
+    [HttpDelete("users/{id:long}/extra-roles/{roleId:long}")]
     [AuthorizeRoles(RoleNames.Admin)]
     public async Task<ActionResult<ApiResponse<object>>> RemoveExtraRole(ulong id, ulong roleId)
         => Ok(ApiResponse<object>.Ok(await service.RemoveExtraRoleAsync(id, roleId), "Role removed."));

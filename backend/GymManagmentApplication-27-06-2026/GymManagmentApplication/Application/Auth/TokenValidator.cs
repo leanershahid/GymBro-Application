@@ -19,6 +19,13 @@ public static class TokenValidator
 {
     private static readonly TimeSpan CacheFor = TimeSpan.FromSeconds(30);
 
+    /// <summary>
+    /// Bumped per user by <see cref="Revoke"/> (sign-out everywhere, deactivation, role change). It is
+    /// part of the cache key, so the cached state is skipped at once — without needing the
+    /// IMemoryCache instance at the call site. Per process: other instances catch up within CacheFor.
+    /// </summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<ulong, long> Stamps = new();
+
     public static async Task<string?> GetRejectionReasonAsync(ClaimsPrincipal principal, AppDbContext db, IMemoryCache cache)
     {
         if (!ulong.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
@@ -27,7 +34,7 @@ public static class TokenValidator
         var tenant = principal.FindFirstValue(CustomClaims.TenantId) ?? string.Empty;
         var version = principal.FindFirstValue(CustomClaims.TokenVersion) ?? "0";
 
-        var key = $"token-state:{userId}";
+        var key = $"token-state:{userId}:{Stamps.GetValueOrDefault(userId)}";
         if (!cache.TryGetValue(key, out (string Role, string Tenant, string Version, string? Problem) state))
         {
             var row = await db.Users.IgnoreQueryFilters()
@@ -60,5 +67,8 @@ public static class TokenValidator
     }
 
     /// <summary>Drop the cached state so a change (role, status, deletion) applies immediately.</summary>
-    public static void Invalidate(IMemoryCache cache, ulong userId) => cache.Remove($"token-state:{userId}");
+    public static void Invalidate(IMemoryCache cache, ulong userId) => Revoke(userId);
+
+    /// <summary>Drop the cached state of <paramref name="userId"/> (any cache instance) so the next request re-reads it.</summary>
+    public static void Revoke(ulong userId) => Stamps.AddOrUpdate(userId, 1, (_, v) => v + 1);
 }

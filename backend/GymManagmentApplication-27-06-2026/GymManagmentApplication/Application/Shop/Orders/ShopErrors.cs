@@ -4,30 +4,32 @@ using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace GymManagmentApplication.Application.Shop.Orders;
 
-/// <summary>
-/// A shop rule the request broke, carrying the status the store answers with:
-/// 409 for stock / duplicate conflicts, 422 for business rules (empty cart, coupon rules, status moves).
-/// 400 and 404 keep using ArgumentException / KeyNotFoundException (handled by the global middleware).
-/// </summary>
-public sealed class ShopRuleException(string message, int statusCode) : Exception(message)
+/// <summary>The shop's flavour of <see cref="RuleException"/> (kept so existing shop code reads the same).</summary>
+public sealed class ShopRuleException(string message, int statusCode) : RuleException(message, statusCode)
 {
-    public int StatusCode { get; } = statusCode;
-
-    public static ShopRuleException Conflict(string message) => new(message, StatusCodes.Status409Conflict);
-    public static ShopRuleException Rule(string message) => new(message, StatusCodes.Status422UnprocessableEntity);
+    public static new ShopRuleException Conflict(string message) => new(message, ConflictStatus);
+    public static ShopRuleException Rule(string message) => new(message, UnprocessableStatus);
 }
 
 /// <summary>
-/// Turns <see cref="ShopRuleException"/> into the usual { success: false, message } body with its status,
-/// so the shop controllers can answer 409/422 without changing the global exception middleware.
+/// Turns any <see cref="RuleException"/> into the usual { success: false, message } body with its
+/// status, and <see cref="NotSupportedException"/> into 501. Registered globally as an MVC filter
+/// (ARCH-096), so it applies to every controller, not only the two shop ones that carried the
+/// attribute; the attribute form still works where it is applied.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public sealed class ShopErrorsAttribute : ExceptionFilterAttribute
 {
     public override void OnException(ExceptionContext context)
     {
-        if (context.Exception is not ShopRuleException ex) return;
-        context.Result = new JsonResult(ApiResponse<object>.Fail(ex.Message)) { StatusCode = ex.StatusCode };
+        var (status, message) = context.Exception switch
+        {
+            RuleException ex => (ex.StatusCode, ex.Message),
+            NotSupportedException ex => (StatusCodes.Status501NotImplemented, ex.Message),
+            _ => (0, null as string),
+        };
+        if (status == 0 || context.ExceptionHandled) return;
+        context.Result = new JsonResult(ApiResponse<object>.Fail(message!)) { StatusCode = status };
         context.ExceptionHandled = true;
     }
 }

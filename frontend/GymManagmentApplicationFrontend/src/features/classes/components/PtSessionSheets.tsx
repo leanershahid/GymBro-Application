@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Alert } from 'react-native';
+import { View, Text, ScrollView,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import BottomSheet from '../../common/components/BottomSheet';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
 import StatusPill from '../../common/components/StatusPill';
 import { useToast } from '../../common/components/Toast';
-import ChipSelect from '../../exercises/components/ChipSelect';
-import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
-import { DateField } from '../../trainers/components/DatePicker';
+import ChipSelect from '../../common/components/ChipSelect';
+import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
+import { DateField } from '../../common/components/DatePicker';
 import { TimeField } from '../../trainers/components/TimePicker';
 import { apiErrorText, describeApiError } from '../../../api/apiError';
 import { usePtTypes, useTrainerOptions, useMyTrainerProfile, useBookPt, useUpdatePtStatus } from '../api/classesQueries';
@@ -52,13 +53,13 @@ export function PtSessionSheet({ session, onClose, mode }: PtSessionSheetProps) 
         { id: s.id, payload: { status: target, trainerNotes: notes.trim() || null } },
         {
           onSuccess: () => { toast.show({ message: ACTION_COPY[target].done }); onClose(); },
-          onError: e => Alert.alert('Session not updated', apiErrorText(e)),
+          onError: e => showAlert('Session not updated', apiErrorText(e)),
           onSettled: () => setPending(null),
         },
       );
     };
     const c = ACTION_COPY[target].confirm;
-    if (c) Alert.alert(ACTION_COPY[target].label, c, [{ text: 'Back', style: 'cancel' }, { text: ACTION_COPY[target].label, style: 'destructive', onPress: go }]);
+    if (c) showAlert(ACTION_COPY[target].label, c, [{ text: 'Back', style: 'cancel' }, { text: ACTION_COPY[target].label, style: 'destructive', onPress: go }]);
     else go();
   };
 
@@ -164,7 +165,7 @@ export function PtBookSheet({ visible, onClose, mode }: PtBookSheetProps) {
       {
         onSuccess: () => { toast.show({ message: `Session booked for ${member!.name}.` }); onClose(); },
         // Trainer clashes, time off and member double-booking come back as a message.
-        onError: e => Alert.alert('Session not booked', apiErrorText(e)),
+        onError: e => showAlert('Session not booked', apiErrorText(e)),
       },
     );
   };

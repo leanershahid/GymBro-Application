@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { T, withAlpha } from '../../../theme';
 import { apiErrorText, describeApiError, fieldErrorsFrom } from '../../../api/apiError';
@@ -9,8 +10,8 @@ import BottomSheet from '../../common/components/BottomSheet';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
 import { useToast } from '../../common/components/Toast';
-import EmptyState from '../../dashboard/components/EmptyState';
-import { Field } from '../../trainers/components/FormFields';
+import EmptyState from '../../common/components/EmptyState';
+import { Field } from '../../common/components/FormFields';
 import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from '../api/moduleAccessQueries';
 import { Role } from '../types/moduleAccess.types';
 
@@ -94,7 +95,7 @@ export default function RolesPage({ onBack, onOpenRoleAccess }: Props) {
     // Reserved / duplicate name errors come back as a bare message about the name.
     if (!fieldErrs.name && /role name|named/i.test(message)) fieldErrs.name = message;
     setErrors(fieldErrs);
-    if (!Object.keys(fieldErrs).length) Alert.alert('Could not save role', apiErrorText(e));
+    if (!Object.keys(fieldErrs).length) showAlert('Could not save role', apiErrorText(e));
   };
 
   const submit = () => {
@@ -127,7 +128,7 @@ export default function RolesPage({ onBack, onOpenRoleAccess }: Props) {
       );
 
     if (renamed) {
-      Alert.alert(
+      showAlert(
         'Rename role?',
         `Renaming "${editing.name}" to "${name}" changes its identifier. Everyone with this role will be signed out and must sign in again.`,
         [
@@ -141,7 +142,7 @@ export default function RolesPage({ onBack, onOpenRoleAccess }: Props) {
   };
 
   const confirmDelete = (role: Role) => {
-    Alert.alert(
+    showAlert(
       'Delete role?',
       `Delete "${role.name}" and its module access settings? This cannot be undone.`,
       [
@@ -152,7 +153,7 @@ export default function RolesPage({ onBack, onOpenRoleAccess }: Props) {
             deleteRole.mutate(role.id, {
               onSuccess: () => toast.show({ message: `Role "${role.name}" deleted.` }),
               // e.g. "Role is still assigned to users. Reassign them first."
-              onError: e => Alert.alert('Could not delete role', apiErrorText(e)),
+              onError: e => showAlert('Could not delete role', apiErrorText(e)),
               onSettled: () => setDeletingId(null),
             });
           },

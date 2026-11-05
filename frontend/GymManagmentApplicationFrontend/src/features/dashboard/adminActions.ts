@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { moduleIcon, normalizeRoute, useMenu } from '../access/context/AccessContext';
+import { MENU_CONTAINER_ROUTES } from '../common/constants/menuRoutes';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
@@ -10,8 +11,9 @@ export interface AdminAction {
   screen: string;
 }
 
-/** The main-menu screens that hold the tiles, rather than being tiles themselves. */
-const CONTAINER_ROUTES = new Set(['home', 'module-hub', 'more-actions']);
+/** The main-menu screens that hold the tiles, rather than being tiles themselves: the shared
+ *  container routes plus 'home' (the dashboard showing these tiles). */
+const CONTAINER_ROUTES = new Set([...MENU_CONTAINER_ROUTES, 'home']);
 
 /**
  * Tiles for the dashboard's Quick Access grid and the More page (bottom nav "More" tab): every

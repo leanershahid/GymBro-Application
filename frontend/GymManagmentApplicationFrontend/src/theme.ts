@@ -1,56 +1,29 @@
 // ─── Design Tokens ────────────────────────────────────────────────
 // Dark mode. Green → gold gradient accent. Nike × premium gym aesthetic.
-// The single source of truth for colours — mirrored in tailwind.config.js for NativeWind
-// classes. Never hardcode a hex/rgba value in a screen; use a token or withAlpha(token, a).
+// The single source of truth for colours (solid values in theme.colors.json, shared with
+// tailwind.config.js for NativeWind classes). Never hardcode a hex/rgba value in a screen; use a token or withAlpha(token, a).
+
+import C from './theme.colors.json';
 
 export const T = {
-  bg:            '#0A0F0A',
-  bgPanel:       '#0A0F0A',
-  bgNav:         '#111111', // bottom tab bars
-  bgInput:       '#151915',
-  bgInputActive: '#1C211C',
+  // Solid colours live in theme.colors.json, which tailwind.config.js also reads, so NativeWind
+  // classes and T can't drift apart (ARCH-127). Add new solid colours there.
+  ...C,
 
-  line:       '#242B24',
-  lineSubtle: '#151915',
-  lineBright: '#7ED321',
-
-  text:         '#FFFFFF',
-  textSub:      '#AAB2AA',
-  textFaint:    '#6B726B',
-  textDisabled: '#454B45',
-
-  brand:       '#7ED321',
-  brandDark:   '#5FA317',
-  brandGold:   '#FFC107',
   brandDim:    'rgba(126,211,33,0.10)',
   brandBorder: 'rgba(126,211,33,0.25)',
   // For LinearGradient's `colors` prop — the signature accent treatment for
   // buttons, progress rings, and the active nav highlight.
-  brandGradient: ['#7ED321', '#FFC107'] as const,
+  brandGradient: [C.brand, C.brandGold] as const,
 
-  onBrand: '#000000',
-
-  // Logo palette (sampled from assets/common/logo01.png) — used by the boot loader.
-  logoLime:  '#D4ED35',
-  logoDeep:  '#7B990B',
-
-  // Scrims over imagery, and the shadow colour for elevation.
+  // Scrims over imagery.
   overlay: 'rgba(0,0,0,0.55)',
-  shadow:  '#000000',
-  black:   '#000000',
 
-  ok:    '#22C55E',
   okDim: 'rgba(34,197,94,0.12)',
-  err:   '#EF4444',
   errDim:'rgba(239,68,68,0.10)',
 
-  // Secondary accents for health metrics (heart rate / water & sleep / sleep).
-  rose:   '#FF4D6D',
-  sky:    '#4DA6FF',
-  violet: '#9B7EF0',
-
   // Alias kept for existing call sites (AddBranchPage/AddTenantPage/dashboard header cards).
-  border: '#242B24',
+  border: C.line,
 };
 
 /** Token colour with opacity, e.g. withAlpha(T.brand, 0.12) for a tinted badge background. */

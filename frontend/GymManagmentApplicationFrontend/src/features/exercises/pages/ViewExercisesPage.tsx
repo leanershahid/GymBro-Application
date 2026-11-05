@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, FlatList, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, FlatList, Pressable,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { useExercises, useExercise, useDeleteExercise } from '../api/exerciseQueries';
 import { Exercise } from '../types/exercise.types';
@@ -10,7 +11,7 @@ import StatusPill from '../../common/components/StatusPill';
 import { difficultyTone, getDifficultyColor } from '../../common/constants/statusColors';
 import PaginationFooter from '../../common/components/PaginationFooter';
 import Skeleton from '../../common/components/Skeleton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import StatsStrip from '../../common/StatsStrip';
 import DetailSheet, { fmtDate } from '../components/DetailSheet';
 import { apiErrorText } from '../../../api/apiError';
@@ -115,12 +116,12 @@ export default function ViewExercisesPage({ onBack, onAddExercise, onOpenExercis
   const handleOpen = (id: number) => (onOpenExercise ? onOpenExercise(id) : setOpenId(id));
 
   const handleDelete = (id: number) => {
-    Alert.alert('Delete Exercise', 'Remove this exercise from the library?', [
+    showAlert('Delete Exercise', 'Remove this exercise from the library?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () =>
         del(id, {
           onSuccess: () => { setOpenId(null); toast.show({ type: 'success', message: 'Exercise deleted.' }); },
-          onError: (e) => Alert.alert('Delete failed', apiErrorText(e)),
+          onError: (e) => showAlert('Delete failed', apiErrorText(e)),
         })
       },
     ]);

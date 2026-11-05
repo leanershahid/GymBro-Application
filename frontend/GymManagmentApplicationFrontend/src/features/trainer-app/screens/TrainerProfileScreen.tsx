@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, Pressable,
-  Platform, Alert, Switch, KeyboardAvoidingView,
+  Platform, Switch, KeyboardAvoidingView,
 } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import {
   useTrainerProfile, useTrainerSchedule, useTrainerPerformance,
@@ -16,8 +17,8 @@ import SegmentedTabs from '../../common/components/SegmentedTabs';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
 import StatusPill from '../../common/components/StatusPill';
-import EmptyState from '../../dashboard/components/EmptyState';
-import { Field, SwitchRow } from '../../trainers/components/FormFields';
+import EmptyState from '../../common/components/EmptyState';
+import { Field, SwitchRow } from '../../common/components/FormFields';
 import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -50,15 +51,15 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
 
   const handleSaveProfile = () => {
     updateProfile({ bio, phone: phone || undefined, isAvailable: available }, {
-      onSuccess: res => { if (res.success) { Alert.alert('Saved ✓', 'Profile updated.'); setEditing(false); } },
-      onError:   () => Alert.alert('Error', 'Failed to save.'),
+      onSuccess: res => { if (res.success) { showAlert('Saved ✓', 'Profile updated.'); setEditing(false); } },
+      onError:   () => showAlert('Error', 'Failed to save.'),
     });
   };
 
   const handleSaveSchedule = () => {
     updateSchedule(slots, {
-      onSuccess: res => res.success && Alert.alert('Saved ✓', 'Schedule updated.'),
-      onError:   () => Alert.alert('Error', 'Failed to save schedule.'),
+      onSuccess: res => res.success && showAlert('Saved ✓', 'Schedule updated.'),
+      onError:   () => showAlert('Error', 'Failed to save schedule.'),
     });
   };
 
@@ -191,7 +192,7 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
               icon="log-out"
               variant="danger"
               style={{ marginTop: 12 }}
-              onPress={() => Alert.alert('Sign out', 'Are you sure?', [
+              onPress={() => showAlert('Sign out', 'Are you sure?', [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Sign out', style: 'destructive', onPress: onLogout },
               ])}

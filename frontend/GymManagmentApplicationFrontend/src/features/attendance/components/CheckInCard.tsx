@@ -5,6 +5,7 @@ import { T, R, withAlpha } from '../../../theme';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import { useCheckIn, useCheckOut, useMyAttendanceStatus } from '../api/attendanceQueries';
 import { formatDistance, getCurrentCoords } from '../utils/location';
+import { apiErrorText } from '../../../api/apiError';
 
 const sinceLabel = (iso: string) => {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
@@ -54,9 +55,9 @@ export default function CheckInCard() {
           ? `You're ${formatDistance(d.distanceM)} from ${d.nearestBranch}. Move closer and try again.`
           : res.message,
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       setLocating(false);
-      setMessage({ tone: 'err', text: e?.response?.data?.message ?? (e instanceof Error ? e.message : 'Check-in failed.') });
+      setMessage({ tone: 'err', text: apiErrorText(e) });
     }
   };
 
@@ -64,7 +65,7 @@ export default function CheckInCard() {
     setMessage(null);
     checkOut.mutate(undefined, {
       onSuccess: (res) => setMessage({ tone: 'ok', text: res.success ? 'Checked out. See you next time!' : res.message }),
-      onError: (e: any) => setMessage({ tone: 'err', text: e?.response?.data?.message ?? 'Check-out failed.' }),
+      onError: (e: unknown) => setMessage({ tone: 'err', text: apiErrorText(e) }),
     });
   };
 

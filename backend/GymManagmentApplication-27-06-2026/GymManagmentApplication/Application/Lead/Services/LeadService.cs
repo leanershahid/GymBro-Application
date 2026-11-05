@@ -144,11 +144,12 @@ public class LeadService(
     {
         if (request.Leads.Count > 500) throw new ArgumentException("Import at most 500 leads at a time.");
         // All or nothing: a bad row rolls back the rows before it.
-        await using var tx = await db.Database.BeginTransactionAsync();
-        var results = new List<LeadResponse>();
-        foreach (var r in request.Leads) results.Add(await CreateAsync(r));
-        await tx.CommitAsync();
-        return results;
+        return await db.InTransactionAsync(async () =>
+        {
+            var results = new List<LeadResponse>();
+            foreach (var r in request.Leads) results.Add(await CreateAsync(r));
+            return results;
+        });
     }
 
     private static LeadResponse Map(Domain.Entities.CRM.Lead l) => new()

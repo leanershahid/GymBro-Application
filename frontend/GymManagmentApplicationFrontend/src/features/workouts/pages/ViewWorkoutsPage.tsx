@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Pressable, Alert } from 'react-native';
+import { View, Text, FlatList, Pressable,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { useWorkouts, useWorkout, useDeleteWorkout } from '../api/workoutQueries';
 import { Workout } from '../types/workout.types';
@@ -9,10 +10,10 @@ import StatusPill from '../../common/components/StatusPill';
 import { difficultyTone, goalTone } from '../../common/constants/statusColors';
 import PaginationFooter from '../../common/components/PaginationFooter';
 import Skeleton from '../../common/components/Skeleton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import StatsStrip from '../../common/StatsStrip';
 import DetailSheet, { fmtDate } from '../../exercises/components/DetailSheet';
-import { humanize } from '../../exercises/components/ChipSelect';
+import { humanize } from '../../common/components/ChipSelect';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import { useToast } from '../../common/components/Toast';
 import { apiErrorText } from '../../../api/apiError';
@@ -83,12 +84,12 @@ export default function ViewWorkoutsPage({ onBack, onAddWorkout, onOpenWorkout }
   const handleOpen = (id: number) => (onOpenWorkout ? onOpenWorkout(id) : setOpenId(id));
 
   const handleDelete = (id: number, name: string) => {
-    Alert.alert('Delete Workout', `Delete "${name}"? Members it is assigned to will lose it.`, [
+    showAlert('Delete Workout', `Delete "${name}"? Members it is assigned to will lose it.`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () =>
         del(id, {
           onSuccess: () => { setOpenId(null); toast.show({ type: 'success', message: 'Workout deleted.' }); },
-          onError: (e) => Alert.alert('Delete failed', apiErrorText(e)),
+          onError: (e) => showAlert('Delete failed', apiErrorText(e)),
         })
       },
     ]);

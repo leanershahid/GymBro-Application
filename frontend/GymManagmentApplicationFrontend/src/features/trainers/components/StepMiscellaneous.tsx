@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, View, Text } from 'react-native';
 import { TrainerPayload } from '../types/trainer.types';
-import { Field, SwitchRow, RowGrid, GridCell } from './FormFields';
+import { Field, SwitchRow, RowGrid, GridCell } from '../../common/components/FormFields';
 import { T } from '../../../theme';
 
 interface Props {
@@ -24,9 +24,9 @@ function Block({ num, title, children }: { num: string; title: string; children:
 }
 
 export default function StepMiscellaneous({ data, onChange }: Props) {
-  const ec  = data.emergencyContact   ?? {} as any;
-  const sl  = data.socialLinks        ?? {} as any;
-  const att = data.attendanceSettings ?? {} as any;
+  const ec  = data.emergencyContact   ?? ({} as NonNullable<typeof data.emergencyContact>);
+  const sl  = data.socialLinks        ?? ({} as NonNullable<typeof data.socialLinks>);
+  const att = data.attendanceSettings ?? ({} as NonNullable<typeof data.attendanceSettings>);
   const updateEc  = (f: object) => onChange({ emergencyContact:   { ...ec,  ...f } });
   const updateSl  = (f: object) => onChange({ socialLinks:        { ...sl,  ...f } });
   const updateAtt = (f: object) => onChange({ attendanceSettings: { ...att, ...f } });

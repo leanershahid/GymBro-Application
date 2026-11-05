@@ -55,8 +55,8 @@ public class ShopCatalogController(
     // ── Reviews ───────────────────────────────────────────────────────────
 
     [HttpGet("reviews/product/{productId}")]
-    public async Task<ActionResult<ApiResponse<object>>> GetReviews(ulong productId, [FromQuery] int page = 1, [FromQuery] int pageSize = 12)
-        => Ok(ApiResponse<object>.Ok(await reviews.GetForProductAsync(productId, page, pageSize)));
+    public async Task<ActionResult<ApiResponse<object>>> GetReviews(ulong productId, [FromQuery] int page = 1, [FromQuery] int pageSize = 12, [FromQuery] int? pageNumber = null)
+        => Ok(ApiResponse<object>.Ok(await reviews.GetForProductAsync(productId, pageNumber ?? page, pageSize)));
 
     [HttpGet("reviews/product/{productId}/summary")]
     public async Task<ActionResult<ApiResponse<object>>> GetReviewSummary(ulong productId)

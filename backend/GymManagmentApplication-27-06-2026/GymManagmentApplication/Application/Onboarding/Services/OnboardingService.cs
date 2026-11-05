@@ -100,7 +100,9 @@ public class OnboardingService(IOnboardingRepository repository, ICurrentUser cu
         await GetMemberAsync(memberId);
         var steps = await repository.GetStepsByMemberAsync(memberId);
         if (steps.Count == 0) return null;
-        foreach (var s in steps.Where(s => !s.IsDone)) { s.IsDone = true; s.DoneAt = DateTime.UtcNow; await repository.UpdateStepAsync(s); }
+        var open = steps.Where(s => !s.IsDone).ToList();
+        foreach (var s in open) { s.IsDone = true; s.DoneAt = DateTime.UtcNow; }
+        if (open.Count > 0) await repository.UpdateStepsAsync(open);
         return BuildStatus(memberId, steps);
     }
 

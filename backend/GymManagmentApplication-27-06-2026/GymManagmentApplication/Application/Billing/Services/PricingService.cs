@@ -23,13 +23,18 @@ public class PricingService(AppDbContext db, ICurrentUser currentUser) : IPricin
         return rules.Select(MapRule).ToList();
     }
 
+    public async Task<PricingRuleResponse?> GetRuleAsync(ulong id) =>
+        await db.PricingRules.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id) is { } rule ? MapRule(rule) : null;
+
+    public async Task<DiscountResponse?> GetDiscountAsync(ulong id) =>
+        await db.Coupons.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id) is { } coupon ? MapDiscount(coupon) : null;
+
     public async Task<PricingRuleResponse> CreateRuleAsync(CreatePricingRuleRequest request)
     {
         request.TenantId = currentUser.ResolveTenantId(request.TenantId);
-        var id = (await db.PricingRules.IgnoreQueryFilters().MaxAsync(r => (ulong?)r.Id) ?? 0) + 1;
         var rule = new PricingRule
         {
-            Id = id, TenantId = request.TenantId, Name = request.Name,
+            TenantId = request.TenantId, Name = request.Name,
             RuleType = Enum.TryParse<PricingRuleType>(request.RuleType, true, out var rt)
                 ? rt : PricingRuleType.Promotional,
             Conditions = JsonDocument.Parse(request.Condition ?? "{}"),
@@ -87,29 +92,38 @@ public class PricingService(AppDbContext db, ICurrentUser currentUser) : IPricin
             applied.Add(rule.Name);
         }
 
-        // Apply discount code
+        final = Math.Max(0, final);
+
+        // Apply discount code — same rules as the shop (CouponRules): expiry, start date, usage
+        // limit, minimum order and maximum discount all apply; codes are case-insensitive.
+        var currency = plan?.Currency ?? await TenantCurrencyAsync(request.TenantId);
         if (!string.IsNullOrWhiteSpace(request.DiscountCode))
         {
-            var coupon = await db.Coupons.FirstOrDefaultAsync(c =>
-                c.TenantId == request.TenantId && c.Code == request.DiscountCode && c.IsActive);
-            if (coupon is not null)
+            var coupon = await FindCouponAsync(request.TenantId, request.DiscountCode);
+            if (coupon is not null && CouponRules.Check(coupon, final, DateTime.UtcNow, currency) is null)
             {
-                if (coupon.Type == CouponType.Percentage)
-                    final -= final * (coupon.Value / 100);
-                else
-                    final -= coupon.Value;
+                final -= CouponRules.CalculateDiscount(coupon, final);
                 applied.Add($"COUPON:{coupon.Code}");
             }
         }
 
-        final = Math.Max(0, final);
+        final = Money.Round(Math.Max(0, final));
         return new CalculatedPriceResponse
         {
             PlanId = request.PlanId, OriginalPrice = original,
             FinalPrice = final, DiscountAmount = original - final,
-            Currency = plan?.Currency ?? "USD", AppliedRules = applied
+            Currency = currency, AppliedRules = applied
         };
     }
+
+    private Task<Coupon?> FindCouponAsync(ulong tenantId, string code)
+    {
+        var normalized = CouponRules.NormalizeCode(code);
+        return db.Coupons.AsNoTracking().FirstOrDefaultAsync(c => c.TenantId == tenantId && c.Code == normalized);
+    }
+
+    private async Task<string> TenantCurrencyAsync(ulong tenantId) =>
+        await db.Tenants.IgnoreQueryFilters().Where(t => t.Id == tenantId).Select(t => t.Currency).FirstOrDefaultAsync() ?? "INR";
 
     public async Task<List<DiscountResponse>> GetDiscountsAsync(ulong tenantId)
     {
@@ -123,10 +137,13 @@ public class PricingService(AppDbContext db, ICurrentUser currentUser) : IPricin
     public async Task<DiscountResponse> CreateDiscountAsync(CreateDiscountRequest request)
     {
         request.TenantId = currentUser.ResolveTenantId(request.TenantId);
-        var id = (await db.Coupons.IgnoreQueryFilters().MaxAsync(c => (ulong?)c.Id) ?? 0) + 1;
+        var code = CouponRules.NormalizeCode(request.Code);
+        if (code.Length == 0) throw new ArgumentException("Enter a discount code.");
+        if (await db.Coupons.AnyAsync(c => c.TenantId == request.TenantId && c.Code == code))
+            throw RuleException.Conflict($"Discount code {code} already exists.");
         var coupon = new Coupon
         {
-            Id = id, TenantId = request.TenantId, Code = request.Code.ToUpper(),
+            TenantId = request.TenantId, Code = code,
             Type = Enum.TryParse<CouponType>(request.DiscountType, true, out var ct)
                 ? ct : CouponType.Percentage,
             Value = request.Value,
@@ -144,22 +161,22 @@ public class PricingService(AppDbContext db, ICurrentUser currentUser) : IPricin
         var plan = await db.MembershipPlans.FindAsync(request.PlanId);
         decimal original = plan?.Price ?? 0;
 
-        var coupon = await db.Coupons.FirstOrDefaultAsync(c =>
-            c.TenantId == request.TenantId && c.Code == request.Code.ToUpper() && c.IsActive);
+        var coupon = await FindCouponAsync(request.TenantId, request.Code);
 
         if (coupon is null)
             return new ValidateDiscountResponse { Code = request.Code, IsValid = false,
                 InvalidReason = "Code not found or expired.", OriginalPrice = original,
                 DiscountedPrice = original, DiscountAmount = 0 };
 
-        if (coupon.ValidUntil.HasValue && coupon.ValidUntil < DateTime.UtcNow)
+        // Shared with the shop (ARCH-015): active, start/end dates, usage limit, minimum order.
+        var invalid = CouponRules.Check(coupon, original, DateTime.UtcNow, plan?.Currency);
+        if (invalid is not null)
             return new ValidateDiscountResponse { Code = request.Code, IsValid = false,
-                InvalidReason = "Code has expired.", OriginalPrice = original,
+                InvalidReason = invalid, OriginalPrice = original,
                 DiscountedPrice = original, DiscountAmount = 0 };
 
-        decimal discount = coupon.Type == CouponType.Percentage
-            ? original * (coupon.Value / 100) : coupon.Value;
-        decimal final = Math.Max(0, original - discount);
+        var discount = CouponRules.CalculateDiscount(coupon, original);
+        var final = Money.Round(Math.Max(0, original - discount));
 
         return new ValidateDiscountResponse
         {

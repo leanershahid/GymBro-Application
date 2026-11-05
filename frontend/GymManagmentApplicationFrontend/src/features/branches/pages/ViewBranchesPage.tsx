@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, FlatList, Image, Pressable, Alert } from 'react-native';
+import { View, Text, FlatList, Image, Pressable,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { useBranches, useSetBranchStatus, useDeleteBranch, useTransferBranch } from '../api/branchQueries';
 import { Branch } from '../types/branch.types';
@@ -10,13 +11,14 @@ import ScreenHeader from '../../common/components/ScreenHeader';
 import SearchBar from '../../common/components/SearchBar';
 import StatusPill, { toneForStatus } from '../../common/components/StatusPill';
 import Skeleton from '../../common/components/Skeleton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import BranchDropdown from '../components/BranchDropdown';
 import BottomSheet from '../../common/components/BottomSheet';
 import { useToast } from '../../common/components/Toast';
-import { useRoleModuleAccess } from '../../module-access/hooks/useRoleModuleAccess';
+import { useApiAccess } from '../../access/context/AccessContext';
 
 import StatsStrip from '../../common/StatsStrip';
+import SmallButton from '../../common/components/SmallButton';
 
 // ─── Helpers ──────────────────────────────────────────────────────
 function formatDate(iso: string): string {
@@ -35,32 +37,6 @@ const TINTS = [
 ];
 const tint = (id: number) => TINTS[id % TINTS.length];
 
-function ActionButton({
-  icon, label, tone, onPress,
-}: {
-  icon: React.ComponentProps<typeof Feather>['name'];
-  label: string;
-  tone: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      hitSlop={6}
-      style={({ pressed }) => ({
-        flexDirection: 'row', alignItems: 'center', gap: 5,
-        paddingHorizontal: 10, paddingVertical: 6, borderRadius: R.pill,
-        backgroundColor: pressed ? withAlpha(tone, 0.18) : withAlpha(tone, 0.10),
-        borderWidth: 1, borderColor: withAlpha(tone, 0.28),
-      })}
-    >
-      <Feather name={icon} size={12} color={tone} />
-      <Text style={{ color: tone, fontSize: 11, fontWeight: '700' }}>{label}</Text>
-    </Pressable>
-  );
-}
 
 // ─── Branch card ──────────────────────────────────────────────────
 // There is no branch detail screen yet, so the card is a grouped View rather than a
@@ -248,10 +224,10 @@ function BranchCard({
         {(canEdit || canDelete) && (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
             {canEdit && onEdit && (
-              <ActionButton icon="edit-2" label="Edit" tone={T.sky} onPress={onEdit} />
+              <SmallButton size="sm" icon="edit-2" label="Edit" tone={T.sky} onPress={onEdit} />
             )}
             {canEdit && (
-              <ActionButton
+              <SmallButton size="sm"
                 icon={branch.status.toLowerCase() === 'active' ? 'pause-circle' : 'play-circle'}
                 label={branch.status.toLowerCase() === 'active' ? 'Deactivate' : 'Activate'}
                 tone={branch.status.toLowerCase() === 'active' ? T.brandGold : T.ok}
@@ -259,7 +235,7 @@ function BranchCard({
               />
             )}
             {canDelete && (
-              <ActionButton icon="trash-2" label="Remove" tone={T.err} onPress={onRemove} />
+              <SmallButton size="sm" icon="trash-2" label="Remove" tone={T.err} onPress={onRemove} />
             )}
           </View>
         )}
@@ -286,7 +262,7 @@ export default function ViewBranchesPage({ onBack, onAddBranch, onEditBranch }: 
   const { mutate: removeBranch } = useDeleteBranch();
   const { mutate: transfer, isPending: isTransferring } = useTransferBranch();
   const { show: showToast } = useToast();
-  const branchesAccess = useRoleModuleAccess('branches');
+  const branchesAccess = useApiAccess('branches');
   const canEditBranches = branchesAccess.canEdit;
   const canDeleteBranches = branchesAccess.canDelete;
 
@@ -335,7 +311,7 @@ export default function ViewBranchesPage({ onBack, onAddBranch, onEditBranch }: 
       );
       return;
     }
-    Alert.alert(
+    showAlert(
       'Deactivate branch?',
       `${branch.name} will stop accepting check-ins and new activity.`,
       [
@@ -346,7 +322,7 @@ export default function ViewBranchesPage({ onBack, onAddBranch, onEditBranch }: 
   };
 
   const handleRemove = (branch: Branch) => {
-    Alert.alert(
+    showAlert(
       'Remove branch?',
       `${branch.name} will be permanently deleted. This can't be undone.`,
       [

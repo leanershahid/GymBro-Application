@@ -1,3 +1,8 @@
+// Shared paths for the older admin features (auth, members, trainers, workouts…).
+// Convention (ARCH-118): newer features keep a feature-local `EP` / `BASE` map in their *Api.ts
+// (billing, classes, shop, social, access, member-billing…). Don't add new features here; when a
+// feature here is next reworked, move its paths into its own api file. Create = POST to the
+// collection path (there are no separate ADD_* constants).
 export const ENDPOINTS = {
   // Auth
   LOGIN:           '/auth/login',
@@ -34,47 +39,34 @@ export const ENDPOINTS = {
 
   // Roles & Permissions
   ROLES:           '/roles',
-  PERMISSIONS:     '/permissions',
 
   // Tenants
   TENANTS:         '/tenants',
-  ADD_TENANT:      '/tenants',
 
   // Branches
   BRANCHES:        '/branches',
-  ADD_BRANCH:      '/branches',
 
   // Members
   MEMBERS:         '/members',
-  ADD_MEMBER:      '/members',
-  BULK_MEMBERS:    '/members/bulk',
 
   // Trainers
   TRAINERS:        '/trainers',
-  ADD_TRAINER:     '/trainers',
 
   // Leads
   LEADS:           '/leads',
-  ADD_LEAD:        '/leads',
   LEAD_SOURCES:    '/leads/sources',
 
   // Exercises
   EXERCISES:       '/exercises',
-  ADD_EXERCISE:    '/exercises',
-  EXERCISE_TAGS:   '/exercises/tags',
   EXERCISE_MUSCLES:'/exercises/muscles',
 
   // Workouts
   WORKOUTS:        '/workouts',
-  ADD_WORKOUT:     '/workouts',
   ASSIGN_WORKOUT:  '/workouts/assign',
 
   // Workout Plans
   PLANS:           '/plans',
-  ADD_PLAN:        '/plans',
 
   // Workout Automation
   AUTOMATION_RULES:  '/workout-automation/rules',
-  AUTOMATION_LOGS:   '/workout-automation/logs',
-
 };

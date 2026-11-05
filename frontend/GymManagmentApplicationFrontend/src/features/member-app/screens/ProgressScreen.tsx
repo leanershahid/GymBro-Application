@@ -3,7 +3,7 @@ import { View, Text, ScrollView } from 'react-native';
 import { T, R } from '../../../theme';
 import { useMyTraining, useHealthToday } from '../api/memberAppQueries';
 import MetricBar from '../components/MetricBar';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import Screen from '../../common/components/Screen';
 import Skeleton from '../../common/components/Skeleton';
 import { AssignedPlanCard } from '../components/TrainingCards';

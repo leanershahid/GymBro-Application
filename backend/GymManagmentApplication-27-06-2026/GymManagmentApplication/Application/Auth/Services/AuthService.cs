@@ -12,22 +12,45 @@ using GymManagmentApplication.Domain.Enums;
 using GymManagmentApplication.Infrastructure.Data;
 using GymManagmentApplication.Infrastructure.Email;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace GymManagmentApplication.Application.Auth.Services;
 
-public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db, IEmailSender email) : IAuthService
+public class AuthService(
+    IOptions<JwtSettings> jwtOptions,
+    AppDbContext db,
+    IEmailSender email,
+    Microsoft.Extensions.Caching.Memory.IMemoryCache cache,
+    Microsoft.Extensions.Logging.ILogger<AuthService> logger) : IAuthService
 {
     private readonly JwtSettings _jwt = jwtOptions.Value;
 
-    // Sign-in lockout: this many wrong passwords in a row lock the account for LockoutFor.
-    private const int MaxFailedLogins = 5;
+    // Sign-in throttling, two layers, both answered with the same neutral message whether or not
+    // the account exists (so it reveals nothing, and a stranger can't cheaply lock someone out):
+    //  1. per email + IP (in memory): MaxFailedPerClient wrong passwords within ClientWindow block that
+    //     client for ClientWindow — stops one source guessing one account;
+    //  2. per account (User.FailedLoginCount / LockedUntil): MaxFailedLogins wrong passwords in a row from
+    //     anywhere lock the account for LockoutFor — slows distributed guessing. High enough that a
+    //     single source (layer 1 plus the 20/min auth rate limit) can't trigger it quickly.
+    private const int MaxFailedPerClient = 5;
+    private static readonly TimeSpan ClientWindow = TimeSpan.FromMinutes(15);
+    private const int MaxFailedLogins = 20;
     private static readonly TimeSpan LockoutFor = TimeSpan.FromMinutes(15);
+    private const string ThrottledMessage = "Too many failed sign-in attempts. Please wait 15 minutes or reset your password.";
     private const int CodeValidMinutes = 15;
+
+    /// <summary>A rotated refresh token presented again within this window is a benign race (two tabs refreshing at once).</summary>
+    private static readonly TimeSpan ReuseGrace = TimeSpan.FromSeconds(30);
+    /// <summary>Prefix marking a consumed (rotated) refresh token, kept as a tombstone until it would have expired.</summary>
+    private const string ConsumedPrefix = "used:";
 
     public async Task<AuthResponse?> RegisterAsync(RegisterRequest request)
     {
+        // Open self-registration is intended product behaviour (ARCH-032): anyone may join an
+        // active/trial gym by its id as a Pending client, and must verify their email before signing in.
+        // Gyms that want invite-only membership would need an invite code / approval step here.
         // Self-registration must name an active gym — never default into the platform tenant.
         var tenantActive = request.TenantId != 0 && await db.Tenants.AnyAsync(t =>
             t.Id == request.TenantId && (t.Status == TenantStatus.Active || t.Status == TenantStatus.Trial));
@@ -89,6 +112,10 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db, IEma
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest request, SessionInfo? session = null)
     {
+        var clientKey = $"login-fail:{request.Email.Trim().ToLowerInvariant()}|{session?.IpAddress ?? "unknown"}";
+        if (cache.TryGetValue(clientKey, out int clientFailures) && clientFailures >= MaxFailedPerClient)
+            throw new UnauthorizedAccessException(ThrottledMessage);
+
         // Find user by email only — don't join Role here,
         // a broken RoleId FK would cause Include to fail or return null
         var user = await db.Users
@@ -96,23 +123,29 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db, IEma
                 u.Email != null &&
                 u.Email.ToLower() == request.Email.ToLower() &&
                 u.DeletedAt == null);
-        if (user is null) return null;
+        if (user is null)
+        {
+            CountClientFailure(clientKey, clientFailures);
+            return null;
+        }
 
         if (user.LockedUntil is { } until && until > DateTime.UtcNow)
-            throw new UnauthorizedAccessException(
-                $"Too many failed sign-in attempts. Try again in {Math.Ceiling((until - DateTime.UtcNow).TotalMinutes)} minute(s) or reset your password.");
+            throw new UnauthorizedAccessException(ThrottledMessage);
 
         if (!PasswordHasher.Verify(request.Password, user.PasswordHash, out var needsRehash))
         {
+            CountClientFailure(clientKey, clientFailures);
             user.FailedLoginCount++;
             if (user.FailedLoginCount >= MaxFailedLogins)
             {
                 user.LockedUntil = DateTime.UtcNow.Add(LockoutFor);
                 user.FailedLoginCount = 0;
+                logger.LogWarning("Account {UserId} locked for {Minutes} minutes after repeated failed sign-ins.", user.Id, LockoutFor.TotalMinutes);
             }
             await db.SaveChangesAsync();
             return null;
         }
+        cache.Remove(clientKey);
 
         await EnsureCanSignInAsync(user);
 
@@ -140,19 +173,41 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db, IEma
         await db.UserSessions.Where(s => s.UserId == userId && s.TokenHash == hash).ExecuteDeleteAsync();
     }
 
-    /// <summary>Rotates the refresh token: the old one is consumed, a new pair is issued.</summary>
+    /// <summary>
+    /// Rotates the refresh token: the old one is consumed, a new pair is issued. The consumed token is
+    /// kept as a tombstone (TokenHash "used:…", CreatedAt = when it was used) until it would have expired,
+    /// so presenting it again is detected as reuse — a sign the token was stolen — and every session of
+    /// that user is revoked. Consumption is a conditional update, so two concurrent refreshes with the
+    /// same token can't both succeed.
+    /// </summary>
     public async Task<AuthResponse?> RefreshAsync(string refreshToken, SessionInfo? session = null)
     {
         if (string.IsNullOrEmpty(refreshToken)) return null;
         var hash = Sha256(refreshToken);
-        var stored = await db.UserSessions.FirstOrDefaultAsync(s => s.TokenHash == hash);
-        if (stored is null) return null;
-        db.UserSessions.Remove(stored);
-        if (stored.ExpiresAt < DateTime.UtcNow) { await db.SaveChangesAsync(); return null; }
+        var now = DateTime.UtcNow;
+        var stored = await db.UserSessions.AsNoTracking().FirstOrDefaultAsync(s => s.TokenHash == hash);
+        if (stored is null)
+        {
+            await DetectReuseAsync(hash, now);
+            return null;
+        }
+        if (stored.ExpiresAt < now)
+        {
+            await db.UserSessions.Where(s => s.Id == stored.Id).ExecuteDeleteAsync();
+            return null;
+        }
+
+        // Only one caller wins the consumption; a concurrent loser sees 0 rows and gets a 401.
+        var consumed = await db.UserSessions
+            .Where(s => s.Id == stored.Id && s.TokenHash == hash)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.TokenHash, ConsumedPrefix + hash)
+                .SetProperty(x => x.CreatedAt, now));
+        if (consumed != 1) return null;
 
         var user = await db.Users.IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.Id == stored.UserId && u.DeletedAt == null);
-        if (user is null) { await db.SaveChangesAsync(); return null; }
+        if (user is null) return null;
 
         await EnsureCanSignInAsync(user);
         var roleSlug = await ResolveRoleSlugAsync(user);
@@ -161,6 +216,22 @@ public class AuthService(IOptions<JwtSettings> jwtOptions, AppDbContext db, IEma
         await db.SaveChangesAsync();
         return tokens;
     }
+
+    /// <summary>A consumed token presented again after the grace window: revoke the whole family (every session of the user).</summary>
+    private async Task DetectReuseAsync(string hash, DateTime now)
+    {
+        var tombstone = await db.UserSessions.AsNoTracking()
+            .Where(s => s.TokenHash == ConsumedPrefix + hash)
+            .Select(s => new { s.UserId, UsedAt = s.CreatedAt, s.ExpiresAt })
+            .FirstOrDefaultAsync();
+        if (tombstone is null || tombstone.ExpiresAt < now || now - tombstone.UsedAt < ReuseGrace) return;
+
+        logger.LogWarning("Refresh token reuse detected for user {UserId}; revoking all sessions.", tombstone.UserId);
+        await AuthSessions.RevokeAllAsync(db, tombstone.UserId);
+    }
+
+    private void CountClientFailure(string key, int failuresSoFar) =>
+        cache.Set(key, failuresSoFar + 1, ClientWindow);
 
     public async Task<bool> ForgotPasswordAsync(ForgotPasswordRequest request)
     {

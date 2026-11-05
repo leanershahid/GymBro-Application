@@ -36,14 +36,12 @@ public class RequireModuleAttribute(string moduleKey) : Attribute, IAsyncAuthori
         if (role.Equals(RoleNames.SuperAdmin, StringComparison.OrdinalIgnoreCase))
             return;
 
-        var action = context.HttpContext.Request.Method.ToUpperInvariant() switch
+        var action = ModuleActions.For(context.HttpContext.Request.Method);
+        if (action is null)
         {
-            "GET" or "HEAD"  => "view",
-            "POST"           => "create",
-            "PUT" or "PATCH" => "edit",
-            "DELETE"         => "delete",
-            _                => "view"
-        };
+            Deny(context, HttpStatusCode.Forbidden, "This request method is not allowed here.");
+            return;
+        }
 
         var service = context.HttpContext.RequestServices.GetRequiredService<IAccessService>();
         if (!await service.CanAsync(userId, role, moduleKey, action))

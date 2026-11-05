@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Text, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { Text, Pressable, ActivityIndicator } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useCreateExercise, useMuscles, useUploadExerciseVideo } from '../api/exerciseQueries';
 import { EXERCISE_CATEGORIES, DIFFICULTIES, ExercisePayload } from '../types/exercise.types';
-import { Field } from '../../trainers/components/FormFields';
-import ChipSelect from '../components/ChipSelect';
-import FormPage from '../components/FormPage';
+import { Field } from '../../common/components/FormFields';
+import ChipSelect from '../../common/components/ChipSelect';
+import FormPage from '../../common/components/FormPage';
 import { PickedFile } from '../../../api/upload';
 import { currentTenantId } from '../../../api/session';
 import { apiErrorText } from '../../../api/apiError';
@@ -36,7 +37,7 @@ export default function AddExercisePage({ onBack, onCreated }: Props) {
   const pickVideo = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Please allow access to your media library.');
+      showAlert('Permission required', 'Please allow access to your media library.');
       return;
     }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'], quality: 1 });
@@ -75,7 +76,7 @@ export default function AddExercisePage({ onBack, onCreated }: Props) {
       const res = await create(payload);
       id = res.data?.id;
     } catch (e) {
-      Alert.alert('Could not create exercise', apiErrorText(e));
+      showAlert('Could not create exercise', apiErrorText(e));
       return;
     }
 

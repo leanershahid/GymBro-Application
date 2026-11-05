@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, Pressable,
-  Platform, Alert, TouchableOpacity, KeyboardAvoidingView, ActivityIndicator,
+  Platform, TouchableOpacity, KeyboardAvoidingView, ActivityIndicator,
 } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -14,8 +15,8 @@ import SegmentedTabs from '../../common/components/SegmentedTabs';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
 import StatusPill from '../../common/components/StatusPill';
-import EmptyState from '../../dashboard/components/EmptyState';
-import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
+import EmptyState from '../../common/components/EmptyState';
+import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
 import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
 import { PickedFile } from '../../../api/upload';
 import { apiErrorText } from '../../../api/apiError';
@@ -24,7 +25,7 @@ function AvatarPicker({ uri, onPick, uploading }: { uri?: string | null; onPick:
   const pick = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Please allow access to your photo library.');
+      showAlert('Permission required', 'Please allow access to your photo library.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -112,19 +113,19 @@ export default function ProfileScreen({ userId, onLogout, onOpenBilling }: Props
     uploadPhoto(file, {
       onSuccess: res => {
         if (res.success && res.data?.url) setAvatarUri(res.data.url);
-        else { setAvatarUri(previous); Alert.alert('Photo not saved', res.message ?? 'Upload failed.'); }
+        else { setAvatarUri(previous); showAlert('Photo not saved', res.message ?? 'Upload failed.'); }
       },
-      onError: e => { setAvatarUri(previous); Alert.alert('Photo not saved', apiErrorText(e)); },
+      onError: e => { setAvatarUri(previous); showAlert('Photo not saved', apiErrorText(e)); },
     });
   };
 
   const handleSave = () => {
     update({ firstName: firstName.trim(), lastName: lastName.trim(), phone: phone || undefined }, {
       onSuccess: res => {
-        if (res.success) { Alert.alert('Saved ✓', 'Profile updated.'); setEditing(false); }
-        else             { Alert.alert('Error', res.message ?? 'Update failed.'); }
+        if (res.success) { showAlert('Saved ✓', 'Profile updated.'); setEditing(false); }
+        else             { showAlert('Error', res.message ?? 'Update failed.'); }
       },
-      onError: () => Alert.alert('Error', 'Failed to connect to server.'),
+      onError: () => showAlert('Error', 'Failed to connect to server.'),
     });
   };
 
@@ -247,7 +248,7 @@ export default function ProfileScreen({ userId, onLogout, onOpenBilling }: Props
               icon="log-out"
               variant="danger"
               style={{ marginTop: 12 }}
-              onPress={() => Alert.alert('Sign out', 'Are you sure?', [
+              onPress={() => showAlert('Sign out', 'Are you sure?', [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Sign out', style: 'destructive', onPress: onLogout },
               ])}

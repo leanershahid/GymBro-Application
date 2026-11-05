@@ -13,7 +13,7 @@ namespace GymManagmentApplication.Application.Roles.Services;
 
 public class RolesService(AppDbContext db, ICurrentUser currentUser) : IRolesService
 {
-    private static string ToSlug(string name) => name.Trim().ToLower().Replace(" ", "-");
+    private static string ToSlug(string name) => Slug.From(name, "role");
 
     public async Task<List<RoleResponse>> GetAllRolesAsync()
     {
@@ -113,13 +113,15 @@ public class RolesService(AppDbContext db, ICurrentUser currentUser) : IRolesSer
         db.RolePermissions.RemoveRange(existing);
 
         // Add new — resolve permission by "module.action" key
-        foreach (var key in request.Permissions)
+        // One read of the permission table instead of one query per key (ARCH-042).
+        var wanted = request.Permissions
+            .Select(k => k.Split('.', 2)).Where(p => p.Length == 2)
+            .Select(p => (Module: p[0], Action: p[1])).ToHashSet();
+        if (wanted.Count > 0)
         {
-            var parts = key.Split('.', 2);
-            if (parts.Length < 2) continue;
-            var perm = await db.Permissions
-                .FirstOrDefaultAsync(p => p.Module == parts[0] && p.Action == parts[1]);
-            if (perm is not null)
+            var modules = wanted.Select(w => w.Module).Distinct().ToList();
+            var candidates = await db.Permissions.Where(p => modules.Contains(p.Module)).ToListAsync();
+            foreach (var perm in candidates.Where(p => wanted.Contains((p.Module, p.Action))).DistinctBy(p => p.Id))
                 db.RolePermissions.Add(new RolePermission { RoleId = uid, PermissionId = perm.Id });
         }
 
@@ -189,7 +191,7 @@ public class RolesService(AppDbContext db, ICurrentUser currentUser) : IRolesSer
         // Revert to the client role of the user's own gym
         var clientRole = await db.Roles.IgnoreQueryFilters()
             .FirstOrDefaultAsync(r => r.Slug == RoleNames.Client && r.TenantId == user.TenantId)
-            ?? throw new InvalidOperationException("This gym has no client role.");
+            ?? throw new ArgumentException("This gym has no client role.");
         user.RoleId    = clientRole.Id;
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();

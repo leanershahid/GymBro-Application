@@ -64,12 +64,15 @@ public class SubscriptionService(AppDbContext db, ICurrentUser currentUser, Bill
         };
         db.GymMemberships.Add(membership);
 
-        await using var tx = await db.Database.BeginTransactionAsync();
-        await db.SaveChangesAsync(); // membership id for the invoice
-        var invoice = await InvoicePlanAsync(membership, plan, request.TaxPercent, request.Discount,
-            request.PayNowMethod, request.PaymentReference, request.StartDate);
-        await db.SaveChangesAsync();
-        await tx.CommitAsync();
+        // Execution strategy + one transaction (ARCH-045/092).
+        var invoice = await db.InTransactionAsync(async () =>
+        {
+            await db.SaveChangesAsync(); // membership id for the invoice
+            var inv = await InvoicePlanAsync(membership, plan, request.TaxPercent, request.Discount,
+                request.PayNowMethod, request.PaymentReference, request.StartDate);
+            await db.SaveChangesAsync();
+            return inv;
+        });
 
         await db.Entry(membership).Reference(m => m.Plan).LoadAsync();
         await db.Entry(membership).Reference(m => m.User).LoadAsync();

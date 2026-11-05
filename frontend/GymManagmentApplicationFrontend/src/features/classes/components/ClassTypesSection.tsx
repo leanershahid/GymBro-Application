@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, RefreshControl, Pressable, ScrollView, Alert } from 'react-native';
+import { View, Text, FlatList, RefreshControl, Pressable, ScrollView,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import BottomSheet from '../../common/components/BottomSheet';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
 import StatusPill from '../../common/components/StatusPill';
 import { useToast } from '../../common/components/Toast';
-import EmptyState from '../../dashboard/components/EmptyState';
-import { Field, SwitchRow, RowGrid, GridCell } from '../../trainers/components/FormFields';
+import EmptyState from '../../common/components/EmptyState';
+import { Field, SwitchRow, RowGrid, GridCell } from '../../common/components/FormFields';
 import { apiErrorText, describeApiError, fieldErrorsFrom } from '../../../api/apiError';
 import { useClassTypes, useSaveClassType } from '../api/classesQueries';
 import { ClassType, ClassTypePayload } from '../types/classes.types';
@@ -113,7 +114,7 @@ function ClassTypeSheet({ type, onClose }: { type: ClassType | 'new' | null; onC
         onSuccess: () => { toast.show({ message: doneMsg }); onClose(); },
         onError: e => {
           setErrors(fieldErrorsFrom(describeApiError(e).errors, { name: 'name', 'duration min': 'duration', duration: 'duration', 'max capacity': 'capacity', capacity: 'capacity' }));
-          Alert.alert('Class type not saved', apiErrorText(e));
+          showAlert('Class type not saved', apiErrorText(e));
         },
       },
     );
@@ -122,7 +123,7 @@ function ClassTypeSheet({ type, onClose }: { type: ClassType | 'new' | null; onC
   const toggleActive = () => {
     if (!existing) return;
     if (!existing.isActive) return submit(true, 'Class type reactivated.');
-    Alert.alert('Deactivate class type?', `"${existing.name}" won't be offered for new classes. Scheduled classes stay.`, [
+    showAlert('Deactivate class type?', `"${existing.name}" won't be offered for new classes. Scheduled classes stay.`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Deactivate', style: 'destructive', onPress: () => submit(false, 'Class type deactivated.') },
     ]);

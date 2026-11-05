@@ -15,6 +15,12 @@
     "AccessTokenExpiryMinutes": 60,
     "RefreshTokenExpiryDays": 7
   },
+  "Secrets": {
+    "Key": "<random secret; optional in Development (falls back to a Jwt:Key-derived key), required in Production>"
+  },
+  "Swagger": {
+    "Enabled": true
+  },
   "Storage": {
     "CloudinaryCloudName": "",
     "CloudinaryApiKey": "",

@@ -1,16 +1,15 @@
-import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import { prefsStore } from '../../../utils/storage';
 import { getSession } from '../../../api/session';
 
-// Recent shop searches, best effort: localStorage on web, SecureStore on phones (small JSON,
-// well under its ~2 KB limit). Any storage failure just means no recent searches.
+// Recent shop searches, best effort, in utils/storage prefsStore (localStorage on web, SecureStore
+// on phones; small JSON, well under its ~2 KB limit). Any storage failure just means no recent searches.
 
 const MAX = 6;
 const key = () => `gymbro.shop.recent.${getSession()?.userId ?? 0}`;
 
 export async function loadRecent(): Promise<string[]> {
   try {
-    const raw = Platform.OS === 'web' ? window.localStorage.getItem(key()) : await SecureStore.getItemAsync(key());
+    const raw = await prefsStore.getItem(key());
     const list = raw ? JSON.parse(raw) : [];
     return Array.isArray(list) ? list.filter((s): s is string => typeof s === 'string').slice(0, MAX) : [];
   } catch {
@@ -21,8 +20,7 @@ export async function loadRecent(): Promise<string[]> {
 async function save(list: string[]) {
   try {
     const raw = JSON.stringify(list);
-    if (Platform.OS === 'web') window.localStorage.setItem(key(), raw);
-    else await SecureStore.setItemAsync(key(), raw);
+    await prefsStore.setItem(key(), raw);
   } catch {
     // Storage unavailable — recent searches simply aren't kept.
   }

@@ -15,7 +15,7 @@ namespace GymManagmentApplication.Application.Shop.Common;
 public static class ShopPricing
 {
     /// <summary>Round half away from zero to 2 decimals (money).</summary>
-    public static decimal Round(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
+    public static decimal Round(decimal value) => Money.Round(value);
 
     /// <summary>Compare-at price only when it is actually higher than the selling price.</summary>
     public static decimal? EffectiveCompareAt(decimal price, decimal? compareAt) =>
@@ -39,23 +39,9 @@ public static class ShopPricing
             .FirstOrDefault();
 }
 
-public static partial class ShopSlug
+public static class ShopSlug
 {
-    public static string Slugify(string value)
-    {
-        var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
-        var sb = new StringBuilder(normalized.Length);
-        foreach (var ch in normalized)
-            if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark) sb.Append(ch);
-
-        var slug = NonAlphanumeric().Replace(sb.ToString(), "-").Trim('-');
-        slug = MultipleHyphens().Replace(slug, "-");
-        if (slug.Length > 200) slug = slug[..200].Trim('-');
-        return slug.Length == 0 ? "item" : slug;
-    }
-
-    [GeneratedRegex("[^a-z0-9]+")] private static partial Regex NonAlphanumeric();
-    [GeneratedRegex("-{2,}")] private static partial Regex MultipleHyphens();
+    public static string Slugify(string value) => Slug.From(value);
 }
 
 public static class ShopSearch
@@ -153,20 +139,28 @@ public class ShopSettingsService(AppDbContext db, ICurrentUser currentUser) : IS
 
 public static class ShopOrderNumbers
 {
+    private const string CounterKey = "shop-order";
+
     /// <summary>
-    /// The gym's next order number: "{prefix}-{n}", n starting at 10001. Taken as max + 1 inside the
-    /// placing transaction; the unique (TenantId, OrderNumber) index makes a racing duplicate fail
-    /// so the caller can retry.
+    /// The gym's next order number: "{prefix}-{n}", n starting at 10001. Drawn from the gym's
+    /// TenantCounters row with one atomic upsert (ARCH-006), so racing checkouts never get the same
+    /// number; inside the placing transaction the row stays locked until commit, and a rolled-back
+    /// attempt gives its number back. The first call continues from the newest existing order.
     /// </summary>
     public static async Task<string> NextAsync(AppDbContext db, ulong tenantId, string prefix)
     {
-        // Ids only grow, so the newest order holds the highest number (the prefix may have changed since).
-        var last = await db.ShopOrders.IgnoreQueryFilters()
-            .Where(o => o.TenantId == tenantId)
-            .OrderByDescending(o => o.Id)
-            .Select(o => o.OrderNumber)
-            .FirstOrDefaultAsync();
-        var n = last is null ? 10000 : int.TryParse(last[(last.LastIndexOf('-') + 1)..], out var v) ? v : 10000;
-        return $"{prefix}-{Math.Max(n, 10000) + 1}";
+        long floor = 10001;
+        if (!await db.TenantCounters.IgnoreQueryFilters().AnyAsync(c => c.TenantId == tenantId && c.Key == CounterKey))
+        {
+            // Ids only grow, so the newest order holds the highest number (the prefix may have changed since).
+            var last = await db.ShopOrders.IgnoreQueryFilters()
+                .Where(o => o.TenantId == tenantId)
+                .OrderByDescending(o => o.Id)
+                .Select(o => o.OrderNumber)
+                .FirstOrDefaultAsync();
+            if (last is not null && long.TryParse(last[(last.LastIndexOf('-') + 1)..], out var v)) floor = Math.Max(v + 1, floor);
+        }
+        var n = await TenantCounters.NextAsync(db, tenantId, CounterKey, floor);
+        return $"{prefix}-{n}";
     }
 }

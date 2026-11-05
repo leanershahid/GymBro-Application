@@ -64,14 +64,7 @@ public class AuthorizeRolesAttribute(params string[] roles) : Attribute, IAsyncA
                 .Cast<PermissionModuleAttribute>().FirstOrDefault()?.Module;
         if (module is null) return false;
 
-        var action = context.HttpContext.Request.Method.ToUpperInvariant() switch
-        {
-            "GET" or "HEAD" => "view",
-            "POST"          => "create",
-            "PUT" or "PATCH"=> "edit",
-            "DELETE"        => "delete",
-            _               => null
-        };
+        var action = ModuleActions.For(context.HttpContext.Request.Method);
         if (action is null) return false;
 
         var currentUser = context.HttpContext.RequestServices.GetRequiredService<ICurrentUser>();

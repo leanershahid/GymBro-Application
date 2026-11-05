@@ -31,8 +31,6 @@ public class LeadRepository(AppDbContext db) : ILeadRepository
 
     public async Task<Domain.Entities.CRM.Lead> CreateAsync(Domain.Entities.CRM.Lead lead)
     {
-        var maxId = await db.Leads.IgnoreQueryFilters().MaxAsync(l => (ulong?)l.Id) ?? 0;
-        lead.Id        = maxId + 1;
         lead.CreatedAt = DateTime.UtcNow;
         lead.UpdatedAt = DateTime.UtcNow;
         db.Leads.Add(lead);
@@ -53,8 +51,6 @@ public class LeadRepository(AppDbContext db) : ILeadRepository
 
     public async Task<LeadActivity> AddActivityAsync(LeadActivity activity)
     {
-        var maxId = await db.LeadActivities.IgnoreQueryFilters().MaxAsync(a => (ulong?)a.Id) ?? 0;
-        activity.Id        = maxId + 1;
         activity.CreatedAt = DateTime.UtcNow;
         db.LeadActivities.Add(activity);
         await db.SaveChangesAsync();

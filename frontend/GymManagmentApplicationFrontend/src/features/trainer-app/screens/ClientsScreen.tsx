@@ -1,14 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, ScrollView, TextInput,
-  Platform, Alert, KeyboardAvoidingView,
+  View, Text, ScrollView, TextInput, FlatList, ListRenderItemInfo,
+  Platform, KeyboardAvoidingView,
 } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import {
   useMyClients, useClientProfile, useClientProfiles, useClientTimeline,
   useClientNotes, useAddClientNote, useTrainerProfile,
 } from '../api/trainerAppQueries';
 import ClientPreviewRow from '../components/ClientPreviewRow';
+import { ClientAssignment } from '../types/trainer-app.types';
 import { T, R, withAlpha } from '../../../theme';
 import Screen from '../../common/components/Screen';
 import Avatar from '../../common/components/Avatar';
@@ -19,7 +21,7 @@ import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
 import Skeleton from '../../common/components/Skeleton';
 import StatusPill from '../../common/components/StatusPill';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 
 // ─── Client detail ─────────────────────────────────────────────────
 function ClientDetail({ trainerId, clientId, onBack }: { trainerId: number; clientId: number; onBack: () => void }) {
@@ -35,8 +37,8 @@ function ClientDetail({ trainerId, clientId, onBack }: { trainerId: number; clie
   const handleAddNote = () => {
     if (!noteText.trim()) return;
     addNote({ memberId: clientId, note: noteText.trim(), trainerId }, {
-      onSuccess: () => { setNoteText(''); refetchNotes(); Alert.alert('✓', 'Note added.'); },
-      onError:   () => Alert.alert('Error', 'Failed to add note.'),
+      onSuccess: () => { setNoteText(''); refetchNotes(); showAlert('✓', 'Note added.'); },
+      onError:   () => showAlert('Error', 'Failed to add note.'),
     });
   };
 
@@ -158,6 +160,8 @@ function ClientDetail({ trainerId, clientId, onBack }: { trainerId: number; clie
 }
 
 // ─── Clients list ──────────────────────────────────────────────────
+const clientKey = (c: ClientAssignment) => String(c.assignmentId);
+const RowGap = () => <View style={{ height: 10 }} />;
 interface Props {
   trainerId: number;
   /** Open straight into this client's detail (e.g. tapped from the Today screen). */
@@ -169,7 +173,12 @@ export default function ClientsScreen({ trainerId, initialClientId, onBack }: Pr
   const [selectedClient, setSelectedClient] = useState<number | null>(initialClientId ?? null);
   const [search, setSearch] = useState('');
   const { data: clients = [], isLoading, isError, refetch } = useMyClients(trainerId);
-  const profileQueries = useClientProfiles(clients.map(c => c.clientId));
+  // ARCH-068: there is no batch profile endpoint yet, so every profile is one request. Rows fetch
+  // their own profile only once FlatList renders them (virtualised); the whole roster's profiles are
+  // fetched only when the trainer actually searches. Backend follow-up: return name/email with
+  // GET trainers/{id}/clients so neither is needed.
+  const searching = search.trim().length > 0;
+  const profileQueries = useClientProfiles(searching ? clients.map(c => c.clientId) : []);
 
   // Search matches the client's real name or email (only profiles that have loaded can match).
   const filtered = useMemo(() => {
@@ -182,6 +191,10 @@ export default function ClientsScreen({ trainerId, initialClientId, onBack }: Pr
         || (p.email ?? '').toLowerCase().includes(q);
     });
   }, [clients, profileQueries, search]);
+
+  const renderClient = useCallback(({ item, index }: ListRenderItemInfo<ClientAssignment>) => (
+    <ClientPreviewRow client={item} index={index} onPress={() => setSelectedClient(item.clientId)} />
+  ), []);
 
   if (selectedClient !== null) {
     return <ClientDetail trainerId={trainerId} clientId={selectedClient} onBack={() => setSelectedClient(null)} />;
@@ -207,7 +220,7 @@ export default function ClientsScreen({ trainerId, initialClientId, onBack }: Pr
         <SearchBar value={search} onChangeText={setSearch} placeholder="Search by name or email…" label="Search clients by name or email" />
       </View>
 
-      <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: filtered.length > 0 && !isLoading && !isError ? 0 : 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
         {isLoading && <Skeleton rows={3} height={72} />}
         {isError && (
           <EmptyState icon="wifi-off" tone="error" title="Failed to load clients" action={{ label: 'Retry', onPress: () => refetch() }} />
@@ -215,14 +228,21 @@ export default function ClientsScreen({ trainerId, initialClientId, onBack }: Pr
         {!isLoading && !isError && filtered.length === 0 && (
           <EmptyState icon="users" title={search ? 'No results' : 'No clients assigned yet'} />
         )}
-        {!isLoading && !isError && (
-          <View style={{ gap: 10 }}>
-            {filtered.map((c, i) => (
-              <ClientPreviewRow key={c.assignmentId} client={c} index={i} onPress={() => setSelectedClient(c.clientId)} />
-            ))}
-          </View>
-        )}
       </ScrollView>
+      {!isLoading && !isError && filtered.length > 0 && (
+        <FlatList
+          style={{ flex: 1 }}
+          data={filtered}
+          keyExtractor={clientKey}
+          renderItem={renderClient}
+          initialNumToRender={10}
+          windowSize={7}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }}
+          ItemSeparatorComponent={RowGap}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </Screen>
   );
 }

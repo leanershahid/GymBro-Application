@@ -30,9 +30,13 @@ public class ShopAdminCatalogController(
     public async Task<ActionResult<ApiResponse<object>>> GetProduct(ulong id)
         => Ok(ApiResponse<object>.Ok(await products.GetAsync(id)));
 
+    /// <summary>201 Created + Location (ARCH-101).</summary>
     [HttpPost("products")]
     public async Task<ActionResult<ApiResponse<object>>> CreateProduct([FromBody] UpsertShopProductRequest request)
-        => StatusCode(StatusCodes.Status201Created, ApiResponse<object>.Ok(await products.CreateAsync(request), "Product created"));
+    {
+        var product = await products.CreateAsync(request);
+        return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, ApiResponse<object>.Ok(product, "Product created"));
+    }
 
     [HttpPut("products/{id}")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateProduct(ulong id, [FromBody] UpsertShopProductRequest request)
@@ -47,9 +51,10 @@ public class ShopAdminCatalogController(
 
     // ── Variants ──────────────────────────────────────────────────────────
 
+    /// <summary>201 Created; Location is the product (variants have no endpoint of their own) (ARCH-101).</summary>
     [HttpPost("products/{id}/variants")]
     public async Task<ActionResult<ApiResponse<object>>> AddVariant(ulong id, [FromBody] UpsertShopVariantRequest request)
-        => Ok(ApiResponse<object>.Ok(await products.AddVariantAsync(id, request), "Variant added"));
+        => CreatedAtAction(nameof(GetProduct), new { id }, ApiResponse<object>.Ok(await products.AddVariantAsync(id, request), "Variant added"));
 
     [HttpPut("products/{id}/variants/{variantId}")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateVariant(ulong id, ulong variantId, [FromBody] UpsertShopVariantRequest request)
@@ -89,7 +94,11 @@ public class ShopAdminCatalogController(
 
     [HttpPost("categories")]
     public async Task<ActionResult<ApiResponse<object>>> CreateCategory([FromBody] UpsertShopCategoryRequest request)
-        => StatusCode(StatusCodes.Status201Created, ApiResponse<object>.Ok(await categories.CreateAsync(request), "Category created"));
+    {
+        // There is no single-category GET, so Location points at the category list (ARCH-101).
+        var category = await categories.CreateAsync(request);
+        return Created(Url.Action(nameof(ListCategories)) ?? "/api/shop/admin/categories", ApiResponse<object>.Ok(category, "Category created"));
+    }
 
     [HttpPut("categories/{id}")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateCategory(ulong id, [FromBody] UpsertShopCategoryRequest request)

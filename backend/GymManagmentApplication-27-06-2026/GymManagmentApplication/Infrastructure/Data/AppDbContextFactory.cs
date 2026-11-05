@@ -4,22 +4,30 @@ using Microsoft.Extensions.Configuration;
 
 namespace GymManagmentApplication.Infrastructure.Data;
 
+/// <summary>
+/// Design-time factory for `dotnet ef`. Configures the provider exactly like the running app
+/// (<see cref="AppDbContextOptions"/>, ARCH-090). No connection string lives in source: it comes
+/// from the git-ignored appsettings.Development.json, user secrets or the
+/// ConnectionStrings__DefaultConnection environment variable. `migrations add` / `migrations script`
+/// never open a connection, so they also work without one.
+/// </summary>
 public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
     public AppDbContext CreateDbContext(string[] args)
     {
-        // Same sources as the running app: base settings, the local (git-ignored) development
-        // file that holds the real connection string, then environment variables
-        // (e.g. ConnectionStrings__DefaultConnection on a server).
         var config = new ConfigurationBuilder()
-            .SetBasePath(Path.Combine(Directory.GetCurrentDirectory()))
-            .AddJsonFile("appsettings.json")
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", optional: true)
             .AddJsonFile("appsettings.Development.json", optional: true)
+            .AddUserSecrets<AppDbContextFactory>(optional: true)
             .AddEnvironmentVariables()
             .Build();
 
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-        optionsBuilder.UseNpgsql(config.GetConnectionString("DefaultConnection"));
+        AppDbContextOptions.Configure(
+            optionsBuilder,
+            AppDbContextOptions.BuildDataSource(config.GetConnectionString("DefaultConnection")),
+            config.GetValue<bool>("Database:EnableRetryOnFailure"));
 
         return new AppDbContext(optionsBuilder.Options);
     }

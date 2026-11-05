@@ -17,7 +17,8 @@ namespace GymManagmentApplication.Infrastructure.Jobs;
 /// <item>Memberships past their end date: auto-renew (new period + invoice) when the member owes
 /// nothing overdue, otherwise mark Expired.</item>
 /// <item>Unpaid invoices past their due date → Overdue.</item>
-/// <item>Reminder email 3 days before a membership ends (once: only on that exact day).</item>
+/// <item>Reminder email 3 days before a membership ends — once per membership and end date: the
+/// email is queued in the outbox with a dedupe key, so later hourly runs skip it (ARCH-003).</item>
 /// <item>Expired sign-in sessions and one-time codes are deleted.</item>
 /// </list>
 /// </summary>
@@ -55,7 +56,13 @@ public class DailyJobs(IServiceScopeFactory scopes, ILogger<DailyJobs> logger) :
                 foreach (var t in tenants)
                 {
                     var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, TenantClock.Resolve(t.Timezone)));
-                    await RunForTenantAsync(scope.ServiceProvider, t.Id, t.Name, today, ct);
+                    // A fresh scope (DbContext) per gym keeps the change tracker small and isolates failures (ARCH-093).
+                    using var tenantScope = scopes.CreateScope();
+                    try { await RunForTenantAsync(tenantScope.ServiceProvider, t.Id, t.Name, today, ct); }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        logger.LogError(ex, "Daily jobs failed for tenant {TenantId}.", t.Id);
+                    }
                 }
 
                 var now = DateTime.UtcNow;
@@ -77,7 +84,7 @@ public class DailyJobs(IServiceScopeFactory scopes, ILogger<DailyJobs> logger) :
     {
         var db = sp.GetRequiredService<AppDbContext>();
         var billing = sp.GetRequiredService<BillingCore>();
-        var email = sp.GetRequiredService<IEmailSender>();
+        var outbox = sp.GetRequiredService<IEmailOutbox>();
 
         // 1. Overdue invoices.
         await db.Invoices
@@ -89,9 +96,14 @@ public class DailyJobs(IServiceScopeFactory scopes, ILogger<DailyJobs> logger) :
             .Where(m => m.TenantId == tenantId && (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Trial)
                         && m.EndsAt != null && m.EndsAt < today)
             .ToListAsync(ct);
+        // One query for "who owes something overdue" instead of one per membership (ARCH-093).
+        var lapsedUsers = lapsed.Select(m => m.UserId).Distinct().ToList();
+        HashSet<ulong> owing = lapsedUsers.Count == 0 ? [] : (await db.Invoices
+            .Where(i => i.TenantId == tenantId && i.Status == InvoiceStatus.Overdue && lapsedUsers.Contains(i.UserId))
+            .Select(i => i.UserId).Distinct().ToListAsync(ct)).ToHashSet();
         foreach (var m in lapsed)
         {
-            var owes = await db.Invoices.AnyAsync(i => i.UserId == m.UserId && i.Status == InvoiceStatus.Overdue, ct);
+            var owes = owing.Contains(m.UserId);
             if (m.AutoRenew && m.Plan is { IsActive: true } plan && !owes)
             {
                 var from = m.EndsAt!.Value;
@@ -110,22 +122,30 @@ public class DailyJobs(IServiceScopeFactory scopes, ILogger<DailyJobs> logger) :
             {
                 m.Status = MembershipStatus.Expired;
             }
+            // One SaveChanges per membership = one transaction: the new end date and its renewal
+            // invoice are saved together or not at all (ARCH-045).
             await db.SaveChangesAsync(ct);
         }
 
-        // 3. "Ends in 3 days" reminders.
+        // 3. "Ends in 3 days" reminders, queued once per membership + end date (ARCH-003) and
+        //    delivered by the outbox in the background, not while this job holds its lock.
         var soon = today.AddDays(ReminderDaysBefore);
         var ending = await db.GymMemberships.Include(m => m.Plan).Include(m => m.User)
             .Where(m => m.TenantId == tenantId && m.Status == MembershipStatus.Active && m.EndsAt == soon && !m.AutoRenew)
             .ToListAsync(ct);
-        foreach (var m in ending.Where(m => !string.IsNullOrEmpty(m.User.Email)))
+        var withEmail = ending.Where(m => !string.IsNullOrEmpty(m.User.Email)).ToList();
+        var alreadySent = await outbox.AlreadyQueuedAsync(tenantId, withEmail.Select(ReminderKey).ToList(), ct);
+        foreach (var m in withEmail.Where(m => !alreadySent.Contains(ReminderKey(m))))
         {
             var html = EmailTemplates.Wrap("Your membership ends soon", $"""
                 <p>Hi {System.Net.WebUtility.HtmlEncode(m.User.FirstName ?? "there")},</p>
                 <p>Your <b>{System.Net.WebUtility.HtmlEncode(m.Plan.Name)}</b> membership at {System.Net.WebUtility.HtmlEncode(gymName)} ends on <b>{soon:dd MMM yyyy}</b>.</p>
                 <p>Renew at the front desk to keep training without a break.</p>
                 """);
-            await email.SendAsync(m.User.Email!, $"Your {gymName} membership ends on {soon:dd MMM}", html);
+            outbox.Enqueue(tenantId, m.UserId, m.User.Email!, $"Your {gymName} membership ends on {soon:dd MMM}", html, ReminderKey(m));
         }
+        await db.SaveChangesAsync(ct);
     }
+
+    private static string ReminderKey(GymMembership m) => $"membership-ending:{m.Id}:{m.EndsAt:yyyy-MM-dd}";
 }

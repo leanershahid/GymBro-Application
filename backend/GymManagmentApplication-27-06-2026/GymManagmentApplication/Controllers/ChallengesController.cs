@@ -10,7 +10,7 @@ using GymManagmentApplication.Domain.Constants;
 namespace GymManagmentApplication.Controllers;
 
 [ApiController]
-[PermissionModule("gamification")]
+[PermissionModule("challenges")] // same key as RequireModule (admin.challenges grants both "challenges" and "gamification")
 [Route("api/challenges")]
 [RequireModule("challenges")]
 public class ChallengesController(

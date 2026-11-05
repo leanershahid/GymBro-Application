@@ -4,7 +4,7 @@ import { T, SP } from '../../../theme';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import Skeleton from '../../common/components/Skeleton';
 import { useToast } from '../../common/components/Toast';
-import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
+import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
 import { useApiAccess } from '../../access/context/AccessContext';
 import { apiErrorText } from '../../../api/apiError';
 import { useSaveShopSettings, useShopSettings } from '../api/adminQueries';

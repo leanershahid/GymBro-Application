@@ -17,7 +17,7 @@ public enum ShopPaymentMethod { CashOnDelivery, Card, Upi }
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ShopPaymentStatus { Pending, Paid, Failed, Refunded }
 
-public class ShopCategory : BaseEntity
+public class ShopCategory : BaseEntity, ISoftDeletable
 {
     public ulong TenantId { get; set; }
     public string Name { get; set; } = default!;
@@ -34,7 +34,7 @@ public class ShopCategory : BaseEntity
     public ICollection<ShopProduct> Products { get; set; } = [];
 }
 
-public class ShopProduct : BaseEntity
+public class ShopProduct : BaseEntity, ISoftDeletable
 {
     public ulong TenantId { get; set; }
     public string Name { get; set; } = default!;
@@ -75,7 +75,7 @@ public class ShopProductImage : BaseEntity
 }
 
 /// <summary>A buyable option of a product — flavour, size, colour or weight (gym attributes in place of the lighting store's finish / colour temperature / wattage).</summary>
-public class ShopVariant : BaseEntity
+public class ShopVariant : BaseEntity, ISoftDeletable
 {
     public ulong TenantId { get; set; }
     public ulong ProductId { get; set; }
@@ -110,7 +110,7 @@ public class ShopInventory : BaseEntity
     public int Available => Math.Max(0, QuantityOnHand - ReservedQuantity);
 }
 
-public class ShopReview : BaseEntity
+public class ShopReview : BaseEntity, ISoftDeletable
 {
     public ulong TenantId { get; set; }
     public ulong ProductId { get; set; }
@@ -162,7 +162,7 @@ public class ShopWishlistItem : BaseEntity
     public ShopProduct Product { get; set; } = default!;
 }
 
-public class ShopAddress : BaseEntity
+public class ShopAddress : BaseEntity, ISoftDeletable
 {
     public ulong TenantId { get; set; }
     public ulong UserId { get; set; }

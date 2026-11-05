@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useReducer, useState } from 'react';
 import { currentTenantId } from '../../../api/session';
 import {
   View, Text, ScrollView, Pressable,
-  Platform, Alert, KeyboardAvoidingView,
+  Platform, KeyboardAvoidingView,
 } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
-import { useExerciseList } from '../../member-app/api/memberAppQueries';
+import { useExerciseLibrary } from '../../exercises/api/exerciseQueries';
 import { useWorkouts, useCreateWorkout, usePlans, useCreatePlan, useDeleteWorkout } from '../../workouts/api/workoutQueries';
 import {
   Workout, WorkoutPlan, WorkoutPayload, WorkoutPlanPayload, WorkoutGoal, WorkoutDifficulty,
@@ -21,10 +22,10 @@ import StatusPill from '../../common/components/StatusPill';
 import PaginationFooter from '../../common/components/PaginationFooter';
 import BottomSheet from '../../common/components/BottomSheet';
 import { useToast } from '../../common/components/Toast';
-import EmptyState from '../../dashboard/components/EmptyState';
-import { Field } from '../../trainers/components/FormFields';
-import { humanize } from '../../exercises/components/ChipSelect';
-import { difficultyTone, goalTone } from '../../member-app/components/pillTones';
+import EmptyState from '../../common/components/EmptyState';
+import { Field } from '../../common/components/FormFields';
+import { humanize } from '../../common/components/ChipSelect';
+import { difficultyTone, goalTone } from '../../common/constants/statusColors';
 import { apiErrorText } from '../../../api/apiError';
 import { useCloneWorkout } from '../api/programQueries';
 import WorkoutEditor from '../components/WorkoutEditor';
@@ -64,6 +65,13 @@ type Menu = { kind: 'workout'; item: Workout } | { kind: 'plan'; item: WorkoutPl
 
 interface Props { trainerId: number; onBack?: () => void; }
 
+interface WorkoutForm { open: boolean; name: string; goal: WorkoutGoal; diff: WorkoutDifficulty; duration: string }
+interface PlanForm { open: boolean; name: string; weeks: string; goal: WorkoutGoal }
+const WORKOUT_FORM: WorkoutForm = { open: false, name: '', goal: 'General', diff: 'Intermediate', duration: '' };
+const PLAN_FORM: PlanForm = { open: false, name: '', weeks: '', goal: 'General' };
+/** Reducer that merges a partial update into a form object. */
+function patch<F>(state: F, update: Partial<F>): F { return { ...state, ...update }; }
+
 export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
   const toast = useToast();
   // Tabs come from the access list (trainer.programs.*).
@@ -77,21 +85,14 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
   const [wPage, setWPage]       = useState(1);
   const [pPage, setPPage]       = useState(1);
 
-  // Create workout form
-  const [showWForm, setShowWForm] = useState(false);
-  const [wName, setWName]         = useState('');
-  const [wGoal, setWGoal]         = useState<WorkoutGoal>('General');
-  const [wDiff, setWDiff]         = useState<WorkoutDifficulty>('Intermediate');
-  const [wDuration, setWDuration] = useState('');
-
-  // Create plan form
-  const [showPForm, setShowPForm] = useState(false);
-  const [pName, setPName]         = useState('');
-  const [pWeeks, setPWeeks]       = useState('');
-  const [pGoal, setPGoal]         = useState<WorkoutGoal>('General');
+  // Create-workout and create-plan forms: one state object each (ARCH-116).
+  const [wForm, patchW] = useReducer(patch<WorkoutForm>, WORKOUT_FORM);
+  const [pForm, patchP] = useReducer(patch<PlanForm>, PLAN_FORM);
+  const { open: showWForm, name: wName, goal: wGoal, diff: wDiff, duration: wDuration } = wForm;
+  const { open: showPForm, name: pName, weeks: pWeeks, goal: pGoal } = pForm;
 
   const tagParam = exFilter !== 'All' ? exFilter.toLowerCase() : undefined;
-  const ex = useExerciseList(exPage, tagParam);
+  const ex = useExerciseLibrary(exPage, tagParam);
   const wq = useWorkouts(wPage, 20);
   const pq = usePlans(pPage, 20);
   const { mutate: createWorkout, isPending: creating } = useCreateWorkout();
@@ -117,12 +118,12 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
     const payload: WorkoutPayload = { tenantId: currentTenantId(), name: wName.trim(), goal: wGoal, difficulty: wDiff, durationMin: wDuration ? Number(wDuration) : undefined, isPublic: false };
     createWorkout(payload, {
       onSuccess: res => {
-        if (!res.success || !res.data) { Alert.alert('Could not create workout', res.message || 'Please try again.'); return; }
-        setShowWForm(false); setWName(''); setWDuration('');
+        if (!res.success || !res.data) { showAlert('Could not create workout', res.message || 'Please try again.'); return; }
+        patchW({ open: false, name: '', duration: '' });
         toast.show({ type: 'success', message: 'Workout created — now add its exercises.' });
         setSub({ v: 'workout', id: res.data.id, name: res.data.name });
       },
-      onError: e => Alert.alert('Could not create workout', apiErrorText(e)),
+      onError: e => showAlert('Could not create workout', apiErrorText(e)),
     });
   };
 
@@ -131,26 +132,26 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
     const payload: WorkoutPlanPayload = { tenantId: currentTenantId(), name: pName.trim(), durationWeeks: Number(pWeeks), goal: pGoal };
     createPlan(payload, {
       onSuccess: res => {
-        if (!res.success || !res.data) { Alert.alert('Could not create plan', res.message || 'Please try again.'); return; }
-        setShowPForm(false); setPName(''); setPWeeks('');
+        if (!res.success || !res.data) { showAlert('Could not create plan', res.message || 'Please try again.'); return; }
+        patchP({ open: false, name: '', weeks: '' });
         toast.show({ type: 'success', message: 'Plan created — now fill in its schedule.' });
         setSub({ v: 'plan', id: res.data.id, name: res.data.name, weeks: res.data.durationWeeks });
       },
-      onError: e => Alert.alert('Could not create plan', apiErrorText(e)),
+      onError: e => showAlert('Could not create plan', apiErrorText(e)),
     });
   };
 
   const confirmDeleteWorkout = (w: Workout) => {
-    Alert.alert('Delete workout?', `"${w.name}" will be deleted. Clients it was assigned to will no longer see it.`, [
+    showAlert('Delete workout?', `"${w.name}" will be deleted. Clients it was assigned to will no longer see it.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete', style: 'destructive',
         onPress: () => deleteWorkout(w.id, {
           onSuccess: (res: { success?: boolean; message?: string }) => {
-            if (res && res.success === false) { Alert.alert('Could not delete', res.message || 'The workout was not deleted.'); return; }
+            if (res && res.success === false) { showAlert('Could not delete', res.message || 'The workout was not deleted.'); return; }
             toast.show({ type: 'success', message: res?.message || 'Workout deleted.' });
           },
-          onError: e => Alert.alert('Could not delete', apiErrorText(e)),
+          onError: e => showAlert('Could not delete', apiErrorText(e)),
         }),
       },
     ]);
@@ -158,10 +159,10 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
 
   const doClone = (w: Workout) => cloneWorkout(w.id, {
     onSuccess: res => {
-      if (!res.success) { Alert.alert('Could not clone', res.message || 'The workout was not cloned.'); return; }
+      if (!res.success) { showAlert('Could not clone', res.message || 'The workout was not cloned.'); return; }
       toast.show({ type: 'success', message: res.message || 'Workout cloned.' });
     },
-    onError: e => Alert.alert('Could not clone', apiErrorText(e)),
+    onError: e => showAlert('Could not clone', apiErrorText(e)),
   });
 
   /** Close the action sheet first so a follow-up Alert isn't swallowed by the closing modal. */
@@ -197,21 +198,21 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
           <PrimaryButton
             label="New Workout"
             icon={showWForm ? 'chevron-up' : 'plus'}
-            onPress={() => setShowWForm(v => !v)}
+            onPress={() => patchW({ open: !showWForm })}
             accessibilityHint={showWForm ? 'Hides the new workout form' : 'Shows the new workout form'}
             style={{ alignSelf: 'flex-start', marginBottom: 16 }}
           />
 
           {showWForm && (
             <View style={{ backgroundColor: T.bgInput, borderRadius: R.xl, padding: 16, borderWidth: 1, borderColor: T.bgInputActive, marginBottom: 16 }}>
-              <Field label="Workout name" value={wName} onChangeText={setWName} placeholder="Workout name…" />
+              <Field label="Workout name" value={wName} onChangeText={name => patchW({ name })} placeholder="Workout name…" />
               <Text style={{ color: T.textSub, fontSize: 13, marginBottom: 7 }}>Goal</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-                {GOALS.map(g => <Chip key={g} label={humanize(g)} a11y={`Goal: ${g}`} active={wGoal === g} onPress={() => setWGoal(g)} />)}
+                {GOALS.map(g => <Chip key={g} label={humanize(g)} a11y={`Goal: ${g}`} active={wGoal === g} onPress={() => patchW({ goal: g })} />)}
               </View>
               <Text style={{ color: T.textSub, fontSize: 13, marginBottom: 7 }}>Difficulty</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-                {DIFFS.map(d => <Pressable key={d} onPress={() => setWDiff(d)}
+                {DIFFS.map(d => <Pressable key={d} onPress={() => patchW({ diff: d })}
                   hitSlop={4}
                   accessibilityRole="button"
                   accessibilityLabel={`Difficulty: ${d}`}
@@ -220,7 +221,7 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
                   <Text numberOfLines={1} style={{ color: wDiff === d ? T.brand : T.textSub, fontSize: 11, fontWeight: '700' }}>{d}</Text>
                 </Pressable>)}
               </View>
-              <Field label="Duration (min)" value={wDuration} onChangeText={setWDuration} placeholder="Duration (min)…" keyboardType="numeric" />
+              <Field label="Duration (min)" value={wDuration} onChangeText={duration => patchW({ duration })} placeholder="Duration (min)…" keyboardType="numeric" />
               <PrimaryButton label="Create & add exercises" onPress={handleCreateWorkout} loading={creating} disabled={!wName.trim()} />
             </View>
           )}
@@ -257,18 +258,18 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
           <PrimaryButton
             label="New Plan"
             icon={showPForm ? 'chevron-up' : 'plus'}
-            onPress={() => setShowPForm(v => !v)}
+            onPress={() => patchP({ open: !showPForm })}
             accessibilityHint={showPForm ? 'Hides the new plan form' : 'Shows the new plan form'}
             style={{ alignSelf: 'flex-start', marginBottom: 16 }}
           />
 
           {showPForm && (
             <View style={{ backgroundColor: T.bgInput, borderRadius: R.xl, padding: 16, borderWidth: 1, borderColor: T.bgInputActive, marginBottom: 16 }}>
-              <Field label="Plan name" value={pName} onChangeText={setPName} placeholder="Plan name…" />
-              <Field label="Duration (weeks)" value={pWeeks} onChangeText={setPWeeks} placeholder="Duration (weeks)…" keyboardType="numeric" />
+              <Field label="Plan name" value={pName} onChangeText={name => patchP({ name })} placeholder="Plan name…" />
+              <Field label="Duration (weeks)" value={pWeeks} onChangeText={weeks => patchP({ weeks })} placeholder="Duration (weeks)…" keyboardType="numeric" />
               <Text style={{ color: T.textSub, fontSize: 13, marginBottom: 7 }}>Goal</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                {GOALS.map(g => <Chip key={g} label={humanize(g)} a11y={`Goal: ${g}`} active={pGoal === g} onPress={() => setPGoal(g)} />)}
+                {GOALS.map(g => <Chip key={g} label={humanize(g)} a11y={`Goal: ${g}`} active={pGoal === g} onPress={() => patchP({ goal: g })} />)}
               </View>
               <PrimaryButton label="Create & build schedule" onPress={handleCreatePlan} loading={creatingPlan} disabled={!pName.trim() || !pWeeks} />
             </View>

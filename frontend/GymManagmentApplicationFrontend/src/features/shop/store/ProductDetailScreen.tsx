@@ -8,7 +8,7 @@ import ScreenHeader from '../../common/components/ScreenHeader';
 import SegmentedTabs from '../../common/components/SegmentedTabs';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import Skeleton from '../../common/components/Skeleton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useToast } from '../../common/components/Toast';
 import { apiErrorText } from '../../../api/apiError';
 import { formatPrice } from '../common/format';
@@ -253,7 +253,7 @@ export default function ProductDetailScreen({ slug }: { slug: string }) {
                 Express delivery arrives in about {s.expressDeliveryDays} working days for {formatPrice(s.expressShipping)}.
               </Text>
               <Text style={{ color: T.textSub, fontSize: 14, lineHeight: 21 }}>
-                Changed your mind? Return it within {s.returnDays} days of delivery. Cash on delivery, UPI and cards accepted.
+                Changed your mind? Return it within {s.returnDays} days of delivery. Pay with cash on delivery.
               </Text>
             </View>
           )}

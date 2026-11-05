@@ -13,8 +13,6 @@ namespace GymManagmentApplication.Application.Workout.Services;
 
 public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentUser, AppDbContext db, GymManagmentApplication.Application.Engagement.Notifier notifier) : IWorkoutService
 {
-    private static readonly HashSet<(ulong WorkoutId, ulong UserId)> _bookmarks = [];
-
     public async Task<PagedResponse<WorkoutResponse>> GetAllAsync(WorkoutListRequest request)
     {
         var (items, total) = await repository.GetAllAsync(request);
@@ -219,14 +217,21 @@ public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentU
         };
     }
 
-    public Task<bool> ShareAsync(ulong id, ulong userId) => Task.FromResult(true);
+    // ARCH-078: sharing was a no-op that reported success; answer 501 Not Implemented until it exists.
+    public Task<bool> ShareAsync(ulong id, ulong userId) =>
+        throw new NotSupportedException("Sharing workouts isn't available yet.");
 
-    public Task<bool> BookmarkAsync(ulong id, ulong userId)
+    /// <summary>Toggles the user's bookmark on a workout (persisted, ARCH-026). False when the workout is not visible.</summary>
+    public async Task<bool> BookmarkAsync(ulong id, ulong userId)
     {
-        var key = (id, userId);
-        if (_bookmarks.Contains(key)) _bookmarks.Remove(key);
-        else _bookmarks.Add(key);
-        return Task.FromResult(true);
+        var tenantId = await db.WorkoutTemplates.Where(w => w.Id == id).Select(w => (ulong?)w.TenantId).FirstOrDefaultAsync();
+        if (tenantId is null) return false;
+
+        var existing = await db.WorkoutBookmarks.FirstOrDefaultAsync(b => b.WorkoutTemplateId == id && b.UserId == userId);
+        if (existing is not null) db.WorkoutBookmarks.Remove(existing);
+        else db.WorkoutBookmarks.Add(new WorkoutBookmark { TenantId = tenantId.Value, UserId = userId, WorkoutTemplateId = id });
+        await db.SaveChangesAsync();
+        return true;
     }
 
     private static WorkoutResponse Map(WorkoutTemplate w) => new()

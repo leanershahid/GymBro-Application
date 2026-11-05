@@ -2,7 +2,7 @@ import React from 'react';
 import { getSession, isSuperAdmin } from '../../../api/session';
 import { ScrollView, Text } from 'react-native';
 import { BranchPayload } from '../types/branch.types';
-import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
+import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
 import { T } from '../../../theme';
 import TenantDropdown from '../../tenants/components/TenantDropdown';
 

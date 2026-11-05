@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { T, withAlpha } from '../../../theme';
 import { getSession, isSuperAdmin } from '../../../api/session';
@@ -53,7 +54,7 @@ function RoleRow({ userId, userName, currentRoleSlug }: { userId: number; userNa
         setOpen(false);
         toast.show({ message: `${userName} is now ${role.name}.` });
       },
-      onError: (e: unknown) => Alert.alert('Could not change role', apiErrorText(e)),
+      onError: (e: unknown) => showAlert('Could not change role', apiErrorText(e)),
     };
     // Back to client: revoke the current role when we know it; otherwise assign client directly.
     if (target === 'client' && current && current.slug?.toLowerCase() !== 'client') {
@@ -65,7 +66,7 @@ function RoleRow({ userId, userName, currentRoleSlug }: { userId: number; userNa
 
   const pick = (role: Role) => {
     if (role.slug?.toLowerCase() === slug) { setOpen(false); return; }
-    Alert.alert(
+    showAlert(
       'Change role?',
       `Make ${userName} "${role.name}"? They will be signed out of all devices and must sign in again.`,
       [
@@ -169,7 +170,7 @@ function ExtraRolesRow({ userId, currentRoleSlug }: { userId: number; currentRol
     const slug = r.slug?.toLowerCase();
     return slug !== 'superadmin' && slug !== currentRoleSlug?.toLowerCase() && !extra.some(e => String(e.roleId) === String(r.id));
   });
-  const onError = (e: unknown) => Alert.alert('Could not change roles', apiErrorText(e));
+  const onError = (e: unknown) => showAlert('Could not change roles', apiErrorText(e));
 
   return (
     <View className="px-5 pb-3">

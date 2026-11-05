@@ -25,7 +25,6 @@ public class WorkoutLog
     public WorkoutAssignment? Assignment { get; set; }
     public Identity.User Client { get; set; } = default!;
     public WorkoutTemplate? Template { get; set; }
-    public ICollection<WorkoutLogSet> Sets { get; set; } = [];
 
     public Core.Tenant Tenant { get; set; } = default!;
 }

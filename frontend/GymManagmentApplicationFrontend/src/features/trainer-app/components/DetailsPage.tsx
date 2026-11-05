@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
-import FormPage from '../../exercises/components/FormPage';
-import ChipSelect, { humanize } from '../../exercises/components/ChipSelect';
-import { Field } from '../../trainers/components/FormFields';
+import {} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
+import FormPage from '../../common/components/FormPage';
+import ChipSelect, { humanize } from '../../common/components/ChipSelect';
+import { Field } from '../../common/components/FormFields';
 import { useToast } from '../../common/components/Toast';
 import { apiErrorText } from '../../../api/apiError';
 import {
@@ -50,11 +51,11 @@ export default function DetailsPage(props: Props) {
       difficulty: difficulty ? toEnumIndex(WORKOUT_DIFFICULTIES, difficulty) : undefined,
     };
     const onSuccess = (res: { success: boolean; message: string }) => {
-      if (!res.success) { Alert.alert('Could not save', res.message || 'Changes were not saved.'); return; }
+      if (!res.success) { showAlert('Could not save', res.message || 'Changes were not saved.'); return; }
       toast.show({ type: 'success', message: res.message || 'Saved.' });
       onBack();
     };
-    const onError = (e: unknown) => Alert.alert('Could not save', apiErrorText(e));
+    const onError = (e: unknown) => showAlert('Could not save', apiErrorText(e));
 
     if (kind === 'workout') {
       updateWorkout({ id: item.id, payload: { ...common, durationMin: d ? Number(d) : undefined } }, { onSuccess, onError });

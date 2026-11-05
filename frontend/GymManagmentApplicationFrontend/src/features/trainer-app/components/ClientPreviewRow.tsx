@@ -16,7 +16,7 @@ interface Props {
 }
 
 /** Rich client row for the home screen: avatar, real name (via the member profile), since-date and status. */
-export default function ClientPreviewRow({ client, index, onPress }: Props) {
+function ClientPreviewRow({ client, index, onPress }: Props) {
   const { data: profile, isLoading } = useClientProfile(client.clientId);
   const accent = ACCENTS[index % ACCENTS.length];
   const fullName = profile ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() : '';
@@ -62,3 +62,5 @@ export default function ClientPreviewRow({ client, index, onPress }: Props) {
     </Pressable>
   );
 }
+
+export default React.memo(ClientPreviewRow);

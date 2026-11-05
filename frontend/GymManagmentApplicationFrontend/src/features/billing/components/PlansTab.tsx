@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, FlatList, RefreshControl, Alert, Pressable } from 'react-native';
+import { View, Text, ScrollView, FlatList, RefreshControl, Pressable } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import LoadingState from '../../common/components/LoadingState';
 import BottomSheet from '../../common/components/BottomSheet';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import StatusPill from '../../common/components/StatusPill';
 import { useToast } from '../../common/components/Toast';
-import EmptyState from '../../dashboard/components/EmptyState';
-import ChipSelect from '../../exercises/components/ChipSelect';
-import { Field, SwitchRow } from '../../trainers/components/FormFields';
+import EmptyState from '../../common/components/EmptyState';
+import ChipSelect from '../../common/components/ChipSelect';
+import { Field, SwitchRow } from '../../common/components/FormFields';
 import { describeApiError, apiErrorText, fieldErrorsFrom } from '../../../api/apiError';
 import { usePlans, useCreatePlan, useUpdatePlan, useArchivePlan } from '../api/billingQueries';
 import { MembershipPlan, BillingCycleInput } from '../types/billing.types';
@@ -108,7 +109,7 @@ function PlanSheet({ plan, onClose }: { plan: MembershipPlan | 'new' | null; onC
   const onError = (title: string) => (e: unknown) => {
     const { errors: list } = describeApiError(e);
     setErrors(fieldErrorsFrom(list, { name: 'name', price: 'price', 'billing cycle': 'cycle', description: 'description' }));
-    Alert.alert(title, apiErrorText(e));
+    showAlert(title, apiErrorText(e));
   };
 
   const save = () => {
@@ -136,13 +137,13 @@ function PlanSheet({ plan, onClose }: { plan: MembershipPlan | 'new' | null; onC
 
   const confirmArchive = () => {
     if (!existing) return;
-    Alert.alert('Archive plan?', `"${existing.name}" won't be offered for new memberships. Existing members keep it.`, [
+    showAlert('Archive plan?', `"${existing.name}" won't be offered for new memberships. Existing members keep it.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Archive', style: 'destructive',
         onPress: () => archive.mutate(existing.id, {
           onSuccess: () => { toast.show({ message: 'Plan archived.' }); onClose(); },
-          onError: e => Alert.alert('Couldn’t archive', apiErrorText(e)),
+          onError: e => showAlert('Couldn’t archive', apiErrorText(e)),
         }),
       },
     ]);

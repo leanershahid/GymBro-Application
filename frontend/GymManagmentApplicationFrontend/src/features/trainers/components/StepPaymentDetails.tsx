@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, Text } from 'react-native';
 import { TrainerPayload } from '../types/trainer.types';
-import { Field, RowGrid, GridCell } from './FormFields';
+import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
 
 interface Props {
   data: Partial<TrainerPayload>;
@@ -13,7 +13,7 @@ function Section({ title }: { title: string }) {
 }
 
 export default function StepPaymentDetails({ data, onChange }: Props) {
-  const pd     = data.paymentDetails ?? {} as any;
+  const pd     = data.paymentDetails ?? ({} as NonNullable<typeof data.paymentDetails>);
   const update = (f: object) => onChange({ paymentDetails: { ...pd, ...f } });
 
   return (

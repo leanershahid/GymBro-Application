@@ -121,6 +121,8 @@ public sealed class ShopSearchSuggestionsDto
 public sealed class ShopProductQuery
 {
     public int Page { get; set; } = 1;
+    /// <summary>Alias of <see cref="Page"/> (ARCH-102: other modules call it pageNumber).</summary>
+    public int? PageNumber { get => null; set { if (value is > 0) Page = value.Value; } }
     public int PageSize { get; set; } = 12;
     public string? Search { get; set; }
     /// <summary>Category slug — includes products of its sub-categories.</summary>
@@ -300,6 +302,8 @@ public sealed class UpdateShopImageRequest
 public sealed class ShopAdminProductQuery
 {
     public int Page { get; set; } = 1;
+    /// <summary>Alias of <see cref="Page"/> (ARCH-102: other modules call it pageNumber).</summary>
+    public int? PageNumber { get => null; set { if (value is > 0) Page = value.Value; } }
     public int PageSize { get; set; } = 12;
     public string? Search { get; set; }
     public ulong? CategoryId { get; set; }
@@ -355,6 +359,8 @@ public sealed class UpdateShopInventoryRequest
 public sealed class ShopInventoryQuery
 {
     public int Page { get; set; } = 1;
+    /// <summary>Alias of <see cref="Page"/> (ARCH-102: other modules call it pageNumber).</summary>
+    public int? PageNumber { get => null; set { if (value is > 0) Page = value.Value; } }
     public int PageSize { get; set; } = 12;
     public string? Search { get; set; }
     public bool? LowStockOnly { get; set; }

@@ -1,31 +1,25 @@
 import React from 'react';
-import { View, Text, Pressable, Platform, Alert } from 'react-native';
+import { View, Text, Pressable, Platform,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
-import ChipSelect from '../../exercises/components/ChipSelect';
+import ChipSelect from '../../common/components/ChipSelect';
 import { PillTone } from '../../common/components/StatusPill';
 import { fetchInvoicePdf } from '../api/billingApi';
 import { apiErrorText } from '../../../api/apiError';
 import { PayMethod, BillingCycleInput } from '../types/billing.types';
 import { T, SP, R, withAlpha } from '../../../theme';
+import SmallButton from '../../common/components/SmallButton';
+import { formatMoney, formatDate } from '../../common/utils/format';
 
 export type FeatherIcon = React.ComponentProps<typeof Feather>['name'];
 
 // ─── Formatting ──────────────────────────────────────────────────
 
 /** Money in the invoice/plan's own currency, in the device locale. */
-export const fmtMoney = (amount: number, currency?: string | null) => {
-  const n = Number.isFinite(amount) ? amount : 0;
-  if (!currency) return n.toFixed(2);
-  try { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(n); }
-  catch { return `${currency} ${n.toFixed(2)}`; }
-};
+export const fmtMoney = (amount: number, currency?: string | null) => formatMoney(amount, currency);
 
-export const fmtDate = (iso?: string | null) => {
-  if (!iso) return '—';
-  // Date-only values ("2026-10-29") are parsed as local dates so they don't shift a day.
-  const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T00:00:00`) : new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
-};
+/** Date-only values ("2026-10-29") are read as local dates so they don't shift a day. */
+export const fmtDate = (iso?: string | null) => formatDate(iso);
 
 export const todayIso = () => {
   const d = new Date();
@@ -164,29 +158,7 @@ export function KeyValue({ label, value, strong, tone }: { label: string; value:
   );
 }
 
-export function SmallButton({ icon, label, tone = T.brand, onPress, disabled }: {
-  icon: FeatherIcon; label: string; tone?: string; onPress: () => void; disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: !!disabled }}
-      hitSlop={6}
-      style={({ pressed }) => ({
-        flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 34,
-        paddingHorizontal: 12, borderRadius: R.pill, opacity: disabled ? 0.5 : 1,
-        backgroundColor: pressed ? withAlpha(tone, 0.18) : withAlpha(tone, 0.10),
-        borderWidth: 1, borderColor: withAlpha(tone, 0.28),
-      })}
-    >
-      <Feather name={icon} size={13} color={tone} />
-      <Text style={{ color: tone, fontSize: 12, fontWeight: '700' }}>{label}</Text>
-    </Pressable>
-  );
-}
+export { SmallButton };
 
 export function FilterChips<K extends string>({ options, value, onChange }: {
   options: { key: K; label: string }[]; value: K; onChange: (k: K) => void;
@@ -264,7 +236,7 @@ export function ListRow({ title, subtitle, amount, pill, onPress, accessibilityL
  */
 export async function openInvoicePdf(invoiceId: number, invoiceNo?: string) {
   if (Platform.OS !== 'web') {
-    Alert.alert(
+    showAlert(
       'PDF download',
       'Downloading PDFs is available in the web app. On the phone, use "Email invoice" to send the PDF to the member.',
     );
@@ -284,6 +256,6 @@ export async function openInvoicePdf(invoiceId: number, invoiceNo?: string) {
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   } catch (e) {
     w?.close();
-    Alert.alert('Couldn’t open the PDF', apiErrorText(e));
+    showAlert('Couldn’t open the PDF', apiErrorText(e));
   }
 }

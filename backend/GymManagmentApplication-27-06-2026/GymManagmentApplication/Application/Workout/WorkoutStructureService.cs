@@ -108,9 +108,9 @@ public class WorkoutStructureService(AppDbContext db, ICurrentUser currentUser)
     public async Task<WorkoutStructureDto> GetStructureAsync(ulong workoutId)
     {
         var w = await db.WorkoutTemplates.FirstOrDefaultAsync(x => x.Id == workoutId) ?? throw new KeyNotFoundException("Workout not found.");
-        var sections = await db.WorkoutSections.Where(s => s.TemplateId == workoutId).OrderBy(s => s.SortOrder).ToListAsync();
+        var sections = await db.WorkoutSections.AsNoTracking().Where(s => s.TemplateId == workoutId).OrderBy(s => s.SortOrder).ToListAsync();
         var sectionIds = sections.Select(s => s.Id).ToList();
-        var exercises = await db.WorkoutExercises.Include(e => e.Exercise)
+        var exercises = await db.WorkoutExercises.AsNoTracking().Include(e => e.Exercise)
             .Where(e => sectionIds.Contains(e.SectionId)).OrderBy(e => e.SortOrder).ToListAsync();
         return new WorkoutStructureDto
         {
@@ -144,7 +144,9 @@ public class WorkoutStructureService(AppDbContext db, ICurrentUser currentUser)
         if (ids.Except(known).FirstOrDefault() is var missing and > 0)
             throw new ArgumentException($"Exercise {missing} isn't in this gym's library.");
 
-        await using var tx = await db.Database.BeginTransactionAsync();
+        // Execution strategy + one transaction (ARCH-092).
+        await db.InTransactionAsync(async () =>
+        {
         var oldSections = await db.WorkoutSections.Where(s => s.TemplateId == workoutId).Select(s => s.Id).ToListAsync();
         await db.WorkoutExercises.Where(e => oldSections.Contains(e.SectionId)).ExecuteDeleteAsync();
         await db.WorkoutSections.Where(s => s.TemplateId == workoutId).ExecuteDeleteAsync();
@@ -175,16 +177,16 @@ public class WorkoutStructureService(AppDbContext db, ICurrentUser currentUser)
         }
         w.Version++;
         await db.SaveChangesAsync();
-        await tx.CommitAsync();
+        });
         return await GetStructureAsync(workoutId);
     }
 
     public async Task<PlanScheduleDto> GetScheduleAsync(ulong planId)
     {
         var p = await db.WorkoutPlans.FirstOrDefaultAsync(x => x.Id == planId) ?? throw new KeyNotFoundException("Plan not found.");
-        var weeks = await db.WorkoutPlanWeeks.Where(w => w.PlanId == planId).OrderBy(w => w.WeekNumber).ToListAsync();
+        var weeks = await db.WorkoutPlanWeeks.AsNoTracking().Where(w => w.PlanId == planId).OrderBy(w => w.WeekNumber).ToListAsync();
         var weekIds = weeks.Select(w => w.Id).ToList();
-        var days = await db.WorkoutPlanDays.Include(d => d.Template).Where(d => weekIds.Contains(d.WeekId)).OrderBy(d => d.DayNumber).ToListAsync();
+        var days = await db.WorkoutPlanDays.AsNoTracking().Include(d => d.Template).Where(d => weekIds.Contains(d.WeekId)).OrderBy(d => d.DayNumber).ToListAsync();
         return new PlanScheduleDto
         {
             PlanId = p.Id, PlanName = p.Name, DurationWeeks = p.DurationWeeks,
@@ -215,7 +217,8 @@ public class WorkoutStructureService(AppDbContext db, ICurrentUser currentUser)
         if (workoutIds.Except(known).FirstOrDefault() is var missing and > 0)
             throw new ArgumentException($"Workout {missing} isn't in this gym.");
 
-        await using var tx = await db.Database.BeginTransactionAsync();
+        await db.InTransactionAsync(async () =>
+        {
         var oldWeeks = await db.WorkoutPlanWeeks.Where(w => w.PlanId == planId).Select(w => w.Id).ToListAsync();
         await db.WorkoutPlanDays.Where(d => oldWeeks.Contains(d.WeekId)).ExecuteDeleteAsync();
         await db.WorkoutPlanWeeks.Where(w => w.PlanId == planId).ExecuteDeleteAsync();
@@ -233,7 +236,7 @@ public class WorkoutStructureService(AppDbContext db, ICurrentUser currentUser)
                 });
         }
         await db.SaveChangesAsync();
-        await tx.CommitAsync();
+        });
         return await GetScheduleAsync(planId);
     }
 
@@ -241,9 +244,9 @@ public class WorkoutStructureService(AppDbContext db, ICurrentUser currentUser)
     {
         var me = currentUser.UserId ?? throw new UnauthorizedAccessException("Please sign in again.");
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var workouts = await db.WorkoutAssignments.Include(a => a.Template).Include(a => a.Trainer)
+        var workouts = await db.WorkoutAssignments.AsNoTracking().Include(a => a.Template).Include(a => a.Trainer)
             .Where(a => a.ClientId == me).OrderByDescending(a => a.AssignedAt).Take(50).ToListAsync();
-        var plans = await db.WorkoutPlanAssignments.Include(a => a.Plan)
+        var plans = await db.WorkoutPlanAssignments.AsNoTracking().Include(a => a.Plan)
             .Where(a => a.ClientId == me).OrderByDescending(a => a.StartDate).Take(20).ToListAsync();
 
         var result = new MyAssignmentsDto

@@ -36,8 +36,8 @@ public class ShopAdminOrdersController(
     [HttpGet("orders")]
     public async Task<ActionResult<ApiResponse<object>>> GetOrders(
         [FromQuery] ShopOrderStatus? status, [FromQuery] string? search,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 12)
-        => Ok(ApiResponse<object>.Ok(await orders.SearchAsync(status, search, page, pageSize)));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 12, [FromQuery] int? pageNumber = null)
+        => Ok(ApiResponse<object>.Ok(await orders.SearchAsync(status, search, pageNumber ?? page, pageSize)));
 
     [HttpGet("orders/{orderNumber}")]
     public async Task<ActionResult<ApiResponse<object>>> GetOrder(string orderNumber)
@@ -52,8 +52,8 @@ public class ShopAdminOrdersController(
     /// <summary>People who have shop orders or a cart; search by name, email or phone.</summary>
     [HttpGet("customers")]
     public async Task<ActionResult<ApiResponse<object>>> GetCustomers(
-        [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 12)
-        => Ok(ApiResponse<object>.Ok(await orders.SearchCustomersAsync(search, page, pageSize)));
+        [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 12, [FromQuery] int? pageNumber = null)
+        => Ok(ApiResponse<object>.Ok(await orders.SearchCustomersAsync(search, pageNumber ?? page, pageSize)));
 
     [HttpGet("customers/{id}")]
     public async Task<ActionResult<ApiResponse<object>>> GetCustomer(ulong id)

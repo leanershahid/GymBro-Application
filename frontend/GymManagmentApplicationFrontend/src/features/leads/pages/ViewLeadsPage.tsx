@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import DetailSheet, { fmtDate } from '../../exercises/components/DetailSheet';
 import { apiErrorText } from '../../../api/apiError';
-import { View, Text, ScrollView, FlatList, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, FlatList, Pressable,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { useLeads, useLead, useConvertLead } from '../api/leadQueries';
 import { Lead, LeadStatus } from '../types/lead.types';
@@ -10,7 +11,7 @@ import ScreenHeader from '../../common/components/ScreenHeader';
 import PaginationFooter from '../../common/components/PaginationFooter';
 import Skeleton from '../../common/components/Skeleton';
 import StatusPill, { PillTone } from '../../common/components/StatusPill';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import StatsStrip from '../../common/StatsStrip';
 import { T, withAlpha, SP } from '../../../theme';
 
@@ -125,12 +126,12 @@ export default function ViewLeadsPage({ onBack, onAddLead, onOpenLead }: Props) 
   const filtered = filter === 'all' ? items : items.filter(l => statusOf(l.status) === filter);
 
   const handleConvert = (id: number) => {
-    Alert.alert('Convert Lead', 'Convert this lead into a full member?', [
+    showAlert('Convert Lead', 'Convert this lead into a full member?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Convert', style: 'destructive', onPress: () =>
         convert(id, {
-          onSuccess: () => Alert.alert('Success 🎉', 'Lead converted to member.'),
-          onError:   () => Alert.alert('Error', 'Failed to convert lead.'),
+          onSuccess: () => showAlert('Success 🎉', 'Lead converted to member.'),
+          onError:   () => showAlert('Error', 'Failed to convert lead.'),
         })
       },
     ]);

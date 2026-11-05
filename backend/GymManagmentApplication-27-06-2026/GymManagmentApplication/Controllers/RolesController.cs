@@ -8,10 +8,18 @@ using GymManagmentApplication.Domain.Constants;
 
 namespace GymManagmentApplication.Controllers;
 
+/// <summary>
+/// Roles of the gym and the legacy "module.action" permission model. Routes are absolute per action
+/// (kept as-is for existing clients). For module access prefer <see cref="AccessController"/>
+/// (api/access/...): <c>api/roles/{id}/permissions</c>, <c>api/permissions/matrix</c> and
+/// <c>api/users/{id}/roles</c> are deprecated for new clients (ARCH-050). Every change here drops the
+/// cached access decisions, so it applies on the next request.
+/// </summary>
 [ApiController]
 [AuthorizeRoles(RoleNames.Admin)]
 public class RolesController(
     IRolesService service,
+    GymManagmentApplication.Application.Access.IAccessService access,
     IValidator<CreateRoleRequest> createValidator,
     IValidator<UpdateRolePermissionsRequest> permissionsValidator,
     IValidator<AssignRoleRequest> assignValidator) : ControllerBase
@@ -40,6 +48,7 @@ public class RolesController(
     public async Task<ActionResult<ApiResponse<object>>> Update(string id, [FromBody] UpdateRoleRequest request)
     {
         var result = await service.UpdateRoleAsync(id, request);
+        access.InvalidateCache();
         return result is null ? NotFound(ApiResponse<object>.Fail($"Role {id} not found.")) : Ok(ApiResponse<object>.Ok(result));
     }
 
@@ -47,6 +56,7 @@ public class RolesController(
     public async Task<ActionResult<ApiResponse<object>>> Delete(string id)
     {
         var ok = await service.DeleteRoleAsync(id);
+        access.InvalidateCache();
         return ok ? Ok(ApiResponse<object>.Ok((object)null!, "Role deleted.")) : NotFound(ApiResponse<object>.Fail($"Role {id} not found."));
     }
 
@@ -60,6 +70,7 @@ public class RolesController(
         var v = await permissionsValidator.ValidateAsync(request);
         if (!v.IsValid) return BadRequest(ApiResponse<object>.Fail("Validation failed.", v.Errors.Select(e => e.ErrorMessage).ToList()));
         var result = await service.UpdateRolePermissionsAsync(id, request);
+        access.InvalidateCache();
         return result is null ? NotFound(ApiResponse<object>.Fail($"Role {id} not found.")) : Ok(ApiResponse<object>.Ok(result));
     }
 
@@ -77,6 +88,7 @@ public class RolesController(
         var v = await assignValidator.ValidateAsync(request);
         if (!v.IsValid) return BadRequest(ApiResponse<object>.Fail("Validation failed.", v.Errors.Select(e => e.ErrorMessage).ToList()));
         var ok = await service.AssignRoleToUserAsync(id, request);
+        access.InvalidateCache();
         return ok ? Ok(ApiResponse<object>.Ok((object)null!, "Role assigned.")) : BadRequest(ApiResponse<object>.Fail("Role not found."));
     }
 
@@ -84,6 +96,7 @@ public class RolesController(
     public async Task<ActionResult<ApiResponse<object>>> RevokeRole(ulong id, string roleId)
     {
         var ok = await service.RevokeRoleFromUserAsync(id, roleId);
+        access.InvalidateCache();
         return ok ? Ok(ApiResponse<object>.Ok((object)null!, "Role revoked.")) : NotFound(ApiResponse<object>.Fail("User does not have this role."));
     }
 }

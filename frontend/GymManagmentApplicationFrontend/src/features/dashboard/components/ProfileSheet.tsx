@@ -5,36 +5,8 @@ import BottomSheet from '../../common/components/BottomSheet';
 import Avatar from '../../common/components/Avatar';
 import { T, SP, R, withAlpha, Shadow } from '../../../theme';
 import { UserProfile } from '../../auth/types/auth.types';
+import DetailRow from '../../common/components/DetailRow';
 
-function DetailRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentProps<typeof Feather>['name'];
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: SP.md }}>
-      <View style={{
-        width: 36, height: 36, borderRadius: R.md,
-        backgroundColor: T.bgInputActive, alignItems: 'center', justifyContent: 'center',
-        marginRight: SP.md,
-      }}>
-        <Feather name={icon} size={16} color={T.brand} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: T.textFaint, fontSize: 11, fontWeight: '600', letterSpacing: 0.3, marginBottom: 2 }}>
-          {label.toUpperCase()}
-        </Text>
-        <Text style={{ color: T.text, fontSize: 14, fontWeight: '600' }} numberOfLines={1}>
-          {value}
-        </Text>
-      </View>
-    </View>
-  );
-}
 
 interface ProfileSheetProps {
   visible: boolean;
@@ -103,9 +75,9 @@ export default function ProfileSheet({
             <View style={{ height: 1, backgroundColor: T.line, marginBottom: SP.xs }} />
 
             {/* Details */}
-            <DetailRow icon="mail" label="Email" value={profile.email} />
+            <DetailRow compact numberOfLines={1} icon="mail" label="Email" value={profile.email} />
             <View style={{ height: 1, backgroundColor: T.lineSubtle }} />
-            <DetailRow icon="phone" label="Phone" value={profile.phone || 'Not set'} />
+            <DetailRow compact numberOfLines={1} icon="phone" label="Phone" value={profile.phone || 'Not set'} />
             <View style={{ height: 1, backgroundColor: T.lineSubtle }} />
             <DetailRow
               icon={profile.isEmailVerified ? 'check-circle' : 'alert-circle'}

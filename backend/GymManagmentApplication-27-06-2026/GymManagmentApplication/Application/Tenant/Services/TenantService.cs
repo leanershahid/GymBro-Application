@@ -84,17 +84,17 @@ public class TenantService(ITenantRepository repository, ICurrentUser currentUse
             throw new ArgumentException("The platform tenant cannot be deleted.");
 
         var inUse =
-            await db.Users.IgnoreQueryFilters().AnyAsync(u => u.TenantId == id) ||
-            await db.Payments.IgnoreQueryFilters().AnyAsync(p => p.TenantId == id) ||
-            await db.Invoices.IgnoreQueryFilters().AnyAsync(i => i.TenantId == id) ||
-            await db.Leads.IgnoreQueryFilters().AnyAsync(l => l.TenantId == id) ||
-            await db.GymMemberships.IgnoreQueryFilters().AnyAsync(m => m.TenantId == id);
+            await db.Users.AcrossTenants().AnyAsync(u => u.TenantId == id) ||
+            await db.Payments.AcrossTenants().AnyAsync(p => p.TenantId == id) ||
+            await db.Invoices.AcrossTenants().AnyAsync(i => i.TenantId == id) ||
+            await db.Leads.AcrossTenants().AnyAsync(l => l.TenantId == id) ||
+            await db.GymMemberships.AcrossTenants().AnyAsync(m => m.TenantId == id);
         if (inUse)
             throw new ArgumentException(
                 "This gym still has users or billing records. Set its status to Cancelled instead of deleting it.");
 
         // Remove restrict-FK config rows that an empty gym may still own.
-        db.ModuleAccesses.RemoveRange(db.ModuleAccesses.IgnoreQueryFilters().Where(m => m.TenantId == id));
+        db.ModuleAccesses.RemoveRange(db.ModuleAccesses.AcrossTenants().Where(m => m.TenantId == id));
         await db.SaveChangesAsync();
 
         return await repository.DeleteAsync(id);

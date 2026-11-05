@@ -1,11 +1,11 @@
 import axiosInstance from '../../../api/axios';
+import { unwrapResponse as unwrap } from '../../../api/http';
 import { ApiResponse } from '../../../api/types';
 import {
   AccessApp, AccessList, AccessModule, ExtraRole, ModuleGrant, ModuleTreeRow,
   RoleGrants, RoleSummary, RoleTemplate, StaffMember, UserAccess, UserOverride,
 } from '../types/access.types';
 
-const unwrap = <T,>(r: { data: ApiResponse<T> }) => r.data.data as T;
 
 /** The signed-in user's menu modules and page tabs, fetched together. */
 export async function fetchMyAccess(lang?: string): Promise<AccessList> {

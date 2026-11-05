@@ -14,8 +14,8 @@ import { T, withAlpha, SP } from '../../../theme';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import PrimaryButton from '../../common/components/PrimaryButton';
-import { Field } from '../../trainers/components/FormFields';
-import { DateField } from '../../trainers/components/DatePicker';
+import { Field } from '../../common/components/FormFields';
+import { DateField } from '../../common/components/DatePicker';
 import { describeApiError, fieldErrorsFrom } from '../../../api/apiError';
 import { useToast } from '../../common/components/Toast';
 

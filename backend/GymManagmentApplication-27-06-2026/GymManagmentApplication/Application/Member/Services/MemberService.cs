@@ -87,9 +87,16 @@ public class MemberService(
         if (branchId is null && request.TrainerId is { } tid)
             branchId = (await db.TrainerProfiles.FirstOrDefaultAsync(t => t.Id == tid))?.BranchId;
 
-        // Joins an outer transaction (bulk import) when there is one.
-        await using var tx = db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync() : null;
+        // ARCH-044: emails are stored trimmed and lower-cased, so the unique index is effectively case-insensitive.
+        request.Email = EmailAddress.Normalize(request.Email)!;
 
+        // ARCH-045: one transaction for user + profile + trainer assignment; joins an outer one (bulk import).
+        return await db.InTransactionAsync(() => CreateInTransactionAsync(request, firstName, defaultPassword, tenantId, branchId));
+    }
+
+    private async Task<MemberResponse> CreateInTransactionAsync(CreateMemberRequest request, string firstName,
+        string defaultPassword, ulong tenantId, ulong? branchId)
+    {
         // Creates the User in this tenant/branch with the tenant's own 'client' role
         // (and checks the branch belongs to the tenant).
         var created = await authService.CreateUserAsync(new NewUser(
@@ -122,7 +129,6 @@ public class MemberService(
             response.TrainerId = request.TrainerId;
         }
 
-        if (tx is not null) await tx.CommitAsync();
         return response;
     }
 
@@ -181,9 +187,13 @@ public class MemberService(
         if (await GetAccessibleAsync(id) is null) return false;
         if (id == currentUser.UserId)
             throw new ArgumentException("You cannot archive your own account.");
-        var deleted = await repository.SoftDeleteAsync(id);
-        if (deleted) await AuthSessions.RevokeAllAsync(db, id); // signed-in sessions end at next request
-        return deleted;
+        // ARCH-045: archive + session revocation commit together.
+        return await db.InTransactionAsync(async () =>
+        {
+            var deleted = await repository.SoftDeleteAsync(id);
+            if (deleted) await AuthSessions.RevokeAllAsync(db, id); // signed-in sessions end at next request
+            return deleted;
+        });
     }
 
     public async Task<bool> SetStatusAsync(ulong id, bool isActive)
@@ -193,8 +203,11 @@ public class MemberService(
         if (id == currentUser.UserId)
             throw new ArgumentException("You cannot deactivate your own account.");
         user.Status = isActive ? UserStatus.Active : UserStatus.Inactive;
-        await repository.UpdateAsync(user);
-        if (!isActive) await AuthSessions.RevokeAllAsync(db, id);
+        await db.InTransactionAsync(async () =>
+        {
+            await repository.UpdateAsync(user);
+            if (!isActive) await AuthSessions.RevokeAllAsync(db, id);
+        });
         return true;
     }
 
@@ -205,12 +218,13 @@ public class MemberService(
         if (request.Members.Count > BulkImportLimit)
             throw new ArgumentException($"Import at most {BulkImportLimit} members at a time.");
         // All or nothing: a bad row rolls back the rows before it.
-        await using var tx = await db.Database.BeginTransactionAsync();
-        var results = new List<MemberResponse>();
-        foreach (var r in request.Members)
-            results.Add(await CreateAsync(r));
-        await tx.CommitAsync();
-        return results;
+        return await db.InTransactionAsync(async () =>
+        {
+            var results = new List<MemberResponse>();
+            foreach (var r in request.Members)
+                results.Add(await CreateAsync(r));
+            return results;
+        });
     }
 
     public async Task<List<MemberTimelineResponse>> GetTimelineAsync(ulong id)
@@ -352,15 +366,17 @@ public class MemberService(
 
         var tenantId = member.TenantId;
 
-        foreach (var tagName in request.Tags)
+        // Get or create the tags with one read and one save (ARCH-042); new tags get their id on Add.
+        var names = request.Tags.Distinct().ToList();
+        var tags = await db.Tags.Where(t => t.TenantId == tenantId && names.Contains(t.Name)).ToListAsync();
+        foreach (var tagName in names)
         {
-            // Get or create the tag
-            var tag = await db.Tags.FirstOrDefaultAsync(t => t.TenantId == tenantId && t.Name == tagName);
+            var tag = tags.FirstOrDefault(t => t.Name == tagName);
             if (tag is null)
             {
                 tag = new Tag { TenantId = tenantId, Name = tagName };
                 db.Tags.Add(tag);
-                await db.SaveChangesAsync();
+                tags.Add(tag);
             }
             db.Taggables.Add(new Taggable { TagId = tag.Id, TaggableId = id, TaggableType = "User" });
         }

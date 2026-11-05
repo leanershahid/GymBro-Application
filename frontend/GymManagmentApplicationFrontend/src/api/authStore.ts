@@ -1,11 +1,14 @@
 import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
 import { setAuthToken } from './axios';
 import { setSession, Session } from './session';
+import { forgetLegacyWebKey, sessionStore } from '../utils/storage';
 
 // Keeps the user signed in across app restarts / page reloads. Only the refresh token is
-// persisted (SecureStore on phones, localStorage on web); the short-lived access token stays
-// in memory and is re-issued from it on start-up (see restoreSession in App.tsx).
+// persisted; the short-lived access token stays in memory and is re-issued from it on
+// start-up (see restoreSession in App.tsx).
+//  - Phones: SecureStore (encrypted) — sign-in survives app restarts.
+//  - Web: sessionStorage (ARCH-008) — survives reloads of the tab, not closing it or opening a
+//    new tab. Trade-off documented in utils/storage.ts; the long-term fix is an HttpOnly cookie.
 
 const KEY = 'gymbro.auth';
 
@@ -25,19 +28,28 @@ export interface AuthPayload {
 
 async function write(value: string | null) {
   try {
-    if (Platform.OS === 'web') {
-      if (value === null) window.localStorage.removeItem(KEY);
-      else window.localStorage.setItem(KEY, value);
-    } else if (value === null) await SecureStore.deleteItemAsync(KEY);
-    else await SecureStore.setItemAsync(KEY, value);
+    if (value === null) await sessionStore.removeItem(KEY);
+    else await sessionStore.setItem(KEY, value);
   } catch {
     // Storage unavailable (private mode, etc.) — the session just won't survive a restart.
   }
 }
 
+/** Older web builds kept the refresh token in localStorage: move it once, then delete it there. */
+function takeLegacyWebAuth(): string | null {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(KEY);
+    if (raw !== null) window.localStorage.removeItem(KEY);
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadStoredAuth(): Promise<Stored | null> {
   try {
-    const raw = Platform.OS === 'web' ? window.localStorage.getItem(KEY) : await SecureStore.getItemAsync(KEY);
+    const raw = (await sessionStore.getItem(KEY)) ?? takeLegacyWebAuth();
     return raw ? (JSON.parse(raw) as Stored) : null;
   } catch {
     return null;
@@ -65,5 +77,6 @@ export async function clearAuth() {
   setAuthToken(null);
   setSession(null);
   refreshToken = null;
+  forgetLegacyWebKey(KEY);
   await write(null);
 }

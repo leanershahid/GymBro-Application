@@ -30,7 +30,8 @@ public class SsoService(AppDbContext db, IAuthService authService, ICurrentUser 
     public Task<AuthResponse?> CallbackAsync(SsoCallbackRequest request) =>
         // The previous mock never verified the provider code, so it created/signed in an account
         // for anyone who called it. Closed until a real OAuth token exchange is implemented.
-        throw new ArgumentException("SSO sign-in is not configured for this platform yet.");
+        // ARCH-078: NotSupportedException → 501 Not Implemented (global RuleException/NotSupported filter).
+        throw new NotSupportedException("SSO sign-in is not configured for this platform yet.");
 
     public async Task<List<SsoProviderResponse>> GetProvidersAsync(ulong tenantId)
     {

@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, RefreshControl, Alert } from 'react-native';
+import { View, Text, FlatList, RefreshControl,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import StatusPill from '../../common/components/StatusPill';
 import LoadingState from '../../common/components/LoadingState';
 import PaginationFooter from '../../common/components/PaginationFooter';
 import BottomSheet from '../../common/components/BottomSheet';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import { useToast } from '../../common/components/Toast';
-import EmptyState from '../../dashboard/components/EmptyState';
-import { Field } from '../../trainers/components/FormFields';
+import EmptyState from '../../common/components/EmptyState';
+import { Field } from '../../common/components/FormFields';
 import { describeApiError, apiErrorText } from '../../../api/apiError';
 import { usePaymentHistory, useRefundPayment } from '../api/billingQueries';
 import { Payment } from '../types/billing.types';
 import { ListRow, KeyValue, fmtMoney, fmtDate, paymentTone, toNumber, round2 } from './billingUi';
-import { humanize } from '../../exercises/components/ChipSelect';
+import { humanize } from '../../common/components/ChipSelect';
 import { T, SP } from '../../../theme';
 
 const PAGE_SIZE = 20;
@@ -85,10 +86,10 @@ function RefundSheet({ payment, onClose }: { payment: Payment | null; onClose: (
       { paymentId: payment.id, amount: amt >= remaining ? undefined : amt, reason },
       {
         onSuccess: () => { toast.show({ message: `Refunded ${fmtMoney(amt, payment.currency)}.` }); onClose(); },
-        onError: e => Alert.alert('Refund failed', apiErrorText(e)),
+        onError: e => showAlert('Refund failed', apiErrorText(e)),
       },
     );
-    Alert.alert('Refund payment?', `Refund ${fmtMoney(amt, payment.currency)} to ${payment.memberName ?? 'the member'}?`, [
+    showAlert('Refund payment?', `Refund ${fmtMoney(amt, payment.currency)} to ${payment.memberName ?? 'the member'}?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Refund', style: 'destructive', onPress: doIt },
     ]);

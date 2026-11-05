@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, Pressable, TextInput, Alert, ScrollView } from 'react-native';
+import { View, Text, Pressable, TextInput, ScrollView } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { T, R, SP, withAlpha } from '../../../theme';
 import { apiErrorText } from '../../../api/apiError';
 import Skeleton from '../../common/components/Skeleton';
 import BottomSheet from '../../common/components/BottomSheet';
 import Avatar from '../../common/components/Avatar';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useToast } from '../../common/components/Toast';
 import { usePtTypes, useBookPtSession } from '../api/bookingQueries';
 import { PtSession, PtType } from '../types/booking.types';
@@ -146,7 +147,7 @@ export default function PtTab({ userId, onOpenBilling }: Props) {
       setBooked({ session, type });
       toast.show({ type: 'success', message: 'Session requested.' });
     } catch (e) {
-      Alert.alert("Couldn't book", apiErrorText(e));
+      showAlert("Couldn't book", apiErrorText(e));
     }
   };
 

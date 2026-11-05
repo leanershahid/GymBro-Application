@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { TrainerPayload, Certification, Document } from '../types/trainer.types';
-import { Field, RowGrid, GridCell } from './FormFields';
-import { DateField } from './DatePicker';
+import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
+import { DateField } from '../../common/components/DatePicker';
 import GlassCard from './GlassCard';
 import { T } from '../../../theme';
 import UploadField from '../../common/components/UploadField';

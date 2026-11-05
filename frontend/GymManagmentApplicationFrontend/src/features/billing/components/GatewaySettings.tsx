@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Alert } from 'react-native';
+import { View, Text, ScrollView,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import LoadingState from '../../common/components/LoadingState';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import StatusPill from '../../common/components/StatusPill';
 import { useToast } from '../../common/components/Toast';
-import EmptyState from '../../dashboard/components/EmptyState';
-import { Field, SwitchRow } from '../../trainers/components/FormFields';
+import EmptyState from '../../common/components/EmptyState';
+import { Field, SwitchRow } from '../../common/components/FormFields';
 import { describeApiError, apiErrorText } from '../../../api/apiError';
 import { useGateway, useSaveGateway, useRemoveGateway } from '../api/billingQueries';
 import { Card, KeyValue, Note } from './billingUi';
@@ -49,19 +50,19 @@ export default function GatewaySettings() {
       { keyId, keySecret, isActive },
       {
         onSuccess: () => { setKeySecret(''); toast.show({ message: 'Razorpay connected — keys verified.' }); },
-        onError: e => Alert.alert('Keys not saved', apiErrorText(e)),
+        onError: e => showAlert('Keys not saved', apiErrorText(e)),
       },
     );
   };
 
   const disconnect = () =>
-    Alert.alert('Disconnect Razorpay?', 'Members won’t be able to pay online until you connect again.', [
+    showAlert('Disconnect Razorpay?', 'Members won’t be able to pay online until you connect again.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Disconnect', style: 'destructive',
         onPress: () => remove.mutate(undefined, {
           onSuccess: () => { setKeyId(''); setKeySecret(''); toast.show({ message: 'Razorpay disconnected.' }); },
-          onError: e => Alert.alert('Couldn’t disconnect', apiErrorText(e)),
+          onError: e => showAlert('Couldn’t disconnect', apiErrorText(e)),
         }),
       },
     ]);

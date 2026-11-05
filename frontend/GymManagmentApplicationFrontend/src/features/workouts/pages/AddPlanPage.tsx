@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
+import {} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { useCreatePlan } from '../api/workoutQueries';
 import { WORKOUT_GOALS, WORKOUT_DIFFICULTIES, GOAL_GENERAL, WorkoutPlanPayload } from '../types/workout.types';
-import { Field } from '../../trainers/components/FormFields';
-import ChipSelect, { humanize } from '../../exercises/components/ChipSelect';
-import FormPage from '../../exercises/components/FormPage';
+import { Field } from '../../common/components/FormFields';
+import ChipSelect, { humanize } from '../../common/components/ChipSelect';
+import FormPage from '../../common/components/FormPage';
 import { currentTenantId } from '../../../api/session';
 import { apiErrorText } from '../../../api/apiError';
 import { useToast } from '../../common/components/Toast';
@@ -48,7 +49,7 @@ export default function AddPlanPage({ onBack, onCreated }: Props) {
         onCreated?.();
         onBack();
       },
-      onError: (e) => Alert.alert('Could not create plan', apiErrorText(e)),
+      onError: (e) => showAlert('Could not create plan', apiErrorText(e)),
     });
   };
 

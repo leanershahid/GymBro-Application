@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { T, withAlpha } from '../../../theme';
 import { apiErrorText } from '../../../api/apiError';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import LoadingState from '../../common/components/LoadingState';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useRoles } from '../api/moduleAccessQueries';
 import { useModuleTree, useRoleGrants, useSaveRoleGrants } from '../../access/api/accessQueries';
 import PermissionCard, { BulkButton, SaveBar, descendantsOf, orderTree } from '../../access/components/ModuleTreeRowCard';
@@ -100,14 +101,14 @@ export default function ModuleAccessPage({ onBack, initialRoleId }: Props) {
   });
 
   const onSave = () => save.mutate(Object.values(draft).filter(g => g.canView), {
-    onError: (e) => Alert.alert('Could not save', apiErrorText(e)),
+    onError: (e) => showAlert('Could not save', apiErrorText(e)),
   });
 
   const pickRole = (id: number) => {
     if (id === roleId) return;
     const go = () => { setPickedRoleId(id); setPickedApp(null); };
     if (!dirtyCount) { go(); return; }
-    Alert.alert('Discard changes?', 'Your unsaved changes to this role will be lost.', [
+    showAlert('Discard changes?', 'Your unsaved changes to this role will be lost.', [
       { text: 'Keep editing', style: 'cancel' },
       { text: 'Discard', style: 'destructive', onPress: go },
     ]);

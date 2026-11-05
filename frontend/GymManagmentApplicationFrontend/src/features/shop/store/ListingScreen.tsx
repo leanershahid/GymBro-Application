@@ -7,7 +7,7 @@ import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import BottomSheet from '../../common/components/BottomSheet';
 import PrimaryButton from '../../common/components/PrimaryButton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { apiErrorText } from '../../../api/apiError';
 import { formatPrice } from '../common/format';
 import { ShopCategory, ShopSort } from '../api/shop.types';

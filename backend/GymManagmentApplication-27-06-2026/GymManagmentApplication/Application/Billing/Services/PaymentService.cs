@@ -25,7 +25,8 @@ public class PaymentService(
     BillingCore billing,
     RazorpayClient razorpay,
     ISecretProtector secrets,
-    IEmailSender email) : IPaymentService
+    IEmailOutbox outbox,
+    ILogger<PaymentService> logger) : IPaymentService
 {
     public const string Razorpay = "razorpay";
 
@@ -33,26 +34,63 @@ public class PaymentService(
     {
         var tenantId = currentUser.ResolveTenantId(request.TenantId);
         var method = ParseMethod(request.Method);
+        var key = NormalizeIdempotencyKey(request.IdempotencyKey);
 
-        Invoice invoice;
-        if (request.InvoiceId is { } invoiceId)
-        {
-            invoice = await db.Invoices.Include(i => i.User).FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId)
-                      ?? throw new KeyNotFoundException($"Invoice {invoiceId} not found.");
-        }
-        else
-        {
-            await db.EnsureUserAsync(request.MemberId, tenantId);
-            invoice = await billing.CreateInvoiceAsync(new BillingCore.NewInvoice(tenantId, request.MemberId,
-                [new InvoiceLineItem { Description = string.IsNullOrWhiteSpace(request.Description) ? "Payment" : request.Description.Trim(), UnitPrice = request.Amount, Quantity = 1 }],
-                DueDate: DateOnly.FromDateTime(DateTime.UtcNow)));
-        }
+        // ARCH-011: the same key never records a second payment (a retried or double-clicked request).
+        if (key is not null && await FindByIdempotencyKeyAsync(tenantId, key) is { } earlier) return earlier;
 
-        var amount = request.Amount > 0 ? request.Amount : BillingCore.Balance(invoice);
-        var payment = billing.ApplyPayment(invoice, amount, method, request.Reference, null, currentUser.UserId, request.Notes);
-        await db.SaveChangesAsync();
-        return Map(payment, invoice);
+        try
+        {
+            return await db.InTransactionAsync(async () =>
+            {
+                Invoice invoice;
+                if (request.InvoiceId is { } invoiceId)
+                {
+                    // ARCH-016: lock the invoice so two payments can't both read the old AmountPaid.
+                    await db.LockRowAsync<Invoice>(invoiceId);
+                    invoice = await db.Invoices.Include(i => i.User).FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId)
+                              ?? throw new KeyNotFoundException($"Invoice {invoiceId} not found.");
+                }
+                else
+                {
+                    await db.EnsureUserAsync(request.MemberId, tenantId);
+                    invoice = await billing.CreateInvoiceAsync(new BillingCore.NewInvoice(tenantId, request.MemberId,
+                        [new InvoiceLineItem { Description = string.IsNullOrWhiteSpace(request.Description) ? "Payment" : request.Description.Trim(), UnitPrice = request.Amount, Quantity = 1 }],
+                        DueDate: DateOnly.FromDateTime(DateTime.UtcNow)));
+                }
+
+                var amount = request.Amount > 0 ? request.Amount : BillingCore.Balance(invoice);
+                var payment = billing.ApplyPayment(invoice, amount, method, request.Reference, null, currentUser.UserId, request.Notes);
+                payment.IdempotencyKey = key;
+                await db.SaveChangesAsync();
+                return Map(payment, invoice);
+            });
+        }
+        catch (DbUpdateException ex) when (key is not null && IsUniqueViolation(ex, "IdempotencyKey"))
+        {
+            // A concurrent request with the same key won the race; answer with its payment.
+            db.ChangeTracker.Clear();
+            return await FindByIdempotencyKeyAsync(tenantId, key) ?? throw new ArgumentException("A payment with this idempotency key is being recorded. Please try again.");
+        }
     }
+
+    private async Task<PaymentResponse?> FindByIdempotencyKeyAsync(ulong tenantId, string key)
+    {
+        var p = await db.Payments.Include(x => x.Invoice).ThenInclude(i => i.User)
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.IdempotencyKey == key);
+        return p is null ? null : Map(p, p.Invoice);
+    }
+
+    private static string? NormalizeIdempotencyKey(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return null;
+        key = key.Trim();
+        return key.Length <= 100 ? key : throw new ArgumentException("Idempotency key must be at most 100 characters.");
+    }
+
+    private static bool IsUniqueViolation(DbUpdateException ex, string constraintHint) =>
+        ex.InnerException is Npgsql.PostgresException { SqlState: "23505" } pg
+        && (pg.ConstraintName?.Contains(constraintHint, StringComparison.OrdinalIgnoreCase) ?? false);
 
     public async Task<PaymentResponse?> GetByIdAsync(ulong id)
     {
@@ -60,24 +98,76 @@ public class PaymentService(
         return p is null ? null : Map(p, p.Invoice);
     }
 
+    /// <summary>
+    /// ARCH-012: the refund is validated and recorded first (inside a transaction holding the
+    /// payment's row lock, so two refunds can't both pass the "refundable" check), then the gateway
+    /// is called outside the transaction. If the gateway refuses, the recorded refund is reversed.
+    /// </summary>
     public async Task<PaymentResponse?> RefundAsync(RefundRequest request)
     {
-        var p = await db.Payments.Include(x => x.Invoice).ThenInclude(i => i.User).FirstOrDefaultAsync(x => x.Id == request.PaymentId);
-        if (p is null) return null;
-        var amount = request.Amount ?? p.Amount - p.RefundedAmount;
+        var found = await db.Payments.AsNoTracking().FirstOrDefaultAsync(x => x.Id == request.PaymentId);
+        if (found is null) return null;
 
         // Online payments are refunded through the gateway; desk payments are handed back at the desk.
-        if (p.GatewayRef is { Length: > 0 } gatewayPaymentId && p.GatewayId is not null)
-        {
-            var keys = await KeysAsync(p.TenantId) ?? throw new ArgumentException("Razorpay isn't set up for this gym, so this online payment can't be refunded here.");
-            await razorpay.RefundAsync(keys, gatewayPaymentId, amount);
-        }
+        var online = found.GatewayRef is { Length: > 0 } && found.GatewayId is not null;
+        RazorpayKeys? keys = null;
+        if (online)
+            keys = await KeysAsync(found.TenantId) ?? throw new ArgumentException("Razorpay isn't set up for this gym, so this online payment can't be refunded here.");
 
-        billing.ApplyRefund(p, amount);
-        if (!string.IsNullOrWhiteSpace(request.Reason))
-            p.Notes = $"{p.Notes}\n[{DateTime.UtcNow:yyyy-MM-dd}] Refunded {amount:N2}: {request.Reason.Trim()}".Trim();
-        await db.SaveChangesAsync();
+        Payment p = default!;
+        decimal amount = 0;
+        RefundSnapshot before = default!;
+        await db.InTransactionAsync(async () =>
+        {
+            await db.LockRowAsync<Payment>(found.Id);
+            p = await db.Payments.Include(x => x.Invoice).ThenInclude(i => i.User).FirstAsync(x => x.Id == found.Id);
+            amount = BillingCore.Round(request.Amount ?? p.Amount - p.RefundedAmount);
+            before = RefundSnapshot.Of(p);
+            billing.ApplyRefund(p, amount); // validates status and amount before anything is sent
+            var reason = string.IsNullOrWhiteSpace(request.Reason) ? "" : $": {request.Reason.Trim()}";
+            p.Notes = $"{p.Notes}\n[{DateTime.UtcNow:yyyy-MM-dd}] Refunded {amount:N2}{reason}{(online ? " (sent to Razorpay)" : "")}".Trim();
+            await db.SaveChangesAsync();
+        });
+
+        if (online)
+        {
+            try
+            {
+                var refundId = await razorpay.RefundAsync(keys!, p.GatewayRef!, amount, receipt: $"payment-{p.Id}-{p.RefundedAmount:0.00}");
+                p.Notes = $"{p.Notes} Razorpay refund {refundId}.";
+                await db.SaveChangesAsync();
+            }
+            catch (Exception gatewayError)
+            {
+                logger.LogWarning(gatewayError, "Razorpay refund failed for payment {PaymentId}; reversing the recorded refund.", p.Id);
+                await db.InTransactionAsync(async () =>
+                {
+                    await db.LockRowAsync<Payment>(p.Id);
+                    await db.Entry(p).ReloadAsync();
+                    await db.Entry(p.Invoice).ReloadAsync();
+                    before.Restore(p, amount);
+                    p.Notes = $"{p.Notes}\n[{DateTime.UtcNow:yyyy-MM-dd}] Refund of {amount:N2} failed at Razorpay and was reversed.".Trim();
+                    await db.SaveChangesAsync();
+                });
+                throw;
+            }
+        }
         return Map(p, p.Invoice);
+    }
+
+    private sealed record RefundSnapshot(PaymentStatus Status, InvoiceStatus InvoiceStatus, DateTime? PaidAt)
+    {
+        public static RefundSnapshot Of(Payment p) => new(p.Status, p.Invoice.Status, p.Invoice.PaidAt);
+
+        /// <summary>Undoes one ApplyRefund of <paramref name="amount"/> (on freshly reloaded rows).</summary>
+        public void Restore(Payment p, decimal amount)
+        {
+            p.RefundedAmount = Math.Max(0, p.RefundedAmount - amount);
+            p.Status = Status;
+            p.Invoice.AmountPaid += amount;
+            p.Invoice.Status = InvoiceStatus;
+            p.Invoice.PaidAt = PaidAt;
+        }
     }
 
     public async Task<PagedResponse<PaymentResponse>> GetHistoryAsync(ulong tenantId, ulong? memberId, int page, int size)
@@ -94,9 +184,12 @@ public class PaymentService(
         };
     }
 
+    public const string SavedMethodsNotSupported = "Saving cards isn't supported. Members pay online through Razorpay Checkout each time.";
+
     // Card storage needs a gateway's tokenised vault; members pay through Checkout each time instead.
+    // The controller answers 501 Not Implemented for these endpoints (ARCH-078).
     public Task<PaymentMethodResponse> SaveMethodAsync(SavePaymentMethodRequest request) =>
-        throw new ArgumentException("Saving cards isn't supported. Members pay online through Razorpay Checkout each time.");
+        throw new NotSupportedException(SavedMethodsNotSupported);
 
     public Task<List<PaymentMethodResponse>> GetMethodsAsync(ulong memberId) => Task.FromResult(new List<PaymentMethodResponse>());
 
@@ -149,21 +242,116 @@ public class PaymentService(
         if (!RazorpayClient.VerifySignature(keys, request.OrderId, request.PaymentId, request.Signature))
             throw new ArgumentException("The payment couldn't be verified. If money was taken, contact the gym with your payment id.");
 
-        // Idempotent: the same Razorpay payment is never recorded twice.
-        var existing = await db.Payments.FirstOrDefaultAsync(p => p.GatewayRef == request.PaymentId && p.TenantId == invoice.TenantId);
-        if (existing is not null) return Map(existing, invoice);
+        if (await FindByGatewayRefAsync(invoice.TenantId, request.PaymentId) is { } existing) return existing;
 
         var info = await razorpay.GetPaymentAsync(keys, request.PaymentId);
-        if (info.OrderId != request.OrderId || info.Status is not ("captured" or "authorized"))
+        if (info.OrderId != request.OrderId)
+            throw new ArgumentException("The payment couldn't be verified. If money was taken, contact the gym with your payment id.");
+        return await RecordGatewayPaymentAsync(invoice.Id, invoice.TenantId, gateway, keys, info);
+    }
+
+    /// <summary>
+    /// ARCH-011: records a Razorpay payment exactly once. An "authorized" payment is captured first
+    /// (never treated as paid while uncaptured); the invoice row is locked while the payment is
+    /// applied, and the unique (TenantId, GatewayRef) index turns a concurrent duplicate (Checkout
+    /// verify racing the webhook) into "already recorded".
+    /// </summary>
+    private async Task<PaymentResponse> RecordGatewayPaymentAsync(ulong invoiceId, ulong tenantId, PaymentGateway gateway,
+        RazorpayKeys keys, RazorpayClient.PaymentInfo info)
+    {
+        if (info.Status == "authorized")
+        {
+            var currency = await db.Invoices.IgnoreQueryFilters().Where(i => i.Id == invoiceId).Select(i => i.Currency).FirstAsync();
+            info = await razorpay.CaptureAsync(keys, info.Id, info.AmountMinor, currency);
+        }
+        if (info.Status != "captured")
             throw new ArgumentException("The payment isn't complete yet. Please try again in a moment.");
 
-        var amount = info.AmountMinor / 100m;
-        var payment = billing.ApplyPayment(invoice, Math.Min(amount, BillingCore.Balance(invoice)), MapRazorpayMethod(info.Method),
-            reference: request.OrderId, gatewayRef: request.PaymentId, recordedBy: null, notes: "Paid online via Razorpay");
-        payment.GatewayId = gateway.Id;
-        payment.GatewayResponse = JsonSerializer.SerializeToDocument(new { info.Id, info.Status, info.Method, info.AmountMinor, info.OrderId });
-        await db.SaveChangesAsync();
-        return Map(payment, invoice);
+        try
+        {
+            return await db.InTransactionAsync(async () =>
+            {
+                await db.LockRowAsync<Invoice>(invoiceId);
+                var invoice = await db.Invoices.IgnoreQueryFilters().Include(i => i.User)
+                                  .FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId)
+                              ?? throw new KeyNotFoundException($"Invoice {invoiceId} not found.");
+                if (await FindByGatewayRefAsync(tenantId, info.Id) is { } already) return already;
+
+                var amount = info.AmountMinor / 100m;
+                var payment = billing.ApplyPayment(invoice, Math.Min(amount, BillingCore.Balance(invoice)), MapRazorpayMethod(info.Method),
+                    reference: info.OrderId, gatewayRef: info.Id, recordedBy: null, notes: "Paid online via Razorpay");
+                payment.GatewayId = gateway.Id;
+                payment.GatewayResponse = JsonSerializer.SerializeToDocument(new { info.Id, info.Status, info.Method, info.AmountMinor, info.OrderId });
+                await db.SaveChangesAsync();
+                return Map(payment, invoice);
+            });
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex, "GatewayRef"))
+        {
+            db.ChangeTracker.Clear();
+            return await FindByGatewayRefAsync(tenantId, info.Id) ?? throw new ArgumentException("This online payment is already being recorded. Please refresh in a moment.");
+        }
+    }
+
+    private async Task<PaymentResponse?> FindByGatewayRefAsync(ulong tenantId, string gatewayRef)
+    {
+        var p = await db.Payments.IgnoreQueryFilters().Include(x => x.Invoice).ThenInclude(i => i.User)
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.GatewayRef == gatewayRef);
+        return p is null ? null : Map(p, p.Invoice);
+    }
+
+    // ── Webhook (ARCH-011) ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Razorpay webhook for one gym (payment.captured / payment.authorized / order.paid). Records the
+    /// payment if Checkout never reported back (app closed after paying). Duplicate deliveries are
+    /// harmless: a payment is recorded once per GatewayRef.
+    /// </summary>
+    public async Task<bool> HandleRazorpayWebhookAsync(ulong tenantId, string rawBody, string? signature)
+    {
+        var active = await ActiveGatewayAsync(tenantId);
+        if (active is not { } a || ReadWebhookSecret(a.Gateway) is not { } secret
+            || !RazorpayClient.VerifyWebhookSignature(secret, rawBody, signature))
+            return false;
+
+        using var doc = JsonDocument.Parse(rawBody);
+        var root = doc.RootElement;
+        var evt = root.TryGetProperty("event", out var e) ? e.GetString() : null;
+        if (evt is not ("payment.captured" or "payment.authorized" or "order.paid")) return true; // acknowledged, nothing to do
+        if (!root.TryGetProperty("payload", out var payload)
+            || !payload.TryGetProperty("payment", out var pay) || !pay.TryGetProperty("entity", out var entity))
+            return true;
+
+        var info = RazorpayClient.ReadPayment(entity);
+        if (await FindByGatewayRefAsync(tenantId, info.Id) is not null) return true;
+
+        // The invoice id travels in the order's notes (set in CreateOrderAsync).
+        IReadOnlyDictionary<string, string> notes = payload.TryGetProperty("order", out var ord) && ord.TryGetProperty("entity", out var orderEntity)
+            ? RazorpayClient.ReadNotes(orderEntity)
+            : RazorpayClient.ReadNotes(entity);
+        if (!notes.ContainsKey("invoiceId") && info.OrderId is { } orderId)
+            notes = await razorpay.GetOrderNotesAsync(a.Keys, orderId);
+        if (!notes.TryGetValue("invoiceId", out var rawInvoiceId) || !ulong.TryParse(rawInvoiceId, out var invoiceId))
+        {
+            logger.LogWarning("Razorpay webhook {Event} for payment {PaymentId} has no invoiceId; ignored.", evt, info.Id);
+            return true;
+        }
+        if (notes.TryGetValue("tenantId", out var rawTenant) && rawTenant != tenantId.ToString())
+        {
+            logger.LogWarning("Razorpay webhook for payment {PaymentId} names tenant {Tenant}, not {Expected}; ignored.", info.Id, rawTenant, tenantId);
+            return true;
+        }
+
+        try
+        {
+            await RecordGatewayPaymentAsync(invoiceId, tenantId, a.Gateway, a.Keys, info);
+        }
+        catch (ArgumentException ex)
+        {
+            // Not capturable / invoice already settled: nothing to retry, so acknowledge.
+            logger.LogWarning("Razorpay webhook for payment {PaymentId} not recorded: {Reason}", info.Id, ex.Message);
+        }
+        return true;
     }
 
     // ── Gateway settings (per gym) ──────────────────────────────────────────
@@ -188,11 +376,16 @@ public class PaymentService(
         if (string.IsNullOrEmpty(secret)) throw new ArgumentException("Enter the Razorpay Key Secret.");
 
         var keys = new RazorpayKeys(request.KeyId.Trim(), secret);
+        var webhookSecret = string.IsNullOrWhiteSpace(request.WebhookSecret)
+            ? (gw is null ? null : ReadWebhookSecret(gw))
+            : request.WebhookSecret.Trim();
         if (request.IsActive && !await razorpay.TestKeysAsync(keys))
             throw new ArgumentException("Razorpay didn't accept these keys. Check the Key Id and Secret in your Razorpay dashboard.");
 
         gw ??= db.Set<PaymentGateway>().Add(new PaymentGateway { TenantId = tenantId, Provider = Razorpay, IsDefault = true }).Entity;
-        gw.ConfigEnc = JsonSerializer.SerializeToDocument(new { keyId = keys.KeyId, keySecret = secrets.Protect(keys.KeySecret) });
+        gw.ConfigEnc = webhookSecret is null
+            ? JsonSerializer.SerializeToDocument(new { keyId = keys.KeyId, keySecret = secrets.Protect(keys.KeySecret) })
+            : JsonSerializer.SerializeToDocument(new { keyId = keys.KeyId, keySecret = secrets.Protect(keys.KeySecret), webhookSecret = secrets.Protect(webhookSecret) });
         gw.IsActive = request.IsActive;
         await db.SaveChangesAsync();
         return ToStatus(gw);
@@ -228,10 +421,21 @@ public class PaymentService(
         return secret is null ? null : new RazorpayKeys(id.GetString()!, secret);
     }
 
+    private string? ReadWebhookSecret(PaymentGateway gw)
+    {
+        var root = gw.ConfigEnc?.RootElement;
+        if (root is null || !root.Value.TryGetProperty("webhookSecret", out var enc)) return null;
+        return secrets.Unprotect(enc.GetString());
+    }
+
     private GatewayStatusResponse ToStatus(PaymentGateway? gw)
     {
         var keys = gw is null ? null : ReadKeys(gw);
-        return new GatewayStatusResponse { Configured = keys is not null, IsActive = gw?.IsActive == true && keys is not null, KeyId = keys?.KeyId };
+        return new GatewayStatusResponse
+        {
+            Configured = keys is not null, IsActive = gw?.IsActive == true && keys is not null, KeyId = keys?.KeyId,
+            WebhookConfigured = gw is not null && ReadWebhookSecret(gw) is not null,
+        };
     }
 
     // ── Reminders ───────────────────────────────────────────────────────────
@@ -257,8 +461,9 @@ public class PaymentService(
             <table>{rows}</table>{note}
             <p>You can pay at the front desk or from the GymBro app.</p>
             """);
-        var sent = await email.SendAsync(member.Email, $"Payment reminder from {gym}", html);
-        if (!sent) throw new InvalidOperationException("The reminder email couldn't be sent. Check the email settings.");
+        // Queued in the outbox and delivered in the background (ARCH-046), not on this request.
+        outbox.Enqueue(tenantId, member.Id, member.Email, $"Payment reminder from {gym}", html);
+        await db.SaveChangesAsync();
         return true;
     }
 

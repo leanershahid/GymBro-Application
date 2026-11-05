@@ -2,16 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <!--
-      App-like viewport on phones: no pinch zoom, no double-tap zoom, and no automatic zoom
-      when an input is focused (iOS Safari zooms into inputs unless maximum-scale is 1).
+      Pinch zoom stays available (WCAG 1.4.4, ARCH-136). iOS Safari auto-zooms into inputs whose
+      text is under 16px; the iOS-only rule below keeps inputs at 16px instead of disabling zoom.
       viewport-fit=cover lets the layout use the safe-area insets on notched phones.
     -->
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0A0F0A" />
     <title>GymBro</title>
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
@@ -26,6 +23,10 @@
         text-size-adjust: 100%;
         /* Remove the 300ms double-tap-to-zoom gesture */
         touch-action: manipulation;
+      }
+      /* iOS Safari only: 16px inputs, so focusing one doesn't zoom the page (see viewport note). */
+      @supports (-webkit-touch-callout: none) {
+        input, textarea, select { font-size: max(16px, 1em) !important; }
       }
       /* These styles disable body scrolling if you are using <ScrollView> */
       body {

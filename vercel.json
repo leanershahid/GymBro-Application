@@ -4,5 +4,29 @@
   "buildCommand": "cd frontend/GymManagmentApplicationFrontend && npx expo export --platform web",
   "outputDirectory": "frontend/GymManagmentApplicationFrontend/dist",
   "framework": null,
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' https://checkout.razorpay.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self' blob: data: https://gymbro-application.onrender.com https://*.razorpay.com; frame-src https://*.razorpay.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://*.razorpay.com; frame-ancestors 'none'; upgrade-insecure-requests"
+        },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(self), microphone=(), geolocation=(self), payment=(self \"https://checkout.razorpay.com\" \"https://api.razorpay.com\"), usb=(), serial=(), bluetooth=(), magnetometer=(), gyroscope=(), accelerometer=(), browsing-topics=()"
+        }
+      ]
+    },
+    {
+      "source": "/_expo/static/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    }
+  ]
 }

@@ -5,16 +5,62 @@ services:
     rootDir: backend/GymManagmentApplication-27-06-2026
     dockerfilePath: GymManagmentApplication/Dockerfile
     dockerContext: .
+    # Free plan (kept as-is): the instance sleeps after ~15 min idle and has an ephemeral disk.
+    # Consequences (ARCH-018): the hourly DailyJobs (expiry/renewal/reminders) only run while awake,
+    # IMemoryCache state (token/access caches, login throttling) resets on wake, local wwwroot/uploads
+    # are lost on every deploy (configure Cloudinary or Supabase storage below), and the first request
+    # after sleep is a cold start. Move to a paid instance, or trigger the jobs from an external cron,
+    # before relying on automatic renewals.
     plan: free
-    healthCheckPath: /swagger
+    # Liveness probe: no database dependency (see /healthz/ready for a DB check).
+    healthCheckPath: /healthz
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
+      # ── Required secrets (set in the Render dashboard; never committed) ──────────
       - key: ConnectionStrings__DefaultConnection
         sync: false
-      - key: Jwt__Key
+      - key: Jwt__Key                     # at least 32 bytes; startup fails otherwise
         sync: false
+      - key: Secrets__Key                 # encrypts stored gateway/SSO secrets; REQUIRED in Production
+        sync: false                       # (to keep existing values readable, don't rotate Jwt__Key at the same time)
       - key: Jwt__Issuer
         value: GymManagmentApplication
       - key: Jwt__Audience
         value: GymManagmentApplication
+      # ── Web front-end origins allowed by CORS ─────────────────────────────────────
+      - key: Cors__AllowedOrigins__0
+        sync: false
+      # ── Email (OTP / password reset / invoices); without Host nothing is sent ─────
+      - key: Email__Host
+        sync: false
+      - key: Email__Port
+        sync: false
+      - key: Email__Username
+        sync: false
+      - key: Email__Password
+        sync: false
+      - key: Email__From
+        sync: false
+      # ── File storage: Cloudinary (preferred) or Supabase; otherwise ephemeral disk ─
+      - key: Storage__CloudinaryCloudName
+        sync: false
+      - key: Storage__CloudinaryApiKey
+        sync: false
+      - key: Storage__CloudinaryApiSecret
+        sync: false
+      - key: Storage__SupabaseUrl
+        sync: false
+      - key: Storage__ServiceKey
+        sync: false
+      - key: Storage__PrivateDocuments    # true = documents need GET api/uploads/signed-url to open
+        value: "false"
+      # ── Startup / ops switches (defaults shown) ───────────────────────────────────
+      - key: Database__MigrateOnStartup   # false once migrations run as a pre-deploy step
+        value: "true"
+      - key: Database__SeedOnStartup
+        value: "true"
+      - key: ForwardedHeaders__ForwardLimit  # proxy hops trusted in X-Forwarded-For
+        value: "1"
+      - key: Validation__Mode             # Enforce | LogOnly | Off
+        value: Enforce

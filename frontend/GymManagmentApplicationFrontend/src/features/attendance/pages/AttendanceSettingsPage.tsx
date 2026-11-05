@@ -5,11 +5,12 @@ import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import SectionHeader from '../../dashboard/components/Sectionheader';
-import { Field, SwitchRow } from '../../trainers/components/FormFields';
+import { Field, SwitchRow } from '../../common/components/FormFields';
 import { useAttendanceSettings, useUpdateAttendanceSettings } from '../api/attendanceQueries';
 import BranchLocationEditor from '../components/BranchLocationEditor';
+import { apiErrorText } from '../../../api/apiError';
 
 interface Props { onBack?: () => void; onOpenLog?: () => void }
 
@@ -43,7 +44,7 @@ export default function AttendanceSettingsPage({ onBack, onOpenLog }: Props) {
       { faceEnabled, fingerprintEnabled, defaultRadiusM: radiusNum, maxAccuracyM: accuracyNum },
       {
         onSuccess: (res) => setSaved(res.success ? 'Saved.' : res.message || 'Could not save.'),
-        onError: (e: any) => setSaved(e?.response?.data?.message ?? 'Could not save. Check your connection.'),
+        onError: (e: unknown) => setSaved(apiErrorText(e)),
       },
     );
   };

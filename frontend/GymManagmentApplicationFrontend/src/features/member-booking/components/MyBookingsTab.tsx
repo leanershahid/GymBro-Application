@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, Alert } from 'react-native';
+import { View, Text,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { T, R, SP, withAlpha } from '../../../theme';
 import { apiErrorText } from '../../../api/apiError';
 import StatusPill, { PillTone } from '../../common/components/StatusPill';
 import Skeleton from '../../common/components/Skeleton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useToast } from '../../common/components/Toast';
 import {
   useMyClasses, useMyPtSessions, useCancelClassBooking, useCancelPtSession, useRatePtSession,
@@ -127,7 +128,7 @@ export default function MyBookingsTab({ userId }: { userId: number }) {
       else await cancelPtM.mutateAsync(item.session.id);
       toast.show({ type: 'success', message: item.kind === 'pt' ? 'Session cancelled.' : 'Booking cancelled.' });
     } catch (e) {
-      Alert.alert("Couldn't cancel", apiErrorText(e));
+      showAlert("Couldn't cancel", apiErrorText(e));
     } finally {
       setPendingKey(null);
     }
@@ -136,7 +137,7 @@ export default function MyBookingsTab({ userId }: { userId: number }) {
   const cancel = (item: UpcomingItem) => {
     const title = item.kind === 'class' ? item.cls.title : item.session.sessionTypeName;
     const extra = item.kind === 'pt' && item.session.invoiceId ? '\n\nAn unpaid invoice for this session will be voided.' : '';
-    Alert.alert(
+    showAlert(
       item.kind === 'pt' ? 'Cancel this session?' : 'Cancel this booking?',
       `${title} · ${whenLabel(item.startsAt)}${extra}`,
       [
@@ -152,7 +153,7 @@ export default function MyBookingsTab({ userId }: { userId: number }) {
       await rateM.mutateAsync({ sessionId: s.id, rating: n });
       toast.show({ type: 'success', message: 'Thanks for rating!' });
     } catch (e) {
-      Alert.alert("Couldn't save rating", apiErrorText(e));
+      showAlert("Couldn't save rating", apiErrorText(e));
     } finally {
       setRatingId(null);
     }

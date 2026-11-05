@@ -1,5 +1,6 @@
 import { isAxiosError } from 'axios';
 import { ApiResponse } from './types';
+import { ApiError } from './http';
 
 /**
  * Turns a failed request into something a person can act on. The API answers validation
@@ -7,8 +8,11 @@ import { ApiResponse } from './types';
  * no response at all. Never shows "Failed to connect" for a request the server rejected.
  */
 export function describeApiError(e: unknown): { message: string; errors: string[] } {
+  if (e instanceof ApiError) return { message: e.serverMessage, errors: e.errors };
   if (isAxiosError(e)) {
     const body = e.response?.data as Partial<ApiResponse<unknown>> | undefined;
+    if (!e.response && (e.code === 'ECONNABORTED' || e.code === 'ETIMEDOUT'))
+      return { message: 'The server took too long to answer. Please try again.', errors: [] };
     if (!e.response) return { message: 'Could not reach the server. Check your connection and try again.', errors: [] };
     if (body && (body.message || body.errors?.length))
       return { message: body.message || 'Request failed.', errors: body.errors ?? [] };

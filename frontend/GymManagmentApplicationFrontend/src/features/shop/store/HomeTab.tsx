@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, TextInput, ActivityIndicator, Keyboa
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { T, SP, R, withAlpha } from '../../../theme';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import Skeleton from '../../common/components/Skeleton';
 import { formatPrice } from '../common/format';
 import { useCategories, useProducts, useStoreSettings, useSuggest } from '../api/storeQueries';

@@ -34,9 +34,9 @@ public class SmtpEmailSender(IOptions<EmailSettings> options, ILogger<SmtpEmailS
         {
             // Without SMTP nothing can be delivered. In Development, log the mail so codes can be used locally.
             if (env.IsDevelopment())
-                logger.LogWarning("Email not configured — would send to {To}: {Subject}\n{Body}", to, subject, htmlBody);
+                logger.LogWarning("Email not configured — would send to {To}: {Subject}\n{Body}", LogMask.Email(to), subject, htmlBody);
             else
-                logger.LogError("Email not configured (set Email__Host etc.) — could not send '{Subject}' to {To}.", subject, to);
+                logger.LogError("Email not configured (set Email__Host etc.) — could not send '{Subject}' to {To}.", subject, LogMask.Email(to));
             return false;
         }
 
@@ -63,9 +63,23 @@ public class SmtpEmailSender(IOptions<EmailSettings> options, ILogger<SmtpEmailS
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to send email '{Subject}' to {To}.", subject, to);
+            logger.LogError(ex, "Failed to send email '{Subject}' to {To}.", subject, LogMask.Email(to));
             return false;
         }
+    }
+}
+
+/// <summary>Log-safe forms of personal data (ARCH-048).</summary>
+public static class LogMask
+{
+    /// <summary>"jo***@gym.com" — enough to tell recipients apart, not enough to harvest.</summary>
+    public static string Email(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return "(none)";
+        var at = email.IndexOf('@');
+        if (at <= 0) return "***";
+        var local = email[..at];
+        return (local.Length <= 2 ? local[..1] : local[..2]) + "***" + email[at..];
     }
 }
 

@@ -74,8 +74,8 @@ public class ShopOrdersController(
         => StatusCode(StatusCodes.Status201Created, ApiResponse<object>.Ok(await orders.CreateAsync(request), "Order placed"));
 
     [HttpGet("orders")]
-    public async Task<ActionResult<ApiResponse<object>>> GetMyOrders([FromQuery] int page = 1, [FromQuery] int pageSize = 12)
-        => Ok(ApiResponse<object>.Ok(await orders.GetMyOrdersAsync(page, pageSize)));
+    public async Task<ActionResult<ApiResponse<object>>> GetMyOrders([FromQuery] int page = 1, [FromQuery] int pageSize = 12, [FromQuery] int? pageNumber = null)
+        => Ok(ApiResponse<object>.Ok(await orders.GetMyOrdersAsync(pageNumber ?? page, pageSize)));
 
     [HttpGet("orders/{orderNumber}")]
     public async Task<ActionResult<ApiResponse<object>>> GetMyOrder(string orderNumber)

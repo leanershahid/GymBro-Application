@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { T, SP, R, withAlpha } from '../../../theme';
 import BottomSheet from '../../common/components/BottomSheet';
 import PrimaryButton from '../../common/components/PrimaryButton';
+import ConfirmSheet from '../../common/components/ConfirmSheet';
 
 // Small building blocks shared by the store screens.
 
@@ -172,21 +173,7 @@ export function SectionTitle({ title, action, style }: { title: string; action?:
   );
 }
 
-/** "Are you sure?" sheet — Alert.alert does nothing on web. */
-export function ConfirmSheet({ visible, title, message, confirmLabel, onConfirm, onClose, loading, danger = true, cancelLabel = 'Cancel' }: {
-  visible: boolean; title: string; message: string; confirmLabel: string; onConfirm: () => void; onClose: () => void;
-  loading?: boolean; danger?: boolean; cancelLabel?: string;
-}) {
-  return (
-    <BottomSheet visible={visible} onClose={onClose} title={title}>
-      <View style={{ padding: SP.xl, gap: SP.md }}>
-        <Text style={{ color: T.textSub, fontSize: 14, lineHeight: 20 }}>{message}</Text>
-        <PrimaryButton label={confirmLabel} onPress={onConfirm} loading={loading} variant={danger ? 'danger' : 'primary'} />
-        <PrimaryButton label={cancelLabel} onPress={onClose} variant="secondary" disabled={loading} />
-      </View>
-    </BottomSheet>
-  );
-}
+export { ConfirmSheet };
 
 /** Label · amount row for totals. */
 export function MoneyRow({ label, value, strong, tone }: { label: string; value: string; strong?: boolean; tone?: string }) {

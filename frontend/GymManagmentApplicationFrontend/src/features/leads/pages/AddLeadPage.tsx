@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Alert } from 'react-native';
+import {} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { useCreateLead, useLeadSources } from '../api/leadQueries';
 import { LEAD_SOURCE_PRESETS, LeadPayload } from '../types/lead.types';
-import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
-import ChipSelect, { humanize } from '../../exercises/components/ChipSelect';
-import FormPage from '../../exercises/components/FormPage';
+import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
+import ChipSelect, { humanize } from '../../common/components/ChipSelect';
+import FormPage from '../../common/components/FormPage';
 import BranchDropdown from '../../branches/components/BranchDropdown';
 import { currentTenantId, getSession, isAdminRole } from '../../../api/session';
 import { apiErrorText } from '../../../api/apiError';
@@ -67,7 +68,7 @@ export default function AddLeadPage({ onBack, onCreated }: Props) {
         onCreated?.();
         onBack();
       },
-      onError: (e) => Alert.alert('Could not add lead', apiErrorText(e)),
+      onError: (e) => showAlert('Could not add lead', apiErrorText(e)),
     });
   };
 

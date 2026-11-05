@@ -124,6 +124,7 @@ public sealed class ShopAdminOrdersService(
             return order.OrderNumber;
         });
 
+        if (request.Status == ShopOrderStatus.Cancelled) await core.RefundCancelledAsync(tid, orderNumber);
         logger.LogInformation("Shop order {OrderNumber} status changed to {Status}", orderNumber, request.Status);
         return await GetAsync(orderNumber);
     }

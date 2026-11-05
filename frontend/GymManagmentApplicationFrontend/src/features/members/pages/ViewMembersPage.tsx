@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, FlatList, Pressable, ActivityIndicator, Alert } from 'react-native';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useStableCallback } from '../../common/hooks/useStableCallback';
+import { View, Text, FlatList, Pressable, ActivityIndicator,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { useMembers, useDeleteMember, useSetMemberStatus } from '../api/memberQueries';
 import { useTrainers } from '../../trainers/api/trainerQueries';
@@ -11,44 +13,48 @@ import SearchBar from '../../common/components/SearchBar';
 import StatusPill, { toneForStatus } from '../../common/components/StatusPill';
 import PaginationFooter from '../../common/components/PaginationFooter';
 import Skeleton from '../../common/components/Skeleton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import StatsStrip from '../../common/StatsStrip';
 import ManageUserAccessPage from '../../module-access/pages/ManageUserAccessPage';
 import { useToast } from '../../common/components/Toast';
-import { useRoleModuleAccess } from '../../module-access/hooks/useRoleModuleAccess';
+import { useApiAccess } from '../../access/context/AccessContext';
 import { T, withAlpha, SP, R } from '../../../theme';
+import SmallButton from '../../common/components/SmallButton';
 
 const TINTS = [T.brand, T.sky, T.violet, T.brandGold, T.err];
 const tint  = (id: number) => TINTS[id % TINTS.length];
 
 const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
-function ActionButton({
-  icon, label, tone, onPress,
-}: {
-  icon: React.ComponentProps<typeof Feather>['name'];
-  label: string;
-  tone: string;
-  onPress: () => void;
+
+const memberKey = (m: Member) => String(m.id);
+
+/** One list row: binds the member to the page's stable callbacks; memoised so unchanged rows skip re-rendering. */
+const MemberRow = memo(function MemberRow({ member, trainerName, opensDetail, onOpen, onAccess, onToggle, onRemove, canEdit, canDelete }: {
+  member: Member;
+  trainerName?: string;
+  opensDetail: boolean;
+  onOpen: (m: Member) => void;
+  onAccess: (m: Member) => void;
+  onToggle: (m: Member) => void;
+  onRemove: (m: Member) => void;
+  canEdit: boolean;
+  canDelete: boolean;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      hitSlop={6}
-      style={({ pressed }) => ({
-        flexDirection: 'row', alignItems: 'center', gap: 5,
-        paddingHorizontal: 10, paddingVertical: 6, borderRadius: R.pill,
-        backgroundColor: pressed ? withAlpha(tone, 0.18) : withAlpha(tone, 0.10),
-        borderWidth: 1, borderColor: withAlpha(tone, 0.28),
-      })}
-    >
-      <Feather name={icon} size={12} color={tone} />
-      <Text style={{ color: tone, fontSize: 11, fontWeight: '700' }}>{label}</Text>
-    </Pressable>
+    <MemberCard
+      member={member}
+      trainerName={trainerName}
+      onPress={() => onOpen(member)}
+      pressHint={opensDetail ? 'Opens this member’s details' : 'Opens access management for this member'}
+      onManageAccess={opensDetail ? () => onAccess(member) : undefined}
+      onToggleStatus={() => onToggle(member)}
+      onRemove={() => onRemove(member)}
+      canEdit={canEdit}
+      canDelete={canDelete}
+    />
   );
-}
+});
 
 function MemberCard({
   member, trainerName, onPress, pressHint, onManageAccess, onToggleStatus, onRemove, canEdit, canDelete,
@@ -131,7 +137,7 @@ function MemberCard({
       {(canEdit || canDelete) && (
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
           {canEdit && (
-            <ActionButton
+            <SmallButton size="sm"
               icon={isActive ? 'user-x' : 'user-check'}
               label={isActive ? 'Deactivate' : 'Activate'}
               tone={isActive ? T.brandGold : T.ok}
@@ -139,10 +145,10 @@ function MemberCard({
             />
           )}
           {canDelete && (
-            <ActionButton icon="trash-2" label="Remove" tone={T.err} onPress={onRemove} />
+            <SmallButton size="sm" icon="trash-2" label="Remove" tone={T.err} onPress={onRemove} />
           )}
           {canEdit && onManageAccess && (
-            <ActionButton icon="shield" label="Access" tone={T.sky} onPress={onManageAccess} />
+            <SmallButton size="sm" icon="shield" label="Access" tone={T.sky} onPress={onManageAccess} />
           )}
         </View>
       )}
@@ -183,14 +189,14 @@ export default function ViewMembersPage({ onBack, onAddMember, onOpenMember }: P
   const { mutate: setStatus } = useSetMemberStatus();
   const { mutate: removeMember } = useDeleteMember();
   const { show: showToast } = useToast();
-  const membersAccess = useRoleModuleAccess('members');
+  const membersAccess = useApiAccess('members');
   const canEditMembers = membersAccess.canEdit;
   const canDeleteMembers = membersAccess.canDelete;
 
   const handleToggleStatus = (member: Member) => {
     const isActive = member.status.toLowerCase() === 'active';
     const fullName = `${member.firstName} ${member.lastName}`;
-    Alert.alert(
+    showAlert(
       isActive ? 'Deactivate member?' : 'Activate member?',
       isActive
         ? `${fullName} will no longer be able to sign in.`
@@ -214,7 +220,7 @@ export default function ViewMembersPage({ onBack, onAddMember, onOpenMember }: P
 
   const handleRemove = (member: Member) => {
     const fullName = `${member.firstName} ${member.lastName}`;
-    Alert.alert(
+    showAlert(
       'Remove member?',
       `${fullName} will be archived and can no longer sign in. This can't be undone from here.`,
       [
@@ -230,6 +236,26 @@ export default function ViewMembersPage({ onBack, onAddMember, onOpenMember }: P
       ],
     );
   };
+
+  // Stable row callbacks so the memoised MemberCard rows don't all re-render with the page (ARCH-134).
+  const openRow = useStableCallback((m: Member) => (onOpenMember ? onOpenMember(m.id) : setManageAccessFor(m)));
+  const accessRow = useStableCallback((m: Member) => setManageAccessFor(m));
+  const toggleRow = useStableCallback(handleToggleStatus);
+  const removeRow = useStableCallback(handleRemove);
+  const opensDetail = !!onOpenMember;
+  const renderMember = useCallback(({ item }: { item: Member }) => (
+    <MemberRow
+      member={item}
+      trainerName={item.trainerId ? trainerNames.get(item.trainerId) : undefined}
+      opensDetail={opensDetail}
+      onOpen={openRow}
+      onAccess={accessRow}
+      onToggle={toggleRow}
+      onRemove={removeRow}
+      canEdit={canEditMembers}
+      canDelete={canDeleteMembers}
+    />
+  ), [trainerNames, opensDetail, openRow, accessRow, toggleRow, removeRow, canEditMembers, canDeleteMembers]);
 
   if (manageAccessFor) {
     return (
@@ -279,20 +305,8 @@ export default function ViewMembersPage({ onBack, onAddMember, onOpenMember }: P
       {/* List */}
       <FlatList
         data={isLoading || isError ? [] : items}
-        keyExtractor={(m) => String(m.id)}
-        renderItem={({ item }) => (
-          <MemberCard
-            member={item}
-            trainerName={item.trainerId ? trainerNames.get(item.trainerId) : undefined}
-            onPress={() => (onOpenMember ? onOpenMember(item.id) : setManageAccessFor(item))}
-            pressHint={onOpenMember ? 'Opens this member’s details' : 'Opens access management for this member'}
-            onManageAccess={onOpenMember ? () => setManageAccessFor(item) : undefined}
-            onToggleStatus={() => handleToggleStatus(item)}
-            onRemove={() => handleRemove(item)}
-            canEdit={canEditMembers}
-            canDelete={canDeleteMembers}
-          />
-        )}
+        keyExtractor={memberKey}
+        renderItem={renderMember}
         ListHeaderComponent={
           isLoading ? <Skeleton height={74} /> :
           isError ? (

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import MemberBillingSection from '../../billing/components/MemberBillingSection';
 import {
-  View, Text, ScrollView, Pressable, TextInput, Alert, Linking, RefreshControl,
+  View, Text, ScrollView, Pressable, TextInput, Linking, RefreshControl,
 } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -18,11 +19,14 @@ import SegmentedTabs from '../../common/components/SegmentedTabs';
 import StatusPill, { toneForStatus } from '../../common/components/StatusPill';
 import LoadingState from '../../common/components/LoadingState';
 import PrimaryButton from '../../common/components/PrimaryButton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import ManageUserAccessPage from '../../module-access/pages/ManageUserAccessPage';
 import { useToast } from '../../common/components/Toast';
 import { describeApiError, apiErrorText } from '../../../api/apiError';
 import { T, SP, R, withAlpha, Shadow } from '../../../theme';
+import SmallButton from '../../common/components/SmallButton';
+import DetailRow from '../../common/components/DetailRow';
+import { formatMoney } from '../../common/utils/format';
 
 type Tab = 'overview' | 'plans' | 'visits' | 'notes' | 'docs';
 type FeatherIcon = React.ComponentProps<typeof Feather>['name'];
@@ -40,10 +44,7 @@ const fmtDate = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtDateTime = (iso: string) =>
   new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-const fmtMoney = (amount: number, currency: string) => {
-  try { return new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(amount); }
-  catch { return `${currency} ${amount}`; }
-};
+const fmtMoney = (amount: number, currency: string) => formatMoney(amount, currency, { locale: 'en-IN' });
 
 // ─── Building blocks (same look as TrainerDetailPage) ────────────
 
@@ -66,48 +67,7 @@ function Section({ title, right, children }: { title: string; right?: React.Reac
 
 const Divider = () => <View style={{ height: 1, backgroundColor: T.lineSubtle }} />;
 
-function DetailRow({ icon, label, value }: { icon: FeatherIcon; label: string; value: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: SP.md }}>
-      <View style={{
-        width: 40, height: 40, borderRadius: R.md, backgroundColor: T.bgInputActive,
-        alignItems: 'center', justifyContent: 'center', marginRight: SP.md,
-      }}>
-        <Feather name={icon} size={17} color={T.brand} />
-      </View>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ color: T.textFaint, fontSize: 11, fontWeight: '600', letterSpacing: 0.3, marginBottom: 2 }}>
-          {label.toUpperCase()}
-        </Text>
-        <Text style={{ color: T.text, fontSize: 15, fontWeight: '600' }} numberOfLines={2}>{value}</Text>
-      </View>
-    </View>
-  );
-}
 
-function SmallButton({ icon, label, tone, onPress, disabled }: {
-  icon: FeatherIcon; label: string; tone: string; onPress: () => void; disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: !!disabled }}
-      hitSlop={6}
-      style={({ pressed }) => ({
-        flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 34,
-        paddingHorizontal: 12, borderRadius: R.pill, opacity: disabled ? 0.5 : 1,
-        backgroundColor: pressed ? withAlpha(tone, 0.18) : withAlpha(tone, 0.10),
-        borderWidth: 1, borderColor: withAlpha(tone, 0.28),
-      })}
-    >
-      <Feather name={icon} size={13} color={tone} />
-      <Text style={{ color: tone, fontSize: 12, fontWeight: '700' }}>{label}</Text>
-    </Pressable>
-  );
-}
 
 /** Loading / error / empty switch shared by every tab. */
 function TabState({ loading, error, empty, emptyIcon, emptyTitle, emptySubtitle, onRetry, loadingLabel }: {
@@ -158,17 +118,17 @@ function OverviewTab({ m, canEdit, onAssign, onRemoveTrainer, onManageAccess }: 
   return (
     <>
       <Section title="Profile">
-        <DetailRow icon="mail" label="Email" value={m.email} />
+        <DetailRow numberOfLines={2} icon="mail" label="Email" value={m.email} />
         <Divider />
-        <DetailRow icon="phone" label="Phone" value={m.phone || 'Not set'} />
+        <DetailRow numberOfLines={2} icon="phone" label="Phone" value={m.phone || 'Not set'} />
         <Divider />
-        <DetailRow icon="map-pin" label="Branch" value={m.branchName || 'Not set'} />
+        <DetailRow numberOfLines={2} icon="map-pin" label="Branch" value={m.branchName || 'Not set'} />
         <Divider />
-        <DetailRow icon="user" label="Gender" value={m.gender ? capitalize(m.gender.toLowerCase()) : 'Not set'} />
+        <DetailRow numberOfLines={2} icon="user" label="Gender" value={m.gender ? capitalize(m.gender.toLowerCase()) : 'Not set'} />
         <Divider />
-        <DetailRow icon="gift" label="Date of birth" value={m.dob ? fmtDate(m.dob) : 'Not set'} />
+        <DetailRow numberOfLines={2} icon="gift" label="Date of birth" value={m.dob ? fmtDate(m.dob) : 'Not set'} />
         <Divider />
-        <DetailRow icon="calendar" label="Member since" value={fmtDate(m.createdAt)} />
+        <DetailRow numberOfLines={2} icon="calendar" label="Member since" value={fmtDate(m.createdAt)} />
       </Section>
 
       <Section
@@ -332,7 +292,7 @@ function DocsTab({ memberId, canEdit }: { memberId: number; canEdit: boolean }) 
   const pickAndUpload = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission required', 'Please allow access to your photo library.');
+      showAlert('Permission required', 'Please allow access to your photo library.');
       return;
     }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
@@ -342,7 +302,7 @@ function DocsTab({ memberId, canEdit }: { memberId: number; canEdit: boolean }) 
       { file: { uri: a.uri, mimeType: a.mimeType, fileName: a.fileName }, documentType: 'image' },
       {
         onSuccess: (r) => showToast({ type: r.success ? 'success' : 'error', message: r.success ? 'Document uploaded.' : r.message }),
-        onError: (e) => Alert.alert('Upload failed', apiErrorText(e)),
+        onError: (e) => showAlert('Upload failed', apiErrorText(e)),
       },
     );
   };
@@ -471,7 +431,7 @@ export default function MemberDetailPage({ memberId, onBack, onEdit, canEdit = f
   }
 
   const removeTrainer = (t: AssignedTrainer) => {
-    Alert.alert(
+    showAlert(
       'Remove trainer?',
       `${t.displayName} will no longer be assigned to ${fullName}.`,
       [
@@ -482,7 +442,7 @@ export default function MemberDetailPage({ memberId, onBack, onEdit, canEdit = f
             { memberId: member.id, trainerId: t.trainerId },
             {
               onSuccess: () => showToast({ type: 'success', message: `${t.displayName} removed.` }),
-              onError: (e) => Alert.alert('Could not remove trainer', apiErrorText(e)),
+              onError: (e) => showAlert('Could not remove trainer', apiErrorText(e)),
             },
           ),
         },

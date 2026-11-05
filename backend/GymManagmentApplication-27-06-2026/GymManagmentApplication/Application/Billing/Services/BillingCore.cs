@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GymManagmentApplication.Application.Billing.Requests;
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Billing;
 using GymManagmentApplication.Domain.Enums;
 using GymManagmentApplication.Infrastructure.Data;
@@ -104,19 +105,27 @@ public class BillingCore(AppDbContext db, GymManagmentApplication.Application.En
 
     public static decimal Balance(Invoice i) => Math.Max(0, i.Total - i.AmountPaid);
 
-    public static decimal Round(decimal v) => Math.Round(v, 2, MidpointRounding.AwayFromZero);
+    public static decimal Round(decimal v) => Money.Round(v);
 
-    /// <summary>INV-2026-00042: per gym and year; the unique (TenantId, InvoiceNo) index backs it up.</summary>
+    /// <summary>
+    /// INV-2026-00042: per gym and year, drawn from the gym's TenantCounters row with one atomic
+    /// upsert (ARCH-006) so concurrent invoices never collide; the unique (TenantId, InvoiceNo)
+    /// index stays as a backstop. The first call of a year continues from existing invoices.
+    /// </summary>
     private async Task<string> NextInvoiceNoAsync(ulong tenantId)
     {
         var year = DateTime.UtcNow.Year;
         var prefix = $"INV-{year}-";
-        var last = await db.Invoices.IgnoreQueryFilters()
-            .Where(i => i.TenantId == tenantId && i.InvoiceNo.StartsWith(prefix))
-            .OrderByDescending(i => i.InvoiceNo).Select(i => i.InvoiceNo).FirstOrDefaultAsync();
-        var n = last is not null && int.TryParse(last[prefix.Length..], out var x) ? x + 1 : 1;
-        // Invoices created earlier in this same unit of work aren't in the database yet.
-        n += db.ChangeTracker.Entries<Invoice>().Count(e => e.State == EntityState.Added && e.Entity.TenantId == tenantId);
+        var key = $"invoice:{year}";
+        long floor = 1;
+        if (!await db.TenantCounters.IgnoreQueryFilters().AnyAsync(c => c.TenantId == tenantId && c.Key == key))
+        {
+            var numbers = await db.Invoices.IgnoreQueryFilters()
+                .Where(i => i.TenantId == tenantId && i.InvoiceNo.StartsWith(prefix))
+                .Select(i => i.InvoiceNo).ToListAsync();
+            floor = numbers.Select(no => long.TryParse(no[prefix.Length..], out var x) ? x : 0).DefaultIfEmpty(0).Max() + 1;
+        }
+        var n = await TenantCounters.NextAsync(db, tenantId, key, floor);
         return $"{prefix}{n:D5}";
     }
 }

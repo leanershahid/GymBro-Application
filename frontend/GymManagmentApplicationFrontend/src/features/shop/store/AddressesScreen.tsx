@@ -6,7 +6,7 @@ import { useLayout } from '../../../utils/useLayout';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import Skeleton from '../../common/components/Skeleton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useToast } from '../../common/components/Toast';
 import { apiErrorText } from '../../../api/apiError';
 import { ShopAddress } from '../api/shop.types';

@@ -6,7 +6,7 @@ import BottomSheet from '../../common/components/BottomSheet';
 import SearchBar from '../../common/components/SearchBar';
 import Skeleton from '../../common/components/Skeleton';
 import StatusPill from '../../common/components/StatusPill';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useExerciseLibrary } from '../api/programQueries';
 import { LibraryExercise } from '../types/program.types';
 

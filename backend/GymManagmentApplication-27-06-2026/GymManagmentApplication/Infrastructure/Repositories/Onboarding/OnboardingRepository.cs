@@ -23,6 +23,12 @@ public class OnboardingRepository(AppDbContext db) : IOnboardingRepository
         await db.OnboardingSteps
             .FirstOrDefaultAsync(s => s.UserId == memberId && s.StepKey == stepKey);
 
+    public async Task UpdateStepsAsync(IEnumerable<OnboardingStep> steps)
+    {
+        db.OnboardingSteps.UpdateRange(steps);
+        await db.SaveChangesAsync();
+    }
+
     public async Task<OnboardingStep> UpdateStepAsync(OnboardingStep step)
     {
         db.OnboardingSteps.Update(step);
@@ -32,8 +38,6 @@ public class OnboardingRepository(AppDbContext db) : IOnboardingRepository
 
     public async Task<ClientAssessment> CreateAssessmentAsync(ClientAssessment assessment)
     {
-        var maxId = await db.ClientAssessments.IgnoreQueryFilters().MaxAsync(a => (ulong?)a.Id) ?? 0;
-        assessment.Id         = maxId + 1;
         assessment.AssessedAt = DateTime.UtcNow;
         db.ClientAssessments.Add(assessment);
         await db.SaveChangesAsync();
@@ -48,8 +52,6 @@ public class OnboardingRepository(AppDbContext db) : IOnboardingRepository
 
     public async Task<AssessmentTemplate> CreateTemplateAsync(AssessmentTemplate template)
     {
-        var maxId = await db.AssessmentTemplates.IgnoreQueryFilters().MaxAsync(t => (ulong?)t.Id) ?? 0;
-        template.Id        = maxId + 1;
         template.CreatedAt = DateTime.UtcNow;
         db.AssessmentTemplates.Add(template);
         await db.SaveChangesAsync();

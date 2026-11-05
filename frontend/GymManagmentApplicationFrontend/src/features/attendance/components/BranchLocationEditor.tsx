@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, Linking } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { T, R, withAlpha } from '../../../theme';
-import { Field, SwitchRow } from '../../trainers/components/FormFields';
+import { Field, SwitchRow } from '../../common/components/FormFields';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import StatusPill from '../../common/components/StatusPill';
 import { BranchGeofence } from '../types/attendance.types';
 import { useClearBranchGeofence, useSetBranchGeofence } from '../api/attendanceQueries';
 import { formatCoords, getCurrentCoords, isShortMapsLink, parseCoordinates } from '../utils/location';
+import { apiErrorText } from '../../../api/apiError';
 
 interface Props {
   branch: BranchGeofence;
@@ -97,7 +98,7 @@ export default function BranchLocationEditor({ branch, defaultRadiusM }: Props) 
         onSuccess: (res) => setMessage(res.success
           ? { tone: 'ok', text: enabled ? 'Saved. Members can check in here.' : 'Saved. Location check-in is off for this branch.' }
           : { tone: 'err', text: res.message || 'Could not save.' }),
-        onError: (e: any) => setMessage({ tone: 'err', text: e?.response?.data?.message ?? 'Could not save. Check your connection.' }),
+        onError: (e: unknown) => setMessage({ tone: 'err', text: apiErrorText(e) }),
       },
     );
   };

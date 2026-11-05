@@ -28,8 +28,6 @@ public class WorkoutRepository(AppDbContext db) : IWorkoutRepository
 
     public async Task<WorkoutTemplate> CreateAsync(WorkoutTemplate template)
     {
-        var maxId = await db.WorkoutTemplates.IgnoreQueryFilters().MaxAsync(w => (ulong?)w.Id) ?? 0;
-        template.Id        = maxId + 1;
         template.CreatedAt = DateTime.UtcNow;
         template.UpdatedAt = DateTime.UtcNow;
         db.WorkoutTemplates.Add(template);
@@ -63,8 +61,6 @@ public class WorkoutRepository(AppDbContext db) : IWorkoutRepository
 
     public async Task<WorkoutAssignment> CreateAssignmentAsync(WorkoutAssignment assignment)
     {
-        var maxId = await db.WorkoutAssignments.IgnoreQueryFilters().MaxAsync(a => (ulong?)a.Id) ?? 0;
-        assignment.Id = maxId + 1;
         db.WorkoutAssignments.Add(assignment);
         await db.SaveChangesAsync();
         return assignment;
@@ -72,8 +68,6 @@ public class WorkoutRepository(AppDbContext db) : IWorkoutRepository
 
     public async Task<WorkoutLog> CreateLogAsync(WorkoutLog log)
     {
-        var maxId = await db.WorkoutLogs.IgnoreQueryFilters().MaxAsync(l => (ulong?)l.Id) ?? 0;
-        log.Id        = maxId + 1;
         log.CreatedAt = DateTime.UtcNow;
         db.WorkoutLogs.Add(log);
         await db.SaveChangesAsync();

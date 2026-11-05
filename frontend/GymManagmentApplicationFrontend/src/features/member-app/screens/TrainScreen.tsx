@@ -15,7 +15,7 @@ import SegmentedTabs from '../../common/components/SegmentedTabs';
 import SearchBar from '../../common/components/SearchBar';
 import StatusPill from '../../common/components/StatusPill';
 import PaginationFooter from '../../common/components/PaginationFooter';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { difficultyTone, goalTone } from '../components/pillTones';
 import { usePageTabs } from '../../access/context/AccessContext';
 

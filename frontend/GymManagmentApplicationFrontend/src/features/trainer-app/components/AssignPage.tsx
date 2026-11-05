@@ -1,15 +1,16 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, Pressable, Alert } from 'react-native';
+import { View, Text, Pressable,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { T, R, SP, withAlpha } from '../../../theme';
-import FormPage from '../../exercises/components/FormPage';
-import { Field } from '../../trainers/components/FormFields';
-import { DateField } from '../../trainers/components/DatePicker';
+import FormPage from '../../common/components/FormPage';
+import { Field } from '../../common/components/FormFields';
+import { DateField } from '../../common/components/DatePicker';
 import SearchBar from '../../common/components/SearchBar';
 import Skeleton from '../../common/components/Skeleton';
 import StatusPill from '../../common/components/StatusPill';
 import { useToast } from '../../common/components/Toast';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { apiErrorText } from '../../../api/apiError';
 import { useMyClients, useClientProfiles } from '../api/trainerAppQueries';
 import { useAssignWorkout, useAssignPlan } from '../api/programQueries';
@@ -70,11 +71,11 @@ export default function AssignPage({ kind, id, name, trainerId, onBack }: Props)
     if (Object.keys(errs).length) return;
 
     const onSuccess = (res: { success: boolean; message: string }) => {
-      if (!res.success) { Alert.alert('Could not assign', res.message || 'Nothing was assigned.'); return; }
+      if (!res.success) { showAlert('Could not assign', res.message || 'Nothing was assigned.'); return; }
       toast.show({ type: 'success', message: `${name} assigned to ${selected.length} client${selected.length === 1 ? '' : 's'}.` });
       onBack();
     };
-    const onError = (e: unknown) => Alert.alert('Could not assign', apiErrorText(e));
+    const onError = (e: unknown) => showAlert('Could not assign', apiErrorText(e));
 
     if (kind === 'workout') {
       assignWorkout({ workoutId: id, memberIds: selected, assignedAt: start, dueDate: due || null, notes: notes.trim() || null }, { onSuccess, onError });

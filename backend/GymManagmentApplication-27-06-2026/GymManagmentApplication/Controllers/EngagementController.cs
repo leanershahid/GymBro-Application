@@ -27,7 +27,7 @@ public class NotificationsController(Notifier notifier) : ControllerBase
 
 /// <summary>Challenge participation (join/leave/progress/leaderboard) and admin edits.</summary>
 [ApiController]
-[PermissionModule("gamification")]
+[PermissionModule("challenges")] // same key as RequireModule (admin.challenges grants both "challenges" and "gamification")
 [Route("api/challenges")]
 [RequireModule("challenges")]
 public class ChallengeParticipationController(EngagementService service) : ControllerBase

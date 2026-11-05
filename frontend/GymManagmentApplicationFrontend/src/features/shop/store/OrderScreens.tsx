@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, FlatList } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { T, SP, R, withAlpha } from '../../../theme';
 import { useLayout } from '../../../utils/useLayout';
@@ -8,7 +8,7 @@ import ScreenHeader from '../../common/components/ScreenHeader';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import StatusPill, { PillTone } from '../../common/components/StatusPill';
 import Skeleton from '../../common/components/Skeleton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useToast } from '../../common/components/Toast';
 import { apiErrorText } from '../../../api/apiError';
 import { ORDER_STATUS_LABEL, formatDate, formatMoney } from '../common/format';
@@ -143,21 +143,36 @@ function OrderRow({ o }: { o: ShopOrderSummary }) {
   );
 }
 
+const orderKey = (o: ShopOrderSummary) => String(o.id);
+const renderOrder = ({ item }: { item: ShopOrderSummary }) => <OrderRow o={item} />;
+const OrderGap = () => <View style={{ height: SP.md }} />;
+
+/** The member's orders: a virtualised list (ARCH-133) that pages in with "Load more". */
 export function OrdersTab({ hPad }: { hPad: number }) {
   const nav = useShopNav();
   const q = useOrders();
   const orders = q.data?.pages.flatMap(p => p.items) ?? [];
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: hPad, paddingBottom: 60, gap: SP.md }}>
-
-      {q.isPending && <Skeleton rows={3} height={120} borderRadius={R.lg} />}
-      {q.isError && <EmptyState icon="alert-circle" tone="error" title="Couldn’t load your orders" subtitle={apiErrorText(q.error)} action={{ label: 'Retry', onPress: () => q.refetch() }} />}
-      {q.data && !orders.length && (
-        <EmptyState icon="package" title="No orders yet" subtitle="When you buy something it’ll show up here, with live tracking." action={{ label: 'Start shopping', onPress: () => nav.setTab('store') }} />
-      )}
-      {orders.map(o => <OrderRow key={o.id} o={o} />)}
-      {q.hasNextPage && <PrimaryButton label="Load more orders" variant="secondary" loading={q.isFetchingNextPage} onPress={() => q.fetchNextPage()} />}
-    </ScrollView>
+    <FlatList
+      data={orders}
+      keyExtractor={orderKey}
+      renderItem={renderOrder}
+      ItemSeparatorComponent={OrderGap}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingHorizontal: hPad, paddingBottom: 60 }}
+      ListHeaderComponent={
+        <View style={{ gap: SP.md }}>
+          {q.isPending && <Skeleton rows={3} height={120} borderRadius={R.lg} />}
+          {q.isError && <EmptyState icon="alert-circle" tone="error" title="Couldn’t load your orders" subtitle={apiErrorText(q.error)} action={{ label: 'Retry', onPress: () => q.refetch() }} />}
+          {q.data && !orders.length && (
+            <EmptyState icon="package" title="No orders yet" subtitle="When you buy something it’ll show up here, with live tracking." action={{ label: 'Start shopping', onPress: () => nav.setTab('store') }} />
+          )}
+        </View>
+      }
+      ListFooterComponent={q.hasNextPage
+        ? <View style={{ marginTop: SP.md }}><PrimaryButton label="Load more orders" variant="secondary" loading={q.isFetchingNextPage} onPress={() => q.fetchNextPage()} /></View>
+        : null}
+    />
   );
 }
 

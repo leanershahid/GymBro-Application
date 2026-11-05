@@ -43,11 +43,22 @@ public static class MemberScope
     /// <summary>Throws (→ 403) unless the caller may act on every id (see <see cref="CanActOnAsync"/>).</summary>
     public static async Task EnsureCanActOnAllAsync(this AppDbContext db, ICurrentUser me, IEnumerable<ulong> userIds)
     {
-        foreach (var id in userIds)
+        var ids = userIds.Distinct().ToList();
+        if (me.IsTrainer())
+        {
+            // One query for the whole set instead of one per id (ARCH-042).
+            var others = ids.Where(id => id != me.UserId).ToList();
+            if (others.Count == 0) return;
+            var assigned = await db.AssignedClientIds(me.UserId ?? 0)
+                .Where(id => others.Contains(id)).Distinct().ToListAsync();
+            var missing = others.Except(assigned).ToList();
+            if (missing.Count > 0)
+                throw new UnauthorizedAccessException($"Member {missing[0]} is not assigned to you.");
+            return;
+        }
+        foreach (var id in ids)
             if (!await db.CanActOnAsync(me, id))
-                throw new UnauthorizedAccessException(me.IsTrainer()
-                    ? $"Member {id} is not assigned to you."
-                    : "You can only access your own records.");
+                throw new UnauthorizedAccessException("You can only access your own records.");
     }
 
     /// <summary>

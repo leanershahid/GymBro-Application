@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, Image, Alert } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { TrainerPayload } from '../types/trainer.types';
-import { Field, RowGrid, GridCell } from './FormFields';
-import { DateField } from './DatePicker';
+import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
+import { DateField } from '../../common/components/DatePicker';
 import { BasicInfoErrors } from '../pages/AddTrainerPage';
 import { T, withAlpha } from '../../../theme';
 import BranchDropdown from '../../branches/components/BranchDropdown';
@@ -136,7 +136,7 @@ export default function StepBasicInfo({ data, onChange, errors = {}, selectedBra
           <DateField label="Date of Birth" value={data.dateOfBirth ?? ''} onChange={(v) => onChange({ dateOfBirth: v })} maxYear={new Date().getFullYear()} error={errors.dateOfBirth} />
         </GridCell>
         <GridCell>
-          <Field label="Exp. Years" value={String(data.experienceYears ?? '')} onChangeText={(v) => onChange({ experienceYears: v.trim() === '' ? (undefined as unknown as number) : Number(v.replace(/[^\d]/g, '')) })} keyboardType="numeric" error={errors.experienceYears} />
+          <Field label="Exp. Years" value={String(data.experienceYears ?? '')} onChangeText={(v) => onChange({ experienceYears: v.trim() === '' ? undefined : Number(v.replace(/[^\d]/g, '')) })} keyboardType="numeric" error={errors.experienceYears} />
         </GridCell>
       </RowGrid>
 

@@ -101,6 +101,7 @@ public sealed class ShopOrderService(
         if (request.AddressId == 0) throw new ArgumentException("Choose a delivery address.");
         if (!Enum.IsDefined(request.DeliveryMethod)) throw new ArgumentException("Choose a delivery method.");
         if (!Enum.IsDefined(request.PaymentMethod)) throw new ArgumentException("Choose a payment method.");
+        if (!paymentGateway.Supports(request.PaymentMethod)) throw new ArgumentException(ShopPayments.OnlyCashOnDelivery);
         if (request.CouponCode is { Length: > 40 }) throw new ArgumentException("Coupon code must be at most 40 characters.");
         if (request.Notes is { Length: > 1000 }) throw new ArgumentException("Notes must be at most 1000 characters.");
 
@@ -108,23 +109,74 @@ public sealed class ShopOrderService(
         var uid = UserId;
         var settings = await settingsService.GetAsync(tid);
 
-        // One more full attempt when two orders race for the same order number (unique index).
-        string orderNumber;
+        // 1. Reserve stock, use the coupon and save the order with a Pending payment. This part may be
+        //    retried (stock conflicts, a unique-index clash), so it never talks to the payment provider.
+        PlacedOrder placed;
         try
         {
-            orderNumber = await core.RunInTransactionWithRetryAsync(() => PlaceOrderAsync(tid, uid, settings, request));
+            placed = await core.RunInTransactionWithRetryAsync(() => PlaceOrderAsync(tid, uid, settings, request));
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
-            logger.LogInformation("Order number clash for tenant {TenantId}; retrying once", tid);
-            orderNumber = await core.RunInTransactionWithRetryAsync(() => PlaceOrderAsync(tid, uid, settings, request));
+            logger.LogInformation("Unique clash placing an order for tenant {TenantId}; retrying once", tid);
+            placed = await core.RunInTransactionWithRetryAsync(() => PlaceOrderAsync(tid, uid, settings, request));
         }
 
-        logger.LogInformation("Shop order {OrderNumber} placed by user {UserId}", orderNumber, uid);
-        return await GetMyOrderAsync(orderNumber);
+        // 2. Charge exactly once, outside any transaction, keyed by the order (ARCH-013).
+        await ChargeAsync(tid, placed, request.PaymentMethod, settings.Currency);
+
+        logger.LogInformation("Shop order {OrderNumber} placed by user {UserId}", placed.OrderNumber, uid);
+        return await GetMyOrderAsync(placed.OrderNumber);
     }
 
-    private async Task<string> PlaceOrderAsync(ulong tid, ulong uid, ShopSettings settings, ShopCreateOrderRequest request)
+    private sealed record PlacedOrder(ulong OrderId, string OrderNumber, decimal Total);
+
+    private async Task ChargeAsync(ulong tid, PlacedOrder placed, ShopPaymentMethod method, string currency)
+    {
+        ShopPaymentResult result;
+        try
+        {
+            result = await paymentGateway.ChargeAsync(new ShopPaymentRequest(
+                placed.OrderId, method, placed.Total, currency, $"shop-order-{tid}-{placed.OrderId}"));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Payment provider failed for shop order {OrderNumber}", placed.OrderNumber);
+            result = new ShopPaymentResult(ShopPaymentStatus.Failed, null, null, "the payment provider could not be reached");
+        }
+
+        if (result.Status == ShopPaymentStatus.Pending) return; // cash on delivery: nothing to record yet
+
+        await core.RunInTransactionWithRetryAsync(async () =>
+        {
+            var order = await core.GetByNumberAsync(tid, placed.OrderNumber, null, tracked: true)
+                        ?? throw new KeyNotFoundException("Order not found");
+            var payment = order.Payment!;
+            var now = DateTime.UtcNow;
+            payment.Status = result.Status;
+            payment.TransactionReference = result.TransactionReference;
+            payment.PaidAt = result.PaidAt;
+            payment.FailureReason = result.FailureReason;
+            payment.UpdatedAt = now;
+            if (result.Status == ShopPaymentStatus.Paid)
+            {
+                // Prepaid orders are confirmed immediately; COD orders wait for the gym to confirm.
+                order.Status = ShopOrderStatus.Confirmed;
+                order.ConfirmedAt = now;
+            }
+            else if (result.Status == ShopPaymentStatus.Failed)
+            {
+                await core.CancelCoreAsync(order); // give the stock and coupon back
+            }
+            await db.SaveChangesAsync();
+            return order.OrderNumber;
+        });
+
+        if (result.Status == ShopPaymentStatus.Failed)
+            throw ShopRuleException.Rule($"Payment failed: {result.FailureReason ?? "the payment was declined"}");
+    }
+
+    private async Task<PlacedOrder> PlaceOrderAsync(ulong tid, ulong uid, ShopSettings settings, ShopCreateOrderRequest request)
     {
         var address = await db.ShopAddresses.AsNoTracking()
                           .FirstOrDefaultAsync(a => a.Id == request.AddressId && a.TenantId == tid && a.UserId == uid && a.DeletedAt == null)
@@ -224,35 +276,21 @@ public sealed class ShopOrderService(
         order.Tax = totals.Tax;
         order.Total = totals.Total;
 
-        var payment = await paymentGateway.ChargeAsync(
-            new ShopPaymentRequest(order.Id, request.PaymentMethod, order.Total, settings.Currency));
-        if (payment.Status == ShopPaymentStatus.Failed)
-            throw ShopRuleException.Rule($"Payment failed: {payment.FailureReason ?? "the payment was declined"}");
-
+        // The charge happens after commit (see ChargeAsync); until then the payment is Pending.
         order.Payment = new ShopPayment
         {
             Id = 0,
             TenantId = tid,
             Method = request.PaymentMethod,
-            Status = payment.Status,
-            Amount = order.Total,
-            TransactionReference = payment.TransactionReference,
-            PaidAt = payment.PaidAt,
-            FailureReason = payment.FailureReason
+            Status = ShopPaymentStatus.Pending,
+            Amount = order.Total
         };
-
-        if (payment.Status == ShopPaymentStatus.Paid)
-        {
-            // Prepaid orders are confirmed immediately; COD orders wait for the gym to confirm.
-            order.Status = ShopOrderStatus.Confirmed;
-            order.ConfirmedAt = now;
-        }
 
         order.OrderNumber = await ShopOrderNumbers.NextAsync(db, tid, settings.OrderPrefix);
         db.ShopOrders.Add(order);
         db.ShopCartItems.RemoveRange(cartItems);
         await db.SaveChangesAsync();
-        return order.OrderNumber;
+        return new PlacedOrder(order.Id, order.OrderNumber, order.Total);
     }
 
     // ---------- The member's orders ----------
@@ -287,6 +325,7 @@ public sealed class ShopOrderService(
             return order.OrderNumber;
         });
 
+        await core.RefundCancelledAsync(tid, orderNumber);
         logger.LogInformation("Shop order {OrderNumber} cancelled by customer {UserId}", orderNumber, uid);
         return await GetMyOrderAsync(orderNumber);
     }
@@ -356,7 +395,11 @@ public sealed class ShopOrderCore(AppDbContext db, IShopPaymentGateway paymentGa
     public Task<List<ShopOrderSummaryDto>> GetRecentSummariesAsync(IQueryable<ShopOrder> query, int take, bool includeCustomer) =>
         Project(query.OrderByDescending(o => o.PlacedAt).ThenBy(o => o.Id).Take(take), includeCustomer).ToListAsync();
 
-    /// <summary>Marks the order cancelled, restocks inventory, releases coupon usage and refunds prepaid payments.</summary>
+    /// <summary>
+    /// Marks the order cancelled, restocks inventory and releases coupon usage. Runs inside the
+    /// (retried) transaction, so it never calls the payment provider: callers run
+    /// <see cref="RefundCancelledAsync"/> after the commit to refund a prepaid payment.
+    /// </summary>
     public async Task CancelCoreAsync(ShopOrder order)
     {
         var now = DateTime.UtcNow;
@@ -379,16 +422,32 @@ public sealed class ShopOrderCore(AppDbContext db, IShopPaymentGateway paymentGa
                 .ExecuteUpdateAsync(s => s.SetProperty(c => c.UsesCount, c => c.UsesCount - 1u));
         }
 
-        if (order.Payment is { Status: ShopPaymentStatus.Paid } payment)
-        {
-            var refund = await paymentGateway.RefundAsync(payment);
-            payment.Status = refund.Status;
-            payment.UpdatedAt = now;
-        }
-
         order.Status = ShopOrderStatus.Cancelled;
         order.CancelledAt = now;
         order.UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// After a cancellation has committed: refunds a prepaid (Paid) payment through the provider,
+    /// once, outside any transaction, and records the outcome. A provider failure is logged and the
+    /// payment stays Paid on the cancelled order so staff can follow it up.
+    /// </summary>
+    public async Task RefundCancelledAsync(ulong tenantId, string orderNumber)
+    {
+        db.ChangeTracker.Clear();
+        var order = await GetByNumberAsync(tenantId, orderNumber, null, tracked: true);
+        if (order is not { Status: ShopOrderStatus.Cancelled, Payment: { Status: ShopPaymentStatus.Paid } payment }) return;
+
+        ShopPaymentResult refund;
+        try { refund = await paymentGateway.RefundAsync(payment); }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Refund failed for cancelled shop order {OrderNumber}; needs manual follow-up", order.OrderNumber);
+            return;
+        }
+        payment.Status = refund.Status;
+        payment.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
     }
 
     /// <summary>

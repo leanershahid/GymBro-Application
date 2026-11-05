@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, Text } from 'react-native';
 import { TenantPayload, TenantPlan } from '../types/tenant.types';
-import { Field, RowGrid, GridCell } from '../../trainers/components/FormFields';
+import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
 import { T } from '../../../theme';
 import UploadField from '../../common/components/UploadField';
 

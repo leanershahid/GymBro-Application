@@ -16,8 +16,6 @@ public class WorkoutAutomationRepository(AppDbContext db) : IWorkoutAutomationRe
 
     public async Task<WorkoutAutomationRule> CreateRuleAsync(WorkoutAutomationRule rule)
     {
-        var maxId = await db.WorkoutAutomationRules.IgnoreQueryFilters().MaxAsync(r => (ulong?)r.Id) ?? 0;
-        rule.Id        = maxId + 1;
         rule.CreatedAt = DateTime.UtcNow;
         rule.UpdatedAt = DateTime.UtcNow;
         db.WorkoutAutomationRules.Add(rule);
@@ -50,8 +48,6 @@ public class WorkoutAutomationRepository(AppDbContext db) : IWorkoutAutomationRe
 
     public async Task<WorkoutAutomationLog> CreateLogAsync(WorkoutAutomationLog log)
     {
-        var maxId = await db.WorkoutAutomationLogs.IgnoreQueryFilters().MaxAsync(l => (ulong?)l.Id) ?? 0;
-        log.Id          = maxId + 1;
         log.ExecutedAt  = DateTime.UtcNow;
         db.WorkoutAutomationLogs.Add(log);
         await db.SaveChangesAsync();

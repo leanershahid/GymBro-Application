@@ -24,13 +24,27 @@ public class MemberRepository(AppDbContext db) : IMemberRepository
             q = q.Where(u => u.Status == status);
 
         if (!string.IsNullOrWhiteSpace(request.Query))
-            q = q.Where(u =>
-                (u.FirstName != null && u.FirstName.Contains(request.Query)) ||
-                (u.LastName  != null && u.LastName.Contains(request.Query))  ||
-                (u.Email     != null && u.Email.Contains(request.Query)));
+        {
+            if (db.Database.IsNpgsql())
+            {
+                // Case-insensitive on Postgres (ARCH-043); a pg_trgm GIN index can serve ILIKE later.
+                var pattern = "%" + request.Query.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+                q = q.Where(u =>
+                    (u.FirstName != null && EF.Functions.ILike(u.FirstName, pattern)) ||
+                    (u.LastName  != null && EF.Functions.ILike(u.LastName, pattern))  ||
+                    (u.Email     != null && EF.Functions.ILike(u.Email, pattern)));
+            }
+            else
+                q = q.Where(u =>
+                    (u.FirstName != null && u.FirstName.Contains(request.Query)) ||
+                    (u.LastName  != null && u.LastName.Contains(request.Query))  ||
+                    (u.Email     != null && u.Email.Contains(request.Query)));
+        }
 
         var total = await q.CountAsync();
+        // Read-only list: no change tracking (ARCH-043).
         var items = await q
+            .AsNoTracking()
             .Include(u => u.Branch)
             .OrderBy(u => u.FirstName)
             .Page(request.PageNumber, request.PageSize)
@@ -41,8 +55,6 @@ public class MemberRepository(AppDbContext db) : IMemberRepository
 
     public async Task<User> CreateAsync(User user)
     {
-        var maxId = await db.Users.IgnoreQueryFilters().MaxAsync(u => (ulong?)u.Id) ?? 0;
-        user.Id        = maxId + 1;
         user.CreatedAt = DateTime.UtcNow;
         user.UpdatedAt = DateTime.UtcNow;
         db.Users.Add(user);

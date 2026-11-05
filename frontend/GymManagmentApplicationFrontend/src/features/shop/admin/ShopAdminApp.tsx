@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BackHandler, View } from 'react-native';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { SP } from '../../../theme';
 import { usePageTabs } from '../../access/context/AccessContext';
 import { ChipItem, ChipRow } from './components/kit';

@@ -1,31 +1,15 @@
 import { MySubscription, MyInvoice } from '../types/memberBilling.types';
+import { formatMoney as sharedMoney, formatDate as sharedDate, parseDate } from '../../common/utils/format';
 
-const fmtCache = new Map<string, Intl.NumberFormat>();
-
-/** Money in the record's own currency. */
+/** Money in the record's own currency (INR when missing). */
 export function formatMoney(amount: number, currency: string): string {
-  const cur = (currency || 'INR').toUpperCase();
-  let f = fmtCache.get(cur);
-  if (!f) {
-    try { f = new Intl.NumberFormat(undefined, { style: 'currency', currency: cur }); }
-    catch { return `${cur} ${amount.toFixed(2)}`; }
-    fmtCache.set(cur, f);
-  }
-  return f.format(amount);
+  return sharedMoney(amount, currency, { defaultCurrency: 'INR' });
 }
 
-/** "YYYY-MM-DD" (DateOnly) or ISO datetime → local Date. DateOnly is read as a local calendar day. */
-export function parseDate(s: string | null | undefined): Date | null {
-  if (!s) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d;
-}
+export { parseDate };
 
 export function formatDate(s: string | null | undefined): string {
-  const d = parseDate(s);
-  return d ? d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  return parseDate(s) ? sharedDate(s) : '—';
 }
 
 /** Whole days from today until `s` (0 = today, negative = past). */

@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, ScrollView, Alert, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, ScrollView, useWindowDimensions } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { T, R, SP, withAlpha } from '../../../theme';
-import FormPage from '../../exercises/components/FormPage';
+import FormPage from '../../common/components/FormPage';
 import BottomSheet from '../../common/components/BottomSheet';
 import SearchBar from '../../common/components/SearchBar';
 import Skeleton from '../../common/components/Skeleton';
 import { useToast } from '../../common/components/Toast';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { apiErrorText } from '../../../api/apiError';
 import { usePlanSchedule, useSavePlanSchedule, useWorkoutOptions } from '../api/programQueries';
 import { PlanSchedule } from '../types/program.types';
@@ -76,7 +77,7 @@ export default function PlanScheduleEditor({ planId, planName, durationWeeks, on
 
   const copyWeekOne = () => {
     if (weeks.length < 2) return;
-    Alert.alert('Copy week 1 to all weeks?', `Weeks 2–${weeks.length} will be replaced with week 1's days.`, [
+    showAlert('Copy week 1 to all weeks?', `Weeks 2–${weeks.length} will be replaced with week 1's days.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Copy', onPress: () => {
@@ -88,7 +89,7 @@ export default function PlanScheduleEditor({ planId, planName, durationWeeks, on
   };
 
   const clearAll = () => {
-    Alert.alert('Clear the schedule?', 'Every day will become a rest day.', [
+    showAlert('Clear the schedule?', 'Every day will become a rest day.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Clear', style: 'destructive', onPress: () => { setWeeks(prev => prev.map(w => ({ ...w, days: DAYS.map(() => REST) }))); setDirty(true); } },
     ]);
@@ -106,18 +107,18 @@ export default function PlanScheduleEditor({ planId, planName, durationWeeks, on
     };
     save(payload, {
       onSuccess: res => {
-        if (!res.success) { Alert.alert('Could not save', res.message || 'The schedule was not saved.'); return; }
+        if (!res.success) { showAlert('Could not save', res.message || 'The schedule was not saved.'); return; }
         if (res.data) setWeeks(toDraft(res.data, weeksCount));
         setDirty(false);
         toast.show({ type: 'success', message: res.message || 'Plan schedule saved.' });
       },
-      onError: e => Alert.alert('Could not save', apiErrorText(e)),
+      onError: e => showAlert('Could not save', apiErrorText(e)),
     });
   };
 
   const handleBack = () => {
     if (!dirty) { onBack(); return; }
-    Alert.alert('Discard changes?', 'You have unsaved changes to this schedule.', [
+    showAlert('Discard changes?', 'You have unsaved changes to this schedule.', [
       { text: 'Keep editing', style: 'cancel' },
       { text: 'Discard', style: 'destructive', onPress: onBack },
     ]);

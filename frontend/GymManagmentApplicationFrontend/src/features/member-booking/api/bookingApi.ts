@@ -1,16 +1,8 @@
 import axiosInstance from '../../../api/axios';
 import { ApiResponse } from '../../../api/types';
+// Returns `data`, or throws ApiError so React Query surfaces it as an error.
+import { unwrapRequired as unwrap } from '../../../api/http';
 import { GymClass, PtType, PtSession, BookPtPayload, ClassBookResult } from '../types/booking.types';
-
-/** Returns `data`, or throws the envelope's message so React Query surfaces it as an error. */
-function unwrap<T>(res: ApiResponse<T>, fallback: T | null = null): T {
-  if (!res.success) throw new Error(res.message || 'Request failed.');
-  if (res.data == null) {
-    if (fallback !== null) return fallback;
-    throw new Error(res.message || 'Empty response.');
-  }
-  return res.data;
-}
 
 // ── Classes ──────────────────────────────────────────────────────────────────
 

@@ -6,7 +6,7 @@ import Skeleton from '../../common/components/Skeleton';
 import StatusPill from '../../common/components/StatusPill';
 import PaginationFooter from '../../common/components/PaginationFooter';
 import { useToast } from '../../common/components/Toast';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useApiAccess } from '../../access/context/AccessContext';
 import { apiErrorText } from '../../../api/apiError';
 import { useAdminInventory, useUpdateInventory } from '../api/adminQueries';

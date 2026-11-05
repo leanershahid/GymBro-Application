@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import BottomSheet from '../../common/components/BottomSheet';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import StatusPill from '../../common/components/StatusPill';
 import { useToast } from '../../common/components/Toast';
-import { Field, SwitchRow } from '../../trainers/components/FormFields';
+import { Field, SwitchRow } from '../../common/components/FormFields';
 import { apiErrorText, describeApiError } from '../../../api/apiError';
 import { useRoster, useCancelClass, useMarkAttendance, useBookMember, useUnbookMember } from '../api/classesQueries';
 import { GymClass, MemberOption, RosterEntry } from '../types/classes.types';
@@ -96,14 +97,14 @@ function Roster({ cls }: { cls: GymClass }) {
       { id: cls.id, clientId: e.clientId, attended },
       {
         onSuccess: () => { toast.show({ message: `${e.clientName}: ${attended ? 'attended' : 'no-show'}.` }); refetch(); },
-        onError: err => Alert.alert('Attendance not saved', apiErrorText(err)),
+        onError: err => showAlert('Attendance not saved', apiErrorText(err)),
         onSettled: () => setBusy(null),
       },
     );
   };
 
   const remove = (e: RosterEntry) => {
-    Alert.alert('Remove booking?', `${e.clientName} will be removed from this class.`, [
+    showAlert('Remove booking?', `${e.clientName} will be removed from this class.`, [
       { text: 'Keep', style: 'cancel' },
       {
         text: 'Remove', style: 'destructive',
@@ -113,7 +114,7 @@ function Roster({ cls }: { cls: GymClass }) {
             { id: cls.id, clientId: e.clientId },
             {
               onSuccess: msg => { toast.show({ message: msg || 'Booking cancelled.' }); refetch(); },
-              onError: err => Alert.alert('Couldn’t remove', apiErrorText(err)),
+              onError: err => showAlert('Couldn’t remove', apiErrorText(err)),
               onSettled: () => setBusy(null),
             },
           );
@@ -179,7 +180,7 @@ function CancelForm({ cls, onDone }: { cls: GymClass; onDone: () => void }) {
 
   const submit = () => {
     const what = wholeSeries ? 'this and every later class in the series' : 'this class';
-    Alert.alert('Cancel class?', `This cancels ${what}. Booked members are released.`, [
+    showAlert('Cancel class?', `This cancels ${what}. Booked members are released.`, [
       { text: 'Keep', style: 'cancel' },
       {
         text: 'Cancel class', style: 'destructive',
@@ -187,7 +188,7 @@ function CancelForm({ cls, onDone }: { cls: GymClass; onDone: () => void }) {
           { id: cls.id, payload: { reason: reason.trim() || null, wholeSeries } },
           {
             onSuccess: msg => { toast.show({ message: msg || 'Class cancelled.' }); onDone(); },
-            onError: e => Alert.alert('Couldn’t cancel', apiErrorText(e)),
+            onError: e => showAlert('Couldn’t cancel', apiErrorText(e)),
           },
         ),
       },
@@ -223,7 +224,7 @@ function AddMember({ cls, onDone }: { cls: GymClass; onDone: () => void }) {
       {
         onSuccess: msg => { toast.show({ message: `${member.name}: ${msg || 'Booked.'}` }); onDone(); },
         // Membership / already-booked rules come back as a message.
-        onError: e => Alert.alert('Booking failed', apiErrorText(e)),
+        onError: e => showAlert('Booking failed', apiErrorText(e)),
       },
     );
   };

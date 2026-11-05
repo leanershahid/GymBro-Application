@@ -5,7 +5,7 @@ import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
-import { Field } from '../../trainers/components/FormFields';
+import { Field } from '../../common/components/FormFields';
 import { useAiCoachSettings, useSaveAiCoachSettings } from '../api/aiCoachQueries';
 
 interface Props { onBack?: () => void; }

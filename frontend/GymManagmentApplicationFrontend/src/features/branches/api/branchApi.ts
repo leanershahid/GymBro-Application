@@ -12,7 +12,7 @@ export const fetchBranches = async (): Promise<BranchListResponse> => {
 };
 
 export const createBranch = async (payload: BranchPayload): Promise<BranchCreateResponse> => {
-  const { data } = await axiosInstance.post<BranchCreateResponse>(ENDPOINTS.ADD_BRANCH, payload);
+  const { data } = await axiosInstance.post<BranchCreateResponse>(ENDPOINTS.BRANCHES, payload);
   return data;
 };
 

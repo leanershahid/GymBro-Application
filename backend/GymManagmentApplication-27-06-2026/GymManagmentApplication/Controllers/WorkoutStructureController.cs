@@ -9,6 +9,7 @@ namespace GymManagmentApplication.Controllers;
 /// <summary>Workout contents, plan schedules, and a member's assignments.</summary>
 [ApiController]
 [PermissionModule("workouts")]
+// Absolute sub-routes under api/ (workouts/{id}/structure, …) — kept as-is for existing clients (ARCH-100).
 [Route("api")]
 public class WorkoutStructureController(WorkoutStructureService service) : ControllerBase
 {

@@ -7,7 +7,7 @@ import { T, R, withAlpha } from '../../../theme';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import Skeleton from '../../common/components/Skeleton';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { AssignedPlanCard } from '../components/TrainingCards';
 import { addDays, fmtWeekday, parseDay } from '../components/trainingUtils';
 

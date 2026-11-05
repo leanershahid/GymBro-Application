@@ -4,7 +4,7 @@ import SearchBar from '../../common/components/SearchBar';
 import StatusPill from '../../common/components/StatusPill';
 import LoadingState from '../../common/components/LoadingState';
 import PaginationFooter from '../../common/components/PaginationFooter';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { describeApiError } from '../../../api/apiError';
 import { useInvoices } from '../api/billingQueries';
 import { Invoice, InvoiceFilter } from '../types/billing.types';

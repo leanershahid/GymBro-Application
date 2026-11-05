@@ -9,7 +9,7 @@ import ScreenHeader from '../../common/components/ScreenHeader';
 import SegmentedTabs from '../../common/components/SegmentedTabs';
 import SearchBar from '../../common/components/SearchBar';
 import LoadingState from '../../common/components/LoadingState';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import ManageUserAccessPage from './ManageUserAccessPage';
 
 interface Props { onBack?: () => void; }

@@ -58,7 +58,6 @@ public class AiCoachSettingsService(AppDbContext db, ICurrentUser currentUser) :
         {
             setting = new TenantSetting
             {
-                Id = await NextIdAsync(),
                 TenantId = tenantId,
                 Key = SettingKey,
                 Value = json,
@@ -90,7 +89,4 @@ public class AiCoachSettingsService(AppDbContext db, ICurrentUser currentUser) :
     // The caller's gym; background/anonymous callers fall back to the platform tenant.
     private async Task<ulong> DefaultTenantIdAsync() =>
         currentUser.TenantId ?? await db.Tenants.OrderBy(t => t.Id).Select(t => t.Id).FirstAsync();
-
-    private async Task<ulong> NextIdAsync() =>
-        (await db.TenantSettings.IgnoreQueryFilters().MaxAsync(s => (ulong?)s.Id) ?? 0) + 1;
 }

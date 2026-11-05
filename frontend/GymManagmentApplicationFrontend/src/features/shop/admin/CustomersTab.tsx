@@ -6,7 +6,7 @@ import Skeleton from '../../common/components/Skeleton';
 import StatusPill from '../../common/components/StatusPill';
 import PaginationFooter from '../../common/components/PaginationFooter';
 import Avatar from '../../common/components/Avatar';
-import EmptyState from '../../dashboard/components/EmptyState';
+import EmptyState from '../../common/components/EmptyState';
 import { useAdminCustomers } from '../api/adminQueries';
 import { formatDate, formatPrice } from '../common/format';
 import { ErrorView, RowCard, useDebounced } from './components/kit';

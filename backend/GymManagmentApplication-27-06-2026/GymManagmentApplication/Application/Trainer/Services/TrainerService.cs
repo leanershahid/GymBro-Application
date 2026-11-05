@@ -46,9 +46,19 @@ public class TrainerService(
             ? "Trainer"
             : char.ToUpper(firstWord[0]) + firstWord[1..].ToLower();
         var temporaryPassword = $"{firstName}@123";
+        request.Email = EmailAddress.Normalize(request.Email); // ARCH-044
 
-        await using var tx = await db.Database.BeginTransactionAsync();
+        // ARCH-045: login + profile in one transaction (joins an outer one).
+        return await db.InTransactionAsync(async () =>
+        {
+            var response = MapToResponse(await CreateInTransactionAsync(request, tenantId, temporaryPassword));
+            response.TemporaryPassword = temporaryPassword; // shown once so the admin can share it
+            return response;
+        });
+    }
 
+    private async Task<TrainerProfile> CreateInTransactionAsync(CreateTrainerRequest request, ulong tenantId, string temporaryPassword)
+    {
         // Creates the login in the right tenant + branch with that tenant's 'trainer' role,
         // and verifies the branch belongs to the tenant.
         var createdUser = await authService.CreateUserAsync(new NewUser(
@@ -89,12 +99,7 @@ public class TrainerService(
             EmergencyContact = ToJson(request.EmergencyContact),
             SocialLinks = ToJson(request.SocialLinks),
         };
-        var created = await repository.CreateAsync(trainer);
-        await tx.CommitAsync();
-
-        var response = MapToResponse(created);
-        response.TemporaryPassword = temporaryPassword; // shown once so the admin can share it
-        return response;
+        return await repository.CreateAsync(trainer);
     }
 
     public async Task<TrainerResponse?> GetByUserIdAsync(ulong userId)
@@ -143,7 +148,7 @@ public class TrainerService(
         if (request.DisplayName is not null) trainer.DisplayName = request.DisplayName;
         if (request.Bio is not null) trainer.Bio = request.Bio;
         if (request.Phone is not null) trainer.Phone = request.Phone;
-        if (request.Email is not null) trainer.Email = request.Email;
+        if (request.Email is not null) trainer.Email = EmailAddress.Normalize(request.Email);
         if (request.ProfileImage is not null) trainer.ProfileImage = request.ProfileImage;
         if (request.IsAvailable.HasValue) trainer.IsAvailable = request.IsAvailable.Value;
         await repository.UpdateAsync(trainer);
@@ -173,8 +178,12 @@ public class TrainerService(
             foreach (var a in assignments) a.Status = TrainerAssignmentStatus.Paused;
         }
 
-        await db.SaveChangesAsync();
-        if (!isActive) await AuthSessions.RevokeAllAsync(db, user.Id);
+        // ARCH-045: status change, paused assignments and revoked sessions commit together.
+        await db.InTransactionAsync(async () =>
+        {
+            await db.SaveChangesAsync();
+            if (!isActive) await AuthSessions.RevokeAllAsync(db, user.Id);
+        });
         return true;
     }
 
@@ -195,8 +204,11 @@ public class TrainerService(
             .ToListAsync();
         foreach (var a in assignments) a.Status = TrainerAssignmentStatus.Paused;
 
-        await db.SaveChangesAsync();
-        await AuthSessions.RevokeAllAsync(db, user.Id);
+        await db.InTransactionAsync(async () =>
+        {
+            await db.SaveChangesAsync();
+            await AuthSessions.RevokeAllAsync(db, user.Id);
+        });
         return true;
     }
 

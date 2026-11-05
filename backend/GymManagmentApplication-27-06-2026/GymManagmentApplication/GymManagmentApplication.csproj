@@ -10,7 +10,9 @@
 
   <ItemGroup>
     <!-- Validation -->
-    <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.1" />
+    <!-- Unused packages removed (ARCH-079): FluentValidation.AspNetCore 11 (validation runs through
+         Filters/FluentValidationFilter), Identity.EntityFrameworkCore, AutoMapper, Serilog x3 (logging is the
+         built-in ILogger + Middleware/RequestContextMiddleware). -->
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
 
     <!-- Authentication -->
@@ -31,17 +33,6 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-
-    <!-- Identity -->
-    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.0" />
-
-    <!-- Mapping -->
-    <PackageReference Include="AutoMapper" Version="14.0.0" />
-
-    <!-- Logging -->
-    <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
-    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
-    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
   </ItemGroup>
 
 </Project>

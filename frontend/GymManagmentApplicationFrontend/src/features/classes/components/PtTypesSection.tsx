@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, RefreshControl, Pressable, ScrollView, Alert } from 'react-native';
+import { View, Text, FlatList, RefreshControl, Pressable, ScrollView,} from 'react-native';
+import { showAlert } from '../../common/components/dialogs';
 import BottomSheet from '../../common/components/BottomSheet';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import LoadingState from '../../common/components/LoadingState';
 import StatusPill from '../../common/components/StatusPill';
 import { useToast } from '../../common/components/Toast';
-import EmptyState from '../../dashboard/components/EmptyState';
-import ChipSelect from '../../exercises/components/ChipSelect';
-import { Field, SwitchRow, RowGrid, GridCell } from '../../trainers/components/FormFields';
+import EmptyState from '../../common/components/EmptyState';
+import ChipSelect from '../../common/components/ChipSelect';
+import { Field, SwitchRow, RowGrid, GridCell } from '../../common/components/FormFields';
 import { apiErrorText, describeApiError, fieldErrorsFrom } from '../../../api/apiError';
 import { usePtTypes, useSavePtType, useTrainerOptions, useMyTrainerProfile } from '../api/classesQueries';
 import { PtType, TrainerOption } from '../types/classes.types';
@@ -137,7 +138,7 @@ function PtTypeSheet({ type, onClose, isAdmin, trainers, defaultTrainerId }: {
         onSuccess: () => { toast.show({ message: doneMsg }); onClose(); },
         onError: e => {
           setErrors(fieldErrorsFrom(describeApiError(e).errors, { name: 'name', duration: 'duration', 'duration min': 'duration', price: 'price' }));
-          Alert.alert('Session type not saved', apiErrorText(e));
+          showAlert('Session type not saved', apiErrorText(e));
         },
       },
     );
@@ -146,7 +147,7 @@ function PtTypeSheet({ type, onClose, isAdmin, trainers, defaultTrainerId }: {
   const toggleActive = () => {
     if (!existing) return;
     if (!existing.isActive) return submit(true, 'Session type reactivated.');
-    Alert.alert('Deactivate session type?', `"${existing.name}" can't be booked any more. Booked sessions stay.`, [
+    showAlert('Deactivate session type?', `"${existing.name}" can't be booked any more. Booked sessions stay.`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Deactivate', style: 'destructive', onPress: () => submit(false, 'Session type deactivated.') },
     ]);

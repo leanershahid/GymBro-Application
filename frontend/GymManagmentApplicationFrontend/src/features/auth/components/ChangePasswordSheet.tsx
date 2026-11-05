@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text } from 'react-native';
 import BottomSheet from '../../common/components/BottomSheet';
 import PrimaryButton from '../../common/components/PrimaryButton';
-import { Field } from '../../trainers/components/FormFields';
+import { Field } from '../../common/components/FormFields';
 import { useToast } from '../../common/components/Toast';
 import { useChangePassword } from '../api/authQueries';
 import { T } from '../../../theme';
