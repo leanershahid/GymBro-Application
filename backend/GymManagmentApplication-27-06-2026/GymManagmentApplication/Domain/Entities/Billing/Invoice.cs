@@ -25,4 +25,28 @@ public class Invoice : BaseEntity
     public Core.Tenant Tenant { get; set; } = default!;
     public Identity.User User { get; set; } = default!;
     public ICollection<Payment> Payments { get; set; } = [];
+
+    // ── Invariants (ARCH-084). Methods, not properties, so the EF model is unchanged. ──
+
+    /// <summary>What is still owed (never negative).</summary>
+    public decimal BalanceDue() => Math.Max(0, Total - AmountPaid);
+
+    /// <summary>Adds a completed payment's amount; settles the invoice once it is fully paid.</summary>
+    public void AddPaidAmount(decimal amount, DateTime paidAtUtc)
+    {
+        AmountPaid += amount;
+        if (AmountPaid >= Total)
+        {
+            Status = InvoiceStatus.Paid;
+            PaidAt = paidAtUtc;
+        }
+    }
+
+    /// <summary>Takes a refund off the paid amount: fully refunded → Refunded, partly → back to Sent.</summary>
+    public void SubtractRefundedAmount(decimal amount)
+    {
+        AmountPaid = Math.Max(0, AmountPaid - amount);
+        if (AmountPaid == 0) { Status = InvoiceStatus.Refunded; PaidAt = null; }
+        else if (AmountPaid < Total) { Status = InvoiceStatus.Sent; PaidAt = null; }
+    }
 }

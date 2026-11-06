@@ -5,14 +5,13 @@ using GymManagmentApplication.Application.Billing.Responses;
 using GymManagmentApplication.Domain.Entities.Billing;
 using GymManagmentApplication.Domain.Entities.Platform;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
+using GymManagmentApplication.Application.Common;
 using Microsoft.EntityFrameworkCore;
 
-using GymManagmentApplication.Application.Common;
 
 namespace GymManagmentApplication.Application.Billing.Services;
 
-public class PricingService(AppDbContext db, ICurrentUser currentUser) : IPricingService
+public class PricingService(IAppDbContext db, ICurrentUser currentUser) : IPricingService
 {
     public async Task<List<PricingRuleResponse>> GetRulesAsync(ulong tenantId)
     {

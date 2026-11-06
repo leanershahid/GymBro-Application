@@ -21,6 +21,10 @@ import { styles } from './login/loginStyles';
 import { useKeyboardOverlap, useLoginLayout } from './login/useLoginLayout';
 import { CTAButton, InputField, ErrorBanner } from './login/LoginControls';
 import ResetPasswordForm, { isEmail } from './login/ResetPasswordForm';
+import TwoFactorChallengeForm from './twoFactor/TwoFactorChallengeForm';
+import TwoFactorSetupGate from './twoFactor/TwoFactorSetupGate';
+import { AuthData, TwoFactorMethod } from '../types/auth.types';
+import { nextStepAfterLogin } from '../utils/twoFactor';
 
 // ARCH-115: the inputs, CTA, error banner, reset-password flow, layout hooks and styles live in ./login/.
 
@@ -38,8 +42,28 @@ export default function LoginPage({
   const [error,    setError]    = useState(errorMessage ?? '');
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   // 'forgot' = ask for the email, 'reset' = enter the emailed code + new password.
-  const [mode, setMode] = useState<'signin' | 'forgot' | 'reset'>('signin');
+  // 'twofactor' = second step of sign-in; 'setup' = the gym requires 2FA and it isn't set up yet.
+  const [mode, setMode] = useState<'signin' | 'forgot' | 'reset' | 'twofactor' | 'setup'>('signin');
   const [notice, setNotice] = useState('');
+  const [challenge, setChallenge] = useState<{ token: string; methods: TwoFactorMethod[] } | null>(null);
+  const [pendingLogin, setPendingLogin] = useState<{ role: string; userId: number; blocking: boolean; graceEndsAt: string | null } | null>(null);
+
+  // Signed in (tokens applied): open the app, unless the 2FA policy wants setup first (feature 10).
+  const afterTokens = (data: AuthData) => {
+    const next = nextStepAfterLogin(data);
+    if (next === 'setup-blocking' || next === 'setup-offer') {
+      setPendingLogin({ role: data.role, userId: data.userId, blocking: next === 'setup-blocking', graceEndsAt: data.twoFactorGraceEndsAt ?? null });
+      setError(''); setNotice('');
+      setMode('setup');
+      return;
+    }
+    onLoginSuccess(data.role ?? 'client', data.userId ?? 0);
+  };
+
+  const backToSignIn = (message: string) => {
+    setMode('signin'); setChallenge(null); setPendingLogin(null); setPassword(''); setNotice('');
+    setError(message);
+  };
 
   const { mutate, isPending } = useLogin();
   const insets = useSafeAreaInsets();
@@ -97,8 +121,13 @@ export default function LoginPage({
       { email: email.trim(), password },
       {
         onSuccess: (res) => {
-          if (res.success) {
-            onLoginSuccess(res.data?.role ?? 'client', res.data?.userId ?? 0);
+          if (res.success && res.data && nextStepAfterLogin(res.data) === 'challenge') {
+            setChallenge({ token: res.data.challengeToken!, methods: res.data.methods ?? ['totp'] });
+            setMode('twofactor');
+          } else if (res.success && res.data) {
+            afterTokens(res.data);
+          } else if (res.success) {
+            onLoginSuccess('client', 0);
           } else {
             // Route each error string to the right field by keyword matching
             const errs = res.errors ?? [];
@@ -196,7 +225,7 @@ export default function LoginPage({
           {/* Sign In tab */}
           <View style={styles.tabRow}>
             <View style={styles.tabActive}>
-              <Text style={styles.tabTextActive}>{mode === 'signin' ? 'Sign In' : 'Reset password'}</Text>
+              <Text style={styles.tabTextActive}>{mode === 'signin' ? 'Sign In' : mode === 'twofactor' ? 'Two-step sign-in' : mode === 'setup' ? 'Secure your account' : 'Reset password'}</Text>
               <View style={styles.tabUnderline} />
             </View>
           </View>
@@ -208,7 +237,23 @@ export default function LoginPage({
           {!!error && <ErrorBanner message={error} />}
           {!!notice && <Text style={styles.notice} accessibilityLiveRegion="polite">{notice}</Text>}
 
-          {mode !== 'signin' ? (
+          {mode === 'twofactor' && challenge ? (
+            <TwoFactorChallengeForm
+              email={email.trim()}
+              challengeToken={challenge.token}
+              methods={challenge.methods}
+              onSuccess={afterTokens}
+              onRestart={backToSignIn}
+              onError={(m) => { setNotice(''); setError(m); }}
+            />
+          ) : mode === 'setup' && pendingLogin ? (
+            <TwoFactorSetupGate
+              blocking={pendingLogin.blocking}
+              graceEndsAt={pendingLogin.graceEndsAt}
+              onContinue={() => onLoginSuccess(pendingLogin.role ?? 'client', pendingLogin.userId ?? 0)}
+              onSignedOut={() => backToSignIn('')}
+            />
+          ) : mode === 'forgot' || mode === 'reset' ? (
             <ResetPasswordForm
               mode={mode}
               initialEmail={email}

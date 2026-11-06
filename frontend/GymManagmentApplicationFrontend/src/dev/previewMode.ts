@@ -14,6 +14,15 @@ import { getSession, setSession } from '../api/session';
 import { shopAdminRoute } from './shopAdminMocks';
 import { shopStoreRoute } from './shopStoreMocks';
 import { socialRoute } from './socialMocks';
+import { notificationsRoute } from './notificationsMocks';
+import { safetyRoute } from './safetyMocks';
+import { operationsRoute } from './operationsMocks';
+import { privacyRoute } from './privacyMocks';
+import { selfServiceRoute } from './selfServiceMocks';
+import { supportRoute } from './supportMocks';
+import { facilitiesRoute } from './facilitiesMocks';
+import { messagingRoute } from './messagingMocks';
+import { bookingRulesRoute } from './bookingRulesMocks';
 
 export type PreviewRole = 'admin' | 'superadmin' | 'trainer' | 'member';
 
@@ -84,6 +93,18 @@ const CATALOG: Row[] = [
   ['admin.user-access', 'admin', 'admin.more', 'Access', 'user-access', 'lock', 'access', 15, 'adminOnly'],
   ['admin.shop', 'admin', 'admin.more', 'Shop', 'shop', 'shopping-bag', 'shop', 16, ''],
   ['admin.social', 'admin', 'admin.more', 'Social', 'social', 'image', 'social', 17, ''],
+  ['admin.announcements', 'admin', 'admin.more', 'Announcements', 'announcements', 'volume-2', 'announcements', 19, ''],
+  ['admin.service-status', 'admin', 'admin.more', 'Service status', 'service-status', 'alert-triangle', 'service-status', 20, ''],
+  ['admin.branches.hours', 'admin', 'admin.branches', 'Hours & info', 'branch-hours', 'clock', 'branch-hours', 1, 'hidden'],
+  ['admin.waivers', 'admin', 'admin.more', 'Waivers & health', 'waivers', 'file-text', 'waivers', 18, ''],
+  ['admin.privacy', 'admin', 'admin.more', 'Privacy requests', 'privacy-requests', 'shield', 'privacy', 21, 'adminOnly'],
+  ['admin.membership-requests', 'admin', 'admin.more', 'Membership requests', 'membership-requests', 'inbox', 'membership-requests', 22, ''],
+  ['admin.support', 'admin', 'admin.more', 'Support', 'support', 'life-buoy', 'support', 23, ''],
+  ['admin.facilities', 'admin', 'admin.more', 'Equipment', 'facilities', 'tool', 'facilities', 24, ''],
+  ['admin.facility-reports', 'admin', 'admin.more', 'Problem reports', 'facility-reports', 'alert-circle', 'facility-reports', 25, ''],
+  ['admin.incidents', 'admin', 'admin.more', 'Incident log', 'incidents', 'clipboard', 'incidents', 26, ''],
+  ['admin.messages', 'admin', 'admin.more', 'Messages review', 'messages-review', 'message-square', 'messages-review', 28, ''],
+  ['admin.members.health', 'admin', 'admin.members', 'Health answers', null, 'heart', 'health-screening', 1, 'hidden'],
   ['admin.shop.dashboard', 'admin', 'admin.shop', 'Dashboard', 'dashboard', 'bar-chart-2', 'shop', 1, 'tab'],
   ['admin.shop.orders', 'admin', 'admin.shop', 'Orders', 'orders', 'package', 'shop', 2, 'tab'],
   ['admin.shop.products', 'admin', 'admin.shop', 'Products', 'products', 'box', 'shop', 3, 'tab'],
@@ -124,6 +145,8 @@ const CATALOG: Row[] = [
   ['member.community.challenges', 'member', 'member.community', 'Challenges', 'challenges', 'award', 'challenges', 2, 'tab'],
   ['member.plans', 'member', 'member.home', 'Plans', 'plans', 'book-open', 'plans', 1, 'hidden'],
   ['member.ai-coach', 'member', 'member.home', 'AI Coach', null, 'cpu', 'ai-coach', 2, 'hidden'],
+  ['member.announcements', 'member', 'member.home', 'Announcements', 'announcements', 'volume-2', '', 3, 'hidden'],
+  ['member.branch-info', 'member', 'member.home', 'Gym info', 'branch-info', 'map-pin', '', 4, 'hidden'],
 ];
 const levelOf = (key: string): number => {
   const parent = CATALOG.find(r => r[0] === key)?.[2];
@@ -167,6 +190,42 @@ function route(method: string, url: string, body?: unknown): unknown {
 
   // ── Social ──
   if (path.startsWith('/social/')) { const r = socialRoute(method, path, body, query); if (r !== undefined) return r; }
+
+  // ── Notifications (alerts, preferences, waitlist offers) ──
+  if (path.startsWith('/notifications') || path.startsWith('/me/notification') || path.startsWith('/me/push-devices') || path.includes('/waitlist-offer/'))
+  { const r = notificationsRoute(method, path, body); if (r !== undefined) return r; }
+
+  // ── Safety (waivers, health check, emergency contact, consents) ──
+  if (path.startsWith('/safety/') || path === '/consents/me') { const r = safetyRoute(method, path, body, getSession()?.userId ?? 100); if (r !== undefined) return r; }
+
+  // ── Privacy (delete my account, download my data, admin privacy requests) ──
+  if (path === '/me/privacy' || path.startsWith('/me/deletion-request') || path.startsWith('/me/data-export') || path.startsWith('/privacy/admin/'))
+  { const r = privacyRoute(method, path, body, query, getSession()?.userId ?? 100); if (r !== undefined) return r; }
+
+  // ── Help & feedback (member requests + FAQ, class feedback, staff queue, trainer's assigned list) ──
+  if (path === '/me/help' || path.startsWith('/me/support-requests') || path.startsWith('/me/class-feedback') || path.startsWith('/support/') || path.startsWith('/trainer/support/'))
+  { const r = supportRoute(method, path, body, query, getSession()?.userId ?? 100); if (r !== undefined) return r; }
+
+  // ── Self-service (plans, join, my membership, pause / cancel / change requests, staff queue) ──
+  if (path === '/me/plans' || path.startsWith('/me/membership') || path.startsWith('/membership-requests'))
+  { const r = selfServiceRoute(method, path, body, query, getSession()?.userId ?? 100); if (r !== undefined) return r; }
+
+  // ── Facilities (equipment register, problem reports, incident log) ──
+  if (path.startsWith('/facilities/') || path.startsWith('/facility-reports') || path.startsWith('/incidents'))
+  { const r = facilitiesRoute(method, path, body, query, getSession()?.userId ?? 100); if (r !== undefined) return r; }
+
+  // ── Cancellation & no-show rules (settings, standing, waive / lift) ──
+  if (path.startsWith('/booking-rules/'))
+  { const r = bookingRulesRoute(method, path, body, query, getSession()?.userId ?? 100); if (r !== undefined) return r; }
+
+  // ── Messaging (trainer ↔ member threads, admin review) ──
+  if (path.startsWith('/messages/') || path.startsWith('/messages-review/'))
+  { const r = messagingRoute(method, path, body, query, getSession()?.userId ?? 100); if (r !== undefined) return r; }
+
+  // ── Operations (opening hours, service status, announcements) ──
+  if (path.startsWith('/announcements') || path.startsWith('/service-status') || path.startsWith('/operations/')
+      || /^\/branches\/(\d+|mine)\/(hours|info|profile)/.test(path) || path === '/branches/directory')
+  { const r = operationsRoute(method, path, body, query); if (r !== undefined) return r; }
 
   // ── Admin ──
   if (path === '/dashboard/overview')

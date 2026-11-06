@@ -7,12 +7,11 @@ using GymManagmentApplication.Application.Biometric.Responses;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Facility;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Biometric.Services;
 
-public class BiometricService(AppDbContext db, ICurrentUser currentUser, GymManagmentApplication.Application.Attendance.IAttendanceService attendance) : IBiometricService
+public class BiometricService(IAppDbContext db, ICurrentUser currentUser, GymManagmentApplication.Application.Attendance.IAttendanceService attendance) : IBiometricService
 {
     public async Task<BiometricEnrollResponse> EnrollFaceAsync(EnrollFaceRequest request)
     {

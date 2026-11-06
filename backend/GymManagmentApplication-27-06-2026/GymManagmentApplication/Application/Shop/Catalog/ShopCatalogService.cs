@@ -1,7 +1,6 @@
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Shop.Common;
 using GymManagmentApplication.Domain.Entities.Shop;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Shop.Catalog;
@@ -46,7 +45,7 @@ public interface IShopProductQueries
     Task<bool> VariantSkuExistsAsync(string sku, ulong? excludeVariantId);
 }
 
-public sealed class ShopProductQueries(AppDbContext db, ICurrentUser currentUser) : IShopProductQueries
+public sealed class ShopProductQueries(IAppDbContext db, ICurrentUser currentUser) : IShopProductQueries
 {
     private ulong Tid => currentUser.ResolveTenantId();
 
@@ -392,7 +391,7 @@ public interface IShopCategoryService
     Task<IReadOnlyCollection<ulong>?> ResolveCategoryIdsAsync(string slug);
 }
 
-public sealed class ShopCategoryService(AppDbContext db, ICurrentUser currentUser) : IShopCategoryService
+public sealed class ShopCategoryService(IAppDbContext db, ICurrentUser currentUser) : IShopCategoryService
 {
     private sealed record CategoryRow(ulong Id, string Name, string Slug, string? Description, string? ImageUrl, ulong? ParentId, int SortOrder);
 
@@ -496,7 +495,7 @@ public interface IShopProductService
 }
 
 public sealed class ShopProductService(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUser currentUser,
     IShopProductQueries products,
     IShopCategoryService categories) : IShopProductService

@@ -1,6 +1,5 @@
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Shop;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Shop.Catalog;
@@ -14,7 +13,7 @@ public interface IShopWishlistService
     Task<ShopWishlistDto> RemoveAsync(ulong productId);
 }
 
-public sealed class ShopWishlistService(AppDbContext db, ICurrentUser currentUser, IShopProductQueries products) : IShopWishlistService
+public sealed class ShopWishlistService(IAppDbContext db, ICurrentUser currentUser, IShopProductQueries products) : IShopWishlistService
 {
     private const int MaxItems = 200;
 

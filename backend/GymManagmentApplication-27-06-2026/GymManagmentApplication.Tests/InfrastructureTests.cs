@@ -4,6 +4,7 @@ using System.Text.Json;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Enums;
 using GymManagmentApplication.Infrastructure.Json;
+using GymManagmentApplication.Application.Billing.Payments;
 using GymManagmentApplication.Infrastructure.Payments;
 using GymManagmentApplication.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;

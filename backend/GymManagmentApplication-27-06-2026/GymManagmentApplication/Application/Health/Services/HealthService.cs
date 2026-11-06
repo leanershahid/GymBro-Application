@@ -2,12 +2,11 @@ using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.AiCoach.Interfaces;
 using GymManagmentApplication.Application.Health.Interfaces;
 using GymManagmentApplication.Application.Health.Responses;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Health.Services;
 
-public class HealthService(AppDbContext db, IAiCoachSettingsService aiCoachSettings, ICurrentUser currentUser) : IHealthService
+public class HealthService(IAppDbContext db, IAiCoachSettingsService aiCoachSettings, ICurrentUser currentUser) : IHealthService
 {
     private const double MoveGoalSteps = 8000;
     private const double TrainGoalMinutes = 60;

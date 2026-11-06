@@ -18,14 +18,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Infrastructure.Data;
 
-public class AppDbContext : DbContext
+public class AppDbContext : DbContext, IAppDbContext
 {
     private readonly ICurrentUser? currentUser;
 
     public AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? currentUser = null) : base(options)
     {
         this.currentUser = currentUser;
-        ChangeTracker.Tracking += AssignIdOnTracking;
+        // ARCH-004: on Postgres ids come from per-table sequences (see UseIdSequences); the
+        // in-memory MAX(Id)+1 assignment is kept only for other providers (the SQLite test db).
+        if (!Database.IsNpgsql()) ChangeTracker.Tracking += AssignIdOnTracking;
     }
 
     // ── Tenant isolation ────────────────────────────────────────────────────
@@ -85,6 +87,11 @@ public class AppDbContext : DbContext
     public DbSet<ModuleAccess> ModuleAccesses => Set<ModuleAccess>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<AuthCode> AuthCodes => Set<AuthCode>();
+    // Two-step sign-in (feature 10) — AuthSecurityConfigurations.cs
+    public DbSet<UserTwoFactor> UserTwoFactors => Set<UserTwoFactor>();
+    public DbSet<TwoFactorRecoveryCode> TwoFactorRecoveryCodes => Set<TwoFactorRecoveryCode>();
+    public DbSet<TwoFactorChallenge> TwoFactorChallenges => Set<TwoFactorChallenge>();
+    public DbSet<TrustedDevice> TrustedDevices => Set<TrustedDevice>();
     public DbSet<SsoProvider> SsoProviders => Set<SsoProvider>();
     public DbSet<Module> Modules => Set<Module>();
     public DbSet<UserModuleAccess> UserModuleAccesses => Set<UserModuleAccess>();
@@ -153,6 +160,13 @@ public class AppDbContext : DbContext
     // Communication
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<CommunicationLog> CommunicationLogs => Set<CommunicationLog>();
+    // Push notifications & preferences, class waitlist offers — NotificationConfigurations.cs
+    public DbSet<PushDevice> PushDevices => Set<PushDevice>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+    public DbSet<WaitlistOffer> WaitlistOffers => Set<WaitlistOffer>();
+    // Cancellation & no-show rules (feature 9) — BookingRulesConfigurations.cs
+    public DbSet<BookingPenalty> BookingPenalties => Set<BookingPenalty>();
+    public DbSet<BookingBlock> BookingBlocks => Set<BookingBlock>();
 
     // Facility
     public DbSet<AccessDevice> AccessDevices => Set<AccessDevice>();
@@ -191,6 +205,52 @@ public class AppDbContext : DbContext
     public DbSet<ShopPayment> ShopPayments => Set<ShopPayment>();
     public DbSet<TenantCounter> TenantCounters => Set<TenantCounter>();
 
+    // Safety & compliance (waivers, health screening, emergency contacts, consents) — SafetyConfigurations.cs
+    public DbSet<Domain.Entities.Safety.WaiverDocument> WaiverDocuments => Set<Domain.Entities.Safety.WaiverDocument>();
+    public DbSet<Domain.Entities.Safety.WaiverVersion> WaiverVersions => Set<Domain.Entities.Safety.WaiverVersion>();
+    public DbSet<Domain.Entities.Safety.WaiverSignature> WaiverSignatures => Set<Domain.Entities.Safety.WaiverSignature>();
+    public DbSet<Domain.Entities.Safety.HealthScreening> HealthScreenings => Set<Domain.Entities.Safety.HealthScreening>();
+    public DbSet<Domain.Entities.Safety.MemberEmergencyContact> MemberEmergencyContacts => Set<Domain.Entities.Safety.MemberEmergencyContact>();
+    public DbSet<Domain.Entities.Safety.ConsentRecord> ConsentRecords => Set<Domain.Entities.Safety.ConsentRecord>();
+    public DbSet<Domain.Entities.Safety.SafetyGateOverride> SafetyGateOverrides => Set<Domain.Entities.Safety.SafetyGateOverride>();
+
+    // Gym operations: opening hours, service status, announcements — OperationsConfigurations.cs
+    public DbSet<Domain.Entities.Operations.BranchOpeningInterval> BranchOpeningIntervals => Set<Domain.Entities.Operations.BranchOpeningInterval>();
+    public DbSet<Domain.Entities.Operations.BranchHoursException> BranchHoursExceptions => Set<Domain.Entities.Operations.BranchHoursException>();
+    public DbSet<Domain.Entities.Operations.BranchProfile> BranchProfiles => Set<Domain.Entities.Operations.BranchProfile>();
+    public DbSet<Domain.Entities.Operations.ServiceStatus> ServiceStatuses => Set<Domain.Entities.Operations.ServiceStatus>();
+    public DbSet<Domain.Entities.Operations.Announcement> Announcements => Set<Domain.Entities.Operations.Announcement>();
+    public DbSet<Domain.Entities.Operations.AnnouncementRecipient> AnnouncementRecipients => Set<Domain.Entities.Operations.AnnouncementRecipient>();
+
+    // Privacy controls: account deletion requests, data exports — PrivacyConfigurations.cs
+    public DbSet<Domain.Entities.Privacy.AccountDeletionRequest> AccountDeletionRequests => Set<Domain.Entities.Privacy.AccountDeletionRequest>();
+    public DbSet<Domain.Entities.Privacy.DataExportRequest> DataExportRequests => Set<Domain.Entities.Privacy.DataExportRequest>();
+
+    // Member self-service: freeze / cancel / change requests — SelfServiceConfigurations.cs
+    public DbSet<Domain.Entities.Membership.MembershipRequest> MembershipRequests => Set<Domain.Entities.Membership.MembershipRequest>();
+
+    // Facilities: equipment register, problem reports, incident log — FacilitiesConfigurations.cs
+    public DbSet<Domain.Entities.Facilities.FacilityAsset> FacilityAssets => Set<Domain.Entities.Facilities.FacilityAsset>();
+    public DbSet<Domain.Entities.Facilities.FacilityMaintenance> FacilityMaintenances => Set<Domain.Entities.Facilities.FacilityMaintenance>();
+    public DbSet<Domain.Entities.Facilities.FacilityReport> FacilityReports => Set<Domain.Entities.Facilities.FacilityReport>();
+    public DbSet<Domain.Entities.Facilities.FacilityReportFollower> FacilityReportFollowers => Set<Domain.Entities.Facilities.FacilityReportFollower>();
+    public DbSet<Domain.Entities.Facilities.FacilityReportComment> FacilityReportComments => Set<Domain.Entities.Facilities.FacilityReportComment>();
+    public DbSet<Domain.Entities.Facilities.Incident> Incidents => Set<Domain.Entities.Facilities.Incident>();
+    public DbSet<Domain.Entities.Facilities.IncidentPerson> IncidentPeople => Set<Domain.Entities.Facilities.IncidentPerson>();
+    public DbSet<Domain.Entities.Facilities.IncidentAddendum> IncidentAddenda => Set<Domain.Entities.Facilities.IncidentAddendum>();
+
+    // Help & feedback: support requests + thread, FAQ, canned replies, class feedback — SupportConfigurations.cs
+    public DbSet<Domain.Entities.Support.SupportRequest> SupportRequests => Set<Domain.Entities.Support.SupportRequest>();
+    public DbSet<Domain.Entities.Support.SupportMessage> SupportMessages => Set<Domain.Entities.Support.SupportMessage>();
+    public DbSet<Domain.Entities.Support.SupportFaq> SupportFaqs => Set<Domain.Entities.Support.SupportFaq>();
+    public DbSet<Domain.Entities.Support.SupportCannedReply> SupportCannedReplies => Set<Domain.Entities.Support.SupportCannedReply>();
+    public DbSet<Domain.Entities.Support.ClassFeedback> ClassFeedbacks => Set<Domain.Entities.Support.ClassFeedback>();
+
+    // Trainer ↔ member messaging: conversations, messages, member opt-out — MessagingConfigurations.cs
+    public DbSet<Domain.Entities.Messaging.Conversation> Conversations => Set<Domain.Entities.Messaging.Conversation>();
+    public DbSet<Domain.Entities.Messaging.DirectMessage> DirectMessages => Set<Domain.Entities.Messaging.DirectMessage>();
+    public DbSet<Domain.Entities.Messaging.MessagingUserSetting> MessagingUserSettings => Set<Domain.Entities.Messaging.MessagingUserSetting>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         // ARCH-085: compared by raw JSON so re-assigning an equal document is not an UPDATE.
@@ -203,8 +263,8 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Auto-increment for ulong PKs — Id is generated in application code (MAX+1)
-        // because the DB uses numeric(20,0) with no native identity/sequence strategy.
+        // ulong PKs are numeric(20,0), which has no identity. Default: no store generation; the
+        // Npgsql model overrides this below with per-table sequences (UseIdSequences).
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {
             var pk = entity.FindProperty("Id");
@@ -217,6 +277,38 @@ public class AppDbContext : DbContext
         // Per-entity mapping lives in Infrastructure/Data/Configurations (ARCH-038): one
         // IEntityTypeConfiguration<T> per entity, grouped by area.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+        if (Database.IsNpgsql()) UseIdSequences(modelBuilder);
+    }
+
+    /// <summary>Name of the sequence behind a table's ulong Id (created by migration IdSequences).</summary>
+    public static string IdSequenceName(string table) => $"{table}_Id_hilo_seq";
+
+    /// <summary>
+    /// ARCH-004/040: every single-column ulong "Id" key draws from its own Postgres sequence
+    /// (INCREMENT BY <see cref="IdSequenceValueGenerator.BlockSize"/>) through
+    /// <see cref="IdSequenceValueGenerator"/>, a HiLo generator: one nextval() reserves a block of
+    /// ids that is handed out in memory. Ids are race-free across requests and app instances and,
+    /// as with the old MAX(Id)+1 scheme, known as soon as an entity is added (before SaveChanges).
+    /// Explicit ids are still honoured. Composite keys (TenantCounters, RolePermissions, ...) and
+    /// owned types are untouched.
+    /// </summary>
+    private static void UseIdSequences(ModelBuilder modelBuilder)
+    {
+        foreach (var entity in modelBuilder.Model.GetEntityTypes().ToList())
+        {
+            if (entity.IsOwned() || entity.BaseType is not null) continue;
+            var key = entity.FindPrimaryKey();
+            if (key is not { Properties.Count: 1 } || key.Properties[0].Name != "Id" || key.Properties[0].ClrType != typeof(ulong))
+                continue;
+            var table = entity.GetTableName();
+            if (table is null) continue;
+            var sequence = IdSequenceName(table);
+            modelBuilder.HasSequence<long>(sequence).IncrementsBy(IdSequenceValueGenerator.BlockSize);
+            modelBuilder.Entity(entity.ClrType).Property("Id")
+                .ValueGeneratedOnAdd()
+                .HasValueGenerator((_, _) => new IdSequenceValueGenerator(sequence));
+        }
     }
 
     private void ApplyTenantFilters(ModelBuilder modelBuilder)
@@ -282,30 +374,17 @@ public class AppDbContext : DbContext
     }
 
     // ── Saving ──────────────────────────────────────────────────────────────
-    // UpdatedAt is stamped on every modified row. Because ids are MAX(Id)+1 (see below), two
-    // requests inserting into the same table at the same moment can pick the same id; the loser
-    // gets a primary-key violation. Ids this context generated are then re-read and the save is
-    // retried, instead of surfacing a 500.
-    private const int MaxIdRetries = 3;
-
-    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    // UpdatedAt is stamped on every modified row.
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        Configurations.AppendOnlyGuard.Check(ChangeTracker);
         StampUpdatedAt();
-        for (var attempt = 1; ; attempt++)
-        {
-            try
-            {
-                return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
-            }
-            catch (DbUpdateException ex) when (attempt < MaxIdRetries && IsPrimaryKeyClash(ex) && ReassignGeneratedIds())
-            {
-                await Task.Delay(Random.Shared.Next(10, 60), cancellationToken);
-            }
-        }
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        Configurations.AppendOnlyGuard.Check(ChangeTracker);
         StampUpdatedAt();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
@@ -317,45 +396,13 @@ public class AppDbContext : DbContext
             if (entry.State == EntityState.Modified) entry.Entity.UpdatedAt = now;
     }
 
-    private static bool IsPrimaryKeyClash(DbUpdateException ex) =>
-        ex.InnerException is Npgsql.PostgresException { SqlState: "23505" } pg
-        && (pg.ConstraintName?.StartsWith("PK_", StringComparison.Ordinal) ?? false);
-
-    /// <summary>Gives every still-Added row whose id this context generated a fresh MAX(Id)+1.</summary>
-    private bool ReassignGeneratedIds()
-    {
-        var added = ChangeTracker.Entries()
-            .Where(e => e.State == EntityState.Added && _generatedIds.Contains(e.Entity))
-            .ToList();
-        if (added.Count == 0) return false;
-        _nextIds.Clear();
-        foreach (var group in added.GroupBy(e => e.Metadata))
-        {
-            var table = group.Key.GetTableName();
-            if (table is null) continue;
-            var schema = group.Key.GetSchema();
-            var qualified = schema is null ? $"\"{table}\"" : $"\"{schema}\".\"{table}\"";
-            var next = ReadMaxId(qualified, IdColumn(group.Key)) + 1;
-            // Leave room for rows in this batch that kept explicit ids.
-            var keptMax = ChangeTracker.Entries()
-                .Where(x => x.Metadata == group.Key && x.State == EntityState.Added && !_generatedIds.Contains(x.Entity))
-                .Select(x => (ulong)x.Property("Id").CurrentValue!)
-                .DefaultIfEmpty(0UL).Max();
-            next = Math.Max(next, keptMax + 1);
-            foreach (var entry in group) entry.Property("Id").CurrentValue = next++;
-            _nextIds[qualified] = next;
-        }
-        return true;
-    }
-
     // ── Id generation ───────────────────────────────────────────────────────
-    // ulong PKs are ValueGenerated.Never (numeric(20,0), no identity). A new row still carrying
-    // Id 0 gets MAX(Id)+1 the moment it starts being tracked — before tracking, so several new
-    // rows can be added in one unit of work without clashing on key 0. MAX is read once per
-    // table per context (unfiltered, so other tenants' rows count) and then incremented
-    // locally. Code that already sets an Id is left alone.
+    // Non-Postgres providers only (the SQLite test db; Postgres uses HiLo sequences, ARCH-004).
+    // A new row still carrying Id 0 gets MAX(Id)+1 the moment it starts being tracked, so several
+    // new rows can be added in one unit of work without clashing on key 0. MAX is read once per
+    // table per context and then incremented locally. This is NOT safe under concurrent writers,
+    // which is why Postgres no longer uses it. Code that already sets an Id is left alone.
     private readonly Dictionary<string, ulong> _nextIds = [];
-    private readonly HashSet<object> _generatedIds = new(ReferenceEqualityComparer.Instance);
 
     private void AssignIdOnTracking(object? sender, Microsoft.EntityFrameworkCore.ChangeTracking.EntityTrackingEventArgs e)
     {
@@ -385,7 +432,6 @@ public class AppDbContext : DbContext
 
         idProp.CurrentValue = next;
         _nextIds[qualified] = next + 1;
-        _generatedIds.Add(e.Entry.Entity);
     }
 
     /// <summary>The database column behind the entity's Id (renamed for some tables, e.g. PostId).</summary>

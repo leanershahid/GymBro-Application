@@ -4,7 +4,17 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before 
 
 # Project structure
 
-`index.ts` (installs the web `Alert` shim from `src/utils/webAlert.ts`) → `App.tsx`. **No navigation library yet** — App.tsx keeps a `useState` app state (signed out / admin / trainer / member); inside an app, screens are switched with local state. Web URLs don't change per screen.
+`index.ts` (installs the web `Alert` shim from `src/utils/webAlert.ts`) → `App.tsx`. App.tsx keeps a `useState` app state (signed out / admin / trainer / member).
+
+# Navigation
+
+No navigation library (deliberately — React Navigation would mean rewriting every screen; Expo Router a file-based restructure). Each area keeps its own typed screen state, and `src/navigation/` turns it into history + URLs (ARCH-057/058):
+
+- Areas: `dashboard/pages/AdminDashboard.tsx` (routes in `dashboard/admin/adminRoutes.ts`, table in `AdminRouter.tsx`), `member-app/MemberApp.tsx` (`memberRoutes.ts`), `trainer-app/TrainerApp.tsx` (`trainerRoutes.ts`). Each `*Routes` file has the typed route union, a path parser (`…FromPath`, null for unknown/incomplete) and `…ToPath`; use the type guards (`isAdminScreen`, …) for server-sent route keys — never `as any`.
+- Protocol (`ShellHosted` in `access/types/access.types.ts`): the shell sends `open: { path, at }`; the area applies it with `useOpenRequest` and reports every change with `useReportLocation({ path, module })` (`module` = the menu module whose tab is lit). Nested stacks (the two shops) take `open` + `onPathChange` and report with `useReportPath`; a top-screen *replace* (checkout → confirmed, new product → saved) is reported with `replace: true`.
+- `AppShell` feeds the reports to `useShellHistory` (`shellHistory.ts`, unit-tested): first report after an open canonicalises the entry, a report of the previous entry is an in-app Back, anything else is pushed. Web: `history.pushState`/`popstate`, query string kept (so `?preview=` survives); phones: the Android back button walks the same list (the shops' own BackHandlers close their pushed screens first).
+- URLs: `/{admin|trainer|member}/{route}[/{id}]`, `/more`; e.g. `/admin/member-detail/12`, `/member/workout/7`, `/member/shop/product/{slug}`, `/member/shop/orders/order/{number}`, `/admin/shop/order/{number}`, `/trainer/client/{id}`. An area with no modules for the user → `NoAccessScreen`; an ungranted route → the area's own no-access screen; unknown paths → the area's landing. Vercel rewrites every path to `/index.html`.
+- Adding a screen: add it to the route union + parser/`ToPath` (ids in the path), render it in the area; nothing in the shell changes.
 
 After sign-in App.tsx renders `AccessProvider` (`src/features/access/context/AccessContext.tsx`: the user's module/tab access list from `/access/me`, cached in storage, refetched on focus and every 5 min) around `AppShell` (`src/features/access/components/AppShell.tsx`), which builds every role's menu from that list and mounts the admin / trainer / member apps. The backend enforces the same grants.
 

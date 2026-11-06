@@ -76,6 +76,10 @@ public class ClassResponse
     public string? Notes { get; set; }
     /// <summary>The caller's own booking status for this class (members), if any.</summary>
     public string? MyBooking { get; set; }
+    /// <summary>Members: a spot is held for you until this time (UTC) — claim or decline it.</summary>
+    public DateTime? MyOfferExpiresAt { get; set; }
+    /// <summary>Members can cancel for free until this time (UTC); later is a late cancel (gym booking rules).</summary>
+    public DateTime FreeCancelUntil { get; set; }
 }
 
 public class BookClassRequest
@@ -138,6 +142,8 @@ public class UpdatePtStatusRequest
     /// <summary>confirmed | completed | cancelled | noshow</summary>
     public string Status { get; set; } = default!;
     public string? TrainerNotes { get; set; }
+    /// <summary>Members: "Cancel anyway" after a 409 LATE_CANCEL_CONFIRM.</summary>
+    public bool ConfirmLate { get; set; }
 }
 
 public class RatePtRequest
@@ -163,4 +169,6 @@ public class PtSessionResponse
     public string? TrainerNotes { get; set; }
     public byte? Rating { get; set; }
     public ulong? InvoiceId { get; set; }
+    /// <summary>Members can cancel for free until this time (UTC); later is a late cancel (gym booking rules).</summary>
+    public DateTime FreeCancelUntil { get; set; }
 }

@@ -19,6 +19,7 @@ export function useAdminAccess() {
     billing:    useApiAccess('billing'),
     classes:    useApiAccess('classes'),
     pt:         useApiAccess('pt-sessions'),
+    membershipRequests: useApiAccess('membership-requests'),
   };
 }
 

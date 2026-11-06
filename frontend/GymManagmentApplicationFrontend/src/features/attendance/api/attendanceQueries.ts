@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../api/queryKeys';
+import { confirm } from '../../common/components/dialogs';
 import {
   checkIn, checkInMember, checkOut, checkOutMember, clearBranchGeofence, fetchAttendanceLog, fetchAttendanceSettings,
   fetchMyAttendance, fetchMyAttendanceStatus, setBranchGeofence, updateAttendanceSettings,
@@ -48,7 +49,13 @@ export const useAttendanceLog = (date?: string, branchId?: number) =>
 export const useCheckInMember = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (userId: number) => checkInMember(userId),
+    mutationFn: async (userId: number) => {
+      const first = await checkInMember(userId);
+      if (first.success || !first.data?.safetyBlocked) return first;
+      // Safety gate (waiver / health check missing): warn, and let the desk override.
+      const ok = await confirm({ title: 'Safety checks missing', message: first.message, confirmLabel: 'Check in anyway' });
+      return ok ? checkInMember(userId, { reason: 'Front desk override' }) : first;
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: K.logAll }),
   });
 };

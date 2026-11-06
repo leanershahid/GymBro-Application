@@ -83,9 +83,12 @@ public class AttendanceController(IAttendanceService service) : ControllerBase
     [HttpPost("members/{userId:long}/check-in")]
     [AuthorizeRoles(RoleNames.Admin)]
     [RequireModule("attendance")]
-    public async Task<ActionResult<ApiResponse<object>>> CheckInMember(ulong userId)
+    public async Task<ActionResult<ApiResponse<object>>> CheckInMember(ulong userId,
+        [FromQuery] bool overrideSafety = false, [FromQuery] string? overrideReason = null)
     {
-        var result = await service.CheckInMemberAsync(userId);
+        // A missing waiver / health check answers 200 with Success = false, SafetyBlocked = true and
+        // SafetyMissing; the desk can then retry with ?overrideSafety=true (recorded with who overrode).
+        var result = await service.CheckInMemberAsync(userId, overrideSafety, overrideReason);
         return Ok(new ApiResponse<object> { Success = result.CheckedIn, Message = result.Message, Data = result });
     }
 

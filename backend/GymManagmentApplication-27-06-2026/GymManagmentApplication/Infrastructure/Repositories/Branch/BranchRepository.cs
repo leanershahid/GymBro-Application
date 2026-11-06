@@ -2,6 +2,8 @@ using GymManagmentApplication.Infrastructure.Data;
 using GymManagmentApplication.Infrastructure.Repositories.Branch;
 using Microsoft.EntityFrameworkCore;
 
+using GymManagmentApplication.Application.Branch.Interfaces;
+
 namespace GymManagmentApplication.Infrastructure.Repositories.Branch;
 
 public class BranchRepository(AppDbContext db) : IBranchRepository

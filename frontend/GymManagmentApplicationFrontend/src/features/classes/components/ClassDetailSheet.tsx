@@ -12,6 +12,8 @@ import { useRoster, useCancelClass, useMarkAttendance, useBookMember, useUnbookM
 import { GymClass, MemberOption, RosterEntry } from '../types/classes.types';
 import { fmtDay, fmtTime, MemberPicker, SectionLabel, SmallButton, statusLabel, statusTone } from './classesUi';
 import { T, SP, R } from '../../../theme';
+import { PenaltyList } from '../../booking-rules/routes';
+import { getSession } from '../../../api/session';
 
 export interface ClassDetailSheetProps {
   /** The class to show; null hides the sheet. Pass the latest copy from the schedule query. */
@@ -168,6 +170,8 @@ function Roster({ cls }: { cls: GymClass }) {
       {!cancelled && !started && (data ?? []).some(e => e.status !== 'Waitlisted') && (
         <Text style={{ color: T.textFaint, fontSize: 12, marginTop: SP.xs }}>Attendance can be marked once the class starts.</Text>
       )}
+      {/* Late cancels / no-shows recorded for this class (trainers see them; admins can waive). */}
+      <PenaltyList filter={{ classId: cls.id }} canWaive={getSession()?.role !== 'trainer'} />
     </View>
   );
 }

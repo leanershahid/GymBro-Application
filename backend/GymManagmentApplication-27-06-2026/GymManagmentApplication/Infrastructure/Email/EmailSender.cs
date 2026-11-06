@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Mail;
 using Microsoft.Extensions.Options;
 
+using GymManagmentApplication.Application.Common;
+
 namespace GymManagmentApplication.Infrastructure.Email;
 
 /// <summary>SMTP settings ("Email" section / Email__Host … env vars). Works with any SMTP provider (Gmail app password, Brevo, SES, Resend…).</summary>
@@ -16,12 +18,6 @@ public class EmailSettings
     public bool EnableSsl { get; set; } = true;
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Host);
-}
-
-public interface IEmailSender
-{
-    /// <summary>Sends an email; returns false (and logs) when delivery fails or email isn't configured.</summary>
-    Task<bool> SendAsync(string to, string subject, string htmlBody, IReadOnlyList<(string Name, byte[] Content, string MediaType)>? attachments = null);
 }
 
 public class SmtpEmailSender(IOptions<EmailSettings> options, ILogger<SmtpEmailSender> logger, IHostEnvironment env) : IEmailSender
@@ -67,36 +63,4 @@ public class SmtpEmailSender(IOptions<EmailSettings> options, ILogger<SmtpEmailS
             return false;
         }
     }
-}
-
-/// <summary>Log-safe forms of personal data (ARCH-048).</summary>
-public static class LogMask
-{
-    /// <summary>"jo***@gym.com" — enough to tell recipients apart, not enough to harvest.</summary>
-    public static string Email(string? email)
-    {
-        if (string.IsNullOrWhiteSpace(email)) return "(none)";
-        var at = email.IndexOf('@');
-        if (at <= 0) return "***";
-        var local = email[..at];
-        return (local.Length <= 2 ? local[..1] : local[..2]) + "***" + email[at..];
-    }
-}
-
-/// <summary>Minimal branded HTML wrapper for transactional emails.</summary>
-public static class EmailTemplates
-{
-    public static string Code(string heading, string intro, string code, int validMinutes) => Wrap(heading, $"""
-        <p style="margin:0 0 16px">{WebUtility.HtmlEncode(intro)}</p>
-        <p style="font-size:32px;font-weight:800;letter-spacing:8px;margin:0 0 16px;color:#0A0F0A">{code}</p>
-        <p style="margin:0;color:#6B726B">This code expires in {validMinutes} minutes. If you didn't ask for it, you can ignore this email.</p>
-        """);
-
-    public static string Wrap(string heading, string innerHtml) => $"""
-        <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px">
-          <div style="font-size:20px;font-weight:800;color:#7B990B;margin-bottom:8px">GymBro</div>
-          <h2 style="margin:0 0 12px;color:#0A0F0A">{WebUtility.HtmlEncode(heading)}</h2>
-          {innerHtml}
-        </div>
-        """;
 }

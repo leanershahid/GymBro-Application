@@ -2,7 +2,6 @@ using System.Security.Claims;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -26,7 +25,7 @@ public static class TokenValidator
     /// </summary>
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<ulong, long> Stamps = new();
 
-    public static async Task<string?> GetRejectionReasonAsync(ClaimsPrincipal principal, AppDbContext db, IMemoryCache cache)
+    public static async Task<string?> GetRejectionReasonAsync(ClaimsPrincipal principal, IAppDbContext db, IMemoryCache cache)
     {
         if (!ulong.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
             return "Invalid token.";

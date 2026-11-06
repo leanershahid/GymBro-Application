@@ -29,7 +29,9 @@ public sealed class ShopErrorsAttribute : ExceptionFilterAttribute
             _ => (0, null as string),
         };
         if (status == 0 || context.ExceptionHandled) return;
-        context.Result = new JsonResult(ApiResponse<object>.Fail(message!)) { StatusCode = status };
+        var body = ApiResponse<object>.Fail(message!);
+        if (context.Exception is RuleException { Code: not null } coded) { body.Code = coded.Code; body.Data = coded.Payload; }
+        context.Result = new JsonResult(body) { StatusCode = status };
         context.ExceptionHandled = true;
     }
 }

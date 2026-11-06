@@ -3,7 +3,6 @@ using GymManagmentApplication.Application.Billing.Requests;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Billing;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Billing.Services;
@@ -12,7 +11,7 @@ namespace GymManagmentApplication.Application.Billing.Services;
 /// Shared billing rules: creating invoices (numbered per gym, in the gym's currency) and
 /// applying payments/refunds to them. Used by memberships, invoices and payments alike.
 /// </summary>
-public class BillingCore(AppDbContext db, GymManagmentApplication.Application.Engagement.Notifier notifier)
+public class BillingCore(IAppDbContext db, GymManagmentApplication.Application.Engagement.Notifier notifier)
 {
     public record NewInvoice(
         ulong TenantId, ulong UserId, IReadOnlyList<InvoiceLineItem> Items,
@@ -75,13 +74,36 @@ public class BillingCore(AppDbContext db, GymManagmentApplication.Application.En
         };
         db.Payments.Add(payment);
 
-        invoice.AmountPaid += amount;
-        if (invoice.AmountPaid >= invoice.Total)
-        {
-            invoice.Status = InvoiceStatus.Paid;
-            invoice.PaidAt = DateTime.UtcNow;
-        }
+        invoice.AddPaidAmount(amount, DateTime.UtcNow);
         return payment;
+    }
+
+    /// <summary>
+    /// Self-service (feature 4): once a membership's invoice is fully paid, a Pending membership
+    /// becomes Active. Idempotent — only a Pending membership changes, so a duplicate webhook or a
+    /// second verify does nothing. If the chosen start date has passed while it waited for payment,
+    /// the period starts today instead (same length). Call inside the payment's unit of work.
+    /// </summary>
+    public async Task<Domain.Entities.Membership.GymMembership?> ActivatePaidMembershipAsync(Invoice invoice)
+    {
+        if (invoice.MembershipId is not { } membershipId || invoice.Status != InvoiceStatus.Paid) return null;
+        var m = await db.GymMemberships.IgnoreQueryFilters().Include(x => x.Plan)
+            .FirstOrDefaultAsync(x => x.Id == membershipId && x.TenantId == invoice.TenantId);
+        if (m is null || m.Status != MembershipStatus.Pending) return null;
+
+        var today = (await TenantClock.ForAsync(db, m.TenantId)).Today;
+        if (m.StartsAt < today)
+        {
+            var length = m.EndsAt is { } end ? end.DayNumber - m.StartsAt.DayNumber : SubscriptionService.CycleToDays(m.Plan?.BillingCycle);
+            m.StartsAt = today;
+            m.EndsAt = today.AddDays(length);
+        }
+        m.Status = MembershipStatus.Active;
+        m.UpdatedAt = DateTime.UtcNow;
+        notifier.Add(m.TenantId, m.UserId, "Your membership is active",
+            $"{m.Plan?.Name ?? "Your plan"} starts {(m.StartsAt == today ? "today" : m.StartsAt.ToString("dd MMM yyyy"))}. Book your first class!",
+            "billing", m.Id, category: "billing");
+        return m;
     }
 
     /// <summary>Takes a refund off a payment and its invoice (full or partial).</summary>
@@ -97,13 +119,11 @@ public class BillingCore(AppDbContext db, GymManagmentApplication.Application.En
         payment.RefundedAmount += amount;
         if (payment.RefundedAmount >= payment.Amount) payment.Status = PaymentStatus.Refunded;
 
-        var invoice = payment.Invoice;
-        invoice.AmountPaid = Math.Max(0, invoice.AmountPaid - amount);
-        if (invoice.AmountPaid == 0) { invoice.Status = InvoiceStatus.Refunded; invoice.PaidAt = null; }
-        else if (invoice.AmountPaid < invoice.Total) { invoice.Status = InvoiceStatus.Sent; invoice.PaidAt = null; }
+        payment.Invoice.SubtractRefundedAmount(amount);
     }
 
-    public static decimal Balance(Invoice i) => Math.Max(0, i.Total - i.AmountPaid);
+    /// <summary>Kept for existing callers; the rule lives on <see cref="Invoice.BalanceDue"/> (ARCH-084).</summary>
+    public static decimal Balance(Invoice i) => i.BalanceDue();
 
     public static decimal Round(decimal v) => Money.Round(v);
 

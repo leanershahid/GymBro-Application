@@ -65,4 +65,8 @@ export interface CheckInResult {
   visit: AttendanceRecord | null;
   distanceM: number | null;
   nearestBranch: string | null;
+  /** Desk check-in stopped by the safety gate (no waiver / health check); retry with override. */
+  safetyBlocked?: boolean;
+  /** What the gate found missing: waiver, health, health_expired, clearance, emergency_contact. */
+  safetyMissing?: string[] | null;
 }

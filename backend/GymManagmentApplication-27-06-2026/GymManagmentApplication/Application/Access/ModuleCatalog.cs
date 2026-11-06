@@ -12,7 +12,7 @@ public record ModuleDef(
 
 /// <summary>
 /// The module master for all three apps — the single place menus, tabs and their API keys are
-/// defined. <see cref="Infrastructure.Data.DbSeeder"/> upserts these rows by key on every boot, so
+/// defined. <c>DbSeeder</c> upserts these rows by key on every boot, so
 /// adding or moving a module is an edit here; granting it is done per role/user from the admin app.
 /// Container rows whose content lives in tabs (Book, Programs, …) carry no API keys themselves —
 /// their tabs do — so granting a container alone never opens an API.
@@ -50,6 +50,27 @@ public static class ModuleCatalog
         new("admin.user-access",   AdminApp, "admin.more", "Access",        "user-access",         "lock",         "access", 15, AdminOnly: true),
         new("admin.shop",          AdminApp, "admin.more", "Shop",          "shop",                "shopping-bag", "shop", 16),
         new("admin.social",        AdminApp, "admin.more", "Social",        "social",              "image",        "social", 17),
+        // Safety & compliance: manage waiver documents + gating settings; read members' health answers.
+        new("admin.waivers",       AdminApp, "admin.more", "Waivers & health", "waivers",          "file-text",    "waivers", 18),
+        new("admin.members.health", AdminApp, "admin.members", "Health answers", null,             "heart",        "health-screening", 1, HideFromMenu: true),
+        // Gym operations: announcements to members/staff, service status notices, branch hours & info.
+        new("admin.announcements",  AdminApp, "admin.more", "Announcements",  "announcements",     "volume-2",     "announcements", 19),
+        new("admin.service-status", AdminApp, "admin.more", "Service status", "service-status",    "alert-triangle", "service-status", 20),
+        // Member self-service: members' pause / cancel / plan-change requests + the gym's membership rules.
+        new("admin.membership-requests", AdminApp, "admin.more", "Membership requests", "membership-requests", "inbox", "membership-requests", 22),
+        // Help & feedback: members' support requests (queue, SLA, canned replies, FAQ) and class feedback.
+        new("admin.support",        AdminApp, "admin.more", "Support",          "support",          "life-buoy",   "support", 23),
+        // Facilities: the equipment register (status, service history), the problem-report queue and the
+        // restricted incident log (admins by default; grantable per role, never part of a role template).
+        new("admin.facilities",      AdminApp, "admin.more", "Equipment",       "facilities",       "tool",          "facilities", 24),
+        new("admin.facility-reports", AdminApp, "admin.more", "Problem reports", "facility-reports", "alert-circle",  "facility-reports", 25),
+        new("admin.incidents",       AdminApp, "admin.more", "Incident log",    "incidents",        "clipboard",     "incidents", 26),
+        // Messaging: read-only safeguarding review of trainer ↔ member threads (every view audit-logged)
+        // and the gym's messaging policy. Admins by default; grantable per role, never by a role template.
+        new("admin.messages",        AdminApp, "admin.more", "Messages review", "messages-review",  "message-square", "messages-review", 28),
+        // Privacy controls: members' deletion requests and data exports, privacy settings.
+        new("admin.privacy",        AdminApp, "admin.more", "Privacy requests", "privacy-requests", "shield",      "privacy", 21, AdminOnly: true),
+        new("admin.branches.hours", AdminApp, "admin.branches", "Hours & info", "branch-hours",    "clock",        "branch-hours", 1, HideFromMenu: true),
 
         new("admin.shop.dashboard",  AdminApp, "admin.shop", "Dashboard",  "dashboard",  "bar-chart-2", "shop", 1, IsTab: true),
         new("admin.shop.orders",     AdminApp, "admin.shop", "Orders",     "orders",     "package",     "shop", 2, IsTab: true),
@@ -104,6 +125,10 @@ public static class ModuleCatalog
         // Pages reached from inside Home, not from the menus.
         new("member.plans",    MemberApp, "member.home", "Plans",    "plans", "book-open", "plans", 1, HideFromMenu: true),
         new("member.ai-coach", MemberApp, "member.home", "AI Coach", null,    "cpu",       "ai-coach", 2, HideFromMenu: true),
+        // Gym operations: the announcements feed and the branch info screen (hours, status, contact).
+        // Their endpoints only return what was delivered to / is public for the caller, so no API key.
+        new("member.announcements", MemberApp, "member.home", "Announcements", "announcements", "volume-2", null, 3, HideFromMenu: true),
+        new("member.branch-info",   MemberApp, "member.home", "Gym info",      "branch-info",   "map-pin",  null, 4, HideFromMenu: true),
     ];
 
     /// <summary>The app a user signs in to, from their primary role.</summary>
@@ -126,7 +151,8 @@ public static class ModuleCatalog
         RoleNames.Trainer => ["trainer.home", "trainer.clients", "trainer.sessions", "trainer.classes", "trainer.profile"],
         RoleNames.Client  => ["member.home", "member.book", "member.book.classes", "member.book.mine", "member.book.pt",
                               "member.billing", "member.profile", "member.social",
-                              "member.shop", "member.shop.store", "member.shop.cart", "member.shop.wishlist", "member.shop.orders"],
+                              "member.shop", "member.shop.store", "member.shop.cart", "member.shop.wishlist", "member.shop.orders",
+                              "member.announcements", "member.branch-info"],
         _                 => [],
     };
 

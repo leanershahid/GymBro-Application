@@ -5,6 +5,7 @@ import {
   fetchPtSessions, bookPtSession, updatePtStatus, fetchBranchOptions, fetchTrainerOptions, searchMembers,
 } from './classesApi';
 import { getSession } from '../../../api/session';
+import { bookingRulesKeys } from '../../booking-rules/routes';
 import {
   ClassTypePayload, ScheduleFilter, CreateClassPayload, UpdateClassPayload, CancelClassPayload,
   PtTypePayload, PtSessionFilter, BookPtPayload, PtStatusPayload,
@@ -78,7 +79,11 @@ const useScheduleMutation = <V, R>(fn: (v: V) => Promise<R>) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => qc.invalidateQueries({ queryKey: classKeys.schedule }),
+    // Attendance / cancels can record or waive no-show & late-cancel penalties (feature 9).
+    onSuccess: () => Promise.all([
+      qc.invalidateQueries({ queryKey: classKeys.schedule }),
+      qc.invalidateQueries({ queryKey: bookingRulesKeys.all }),
+    ]),
   });
 };
 
@@ -122,6 +127,9 @@ export const useUpdatePtStatus = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: PtStatusPayload }) => updatePtStatus(id, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ptKeys.sessionsAll }),
+    onSuccess: () => Promise.all([
+      qc.invalidateQueries({ queryKey: ptKeys.sessionsAll }),
+      qc.invalidateQueries({ queryKey: bookingRulesKeys.all }),
+    ]),
   });
 };

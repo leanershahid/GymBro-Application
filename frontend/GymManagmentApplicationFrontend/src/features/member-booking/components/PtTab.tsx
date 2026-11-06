@@ -13,10 +13,15 @@ import { usePtTypes, useBookPtSession } from '../api/bookingQueries';
 import { PtSession, PtType } from '../types/booking.types';
 import { formatMoney, formatTime, startOfLocalDay, timeSlots, whenLabel, parseUtc } from '../utils/bookingFormat';
 import { Card, SectionTitle, InlineError, ActionButton, DayStrip } from './BookingUi';
+import { handleSafetyGateError } from '../../safety/routes';
+import { cancelRuleText, useBookingPolicy } from '../../booking-rules/routes';
+import { handleBookingBlocked } from '../hooks/bookingBlocked';
 
 interface Props {
   userId: number;
   onOpenBilling?: () => void;
+  /** "Contact the gym" when self-booking is paused (help screen). */
+  onContactGym?: () => void;
 }
 
 function TypeRow({ type, first, selected, onPress }: { type: PtType; first: boolean; selected: boolean; onPress: () => void }) {
@@ -74,8 +79,8 @@ function SlotGrid({ slots, value, onChange }: { slots: Date[]; value: Date | nul
   );
 }
 
-function BookedCard({ session, type, onOpenBilling, onDone }: {
-  session: PtSession; type: PtType; onOpenBilling?: () => void; onDone: () => void;
+function BookedCard({ session, type, rule, onOpenBilling, onDone }: {
+  session: PtSession; type: PtType; rule: string | null; onOpenBilling?: () => void; onDone: () => void;
 }) {
   const start = parseUtc(session.startsAt);
   const priced = type.price > 0;
@@ -90,6 +95,7 @@ function BookedCard({ session, type, onOpenBilling, onDone }: {
           {session.sessionTypeName}{session.trainerName ? ` with ${session.trainerName}` : ''}
         </Text>
         {start && <Text style={{ color: T.text, fontSize: 14, fontWeight: '700', marginTop: 2 }}>{whenLabel(start)}</Text>}
+        {!!rule && <Text style={{ color: T.textFaint, fontSize: 12, marginTop: SP.sm, textAlign: 'center' }}>{rule}</Text>}
       </View>
       {priced && (
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start', marginTop: SP.lg, padding: SP.md, borderRadius: R.md, backgroundColor: withAlpha(T.brandGold, 0.10) }}>
@@ -107,8 +113,9 @@ function BookedCard({ session, type, onOpenBilling, onDone }: {
   );
 }
 
-export default function PtTab({ userId, onOpenBilling }: Props) {
+export default function PtTab({ userId, onOpenBilling, onContactGym }: Props) {
   const toast = useToast();
+  const policy = useBookingPolicy(userId > 0).data;
   const typesQ = usePtTypes(userId);
   const bookM = useBookPtSession(userId);
   const [typeId, setTypeId] = useState<number | null>(null);
@@ -147,6 +154,8 @@ export default function PtTab({ userId, onOpenBilling }: Props) {
       setBooked({ session, type });
       toast.show({ type: 'success', message: 'Session requested.' });
     } catch (e) {
+      if (handleBookingBlocked(e, onContactGym)) return;
+      if (handleSafetyGateError(e)) return;
       showAlert("Couldn't book", apiErrorText(e));
     }
   };
@@ -181,7 +190,7 @@ export default function PtTab({ userId, onOpenBilling }: Props) {
       >
         <ScrollView style={{ maxHeight: 620 }} contentContainerStyle={{ padding: SP.xl }} keyboardShouldPersistTaps="handled">
           {booked ? (
-            <BookedCard session={booked.session} type={booked.type} onOpenBilling={onOpenBilling && (() => { reset(); onOpenBilling(); })} onDone={reset} />
+            <BookedCard session={booked.session} type={booked.type} rule={cancelRuleText(booked.session.freeCancelUntil, policy)} onOpenBilling={onOpenBilling && (() => { reset(); onOpenBilling(); })} onDone={reset} />
           ) : type && (
             <View>
               <Text style={{ color: T.textSub, fontSize: 13 }}>
@@ -221,6 +230,12 @@ export default function PtTab({ userId, onOpenBilling }: Props) {
               <Text style={{ color: T.textFaint, fontSize: 12, marginTop: SP.sm, textAlign: 'center' }}>
                 Your trainer confirms the request{type.price > 0 ? ` · an invoice for ${formatMoney(type.price, type.currency)} is added to your billing` : ''}.
               </Text>
+              {slot && policy && (
+                <Text style={{ color: T.textFaint, fontSize: 12, marginTop: 4, textAlign: 'center' }}>
+                  {cancelRuleText(new Date(slot.getTime() - policy.ptCancelCutoffHours * 3_600_000).toISOString(), policy)
+                    ?? `Cancelling within ${policy.ptCancelCutoffHours} hours of the start is a late cancel.`}
+                </Text>
+              )}
             </View>
           )}
         </ScrollView>

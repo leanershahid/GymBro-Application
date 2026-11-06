@@ -34,6 +34,8 @@ export default {
     owner: 'shahidleaners-organization',
     plugins: [
       'expo-font',
+      // Push: class/PT reminders and waitlist offers (src/features/notifications). Needs a new native build.
+      ['expo-notifications', { color: '#7ED321', defaultChannel: 'default' }],
       [
         'expo-location',
         {

@@ -4,6 +4,8 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 
+using GymManagmentApplication.Application.Common;
+
 namespace GymManagmentApplication.Infrastructure.Storage;
 
 /// <summary>
@@ -44,27 +46,6 @@ public class StorageSettings
     public bool UseSupabase => !string.IsNullOrWhiteSpace(SupabaseUrl) && !string.IsNullOrWhiteSpace(ServiceKey);
 }
 
-public enum FileKind { Image, Document, Video }
-
-public interface IFileStorage
-{
-    /// <summary>
-    /// Validates size and type — the type from the file's first bytes (magic number), not the client's
-    /// Content-Type or file name — stores the file under <paramref name="folder"/> with a generated name,
-    /// and returns its URL.
-    /// </summary>
-    Task<string> SaveAsync(IFormFile file, string folder, FileKind kind);
-
-    /// <summary>Best-effort delete of a file previously returned by <see cref="SaveAsync"/>.</summary>
-    Task DeleteAsync(string? url);
-
-    /// <summary>
-    /// A URL that can be opened for a stored file: a signed (and on Supabase, short-lived) URL for a
-    /// private document, or the URL itself for public files.
-    /// </summary>
-    Task<string> GetSignedUrlAsync(string url);
-}
-
 public class FileStorage(
     IOptions<StorageSettings> options,
     IHttpClientFactory httpFactory,
@@ -88,15 +69,17 @@ public class FileStorage(
     private static readonly FileType Mp4 = new("video/mp4", ".mp4");
     private static readonly FileType Mov = new("video/quicktime", ".mov");
     private static readonly FileType Webm = new("video/webm", ".webm");
+    private static readonly FileType Zip = new("application/zip", ".zip");
 
     private static readonly Dictionary<FileKind, (long MaxBytes, FileType[] Types)> Rules = new()
     {
         [FileKind.Image] = (5 * 1024 * 1024, [Jpeg, Png, Webp, Heic]),
         [FileKind.Document] = (10 * 1024 * 1024, [Pdf, Jpeg, Png, Webp]),
         [FileKind.Video] = (100 * 1024 * 1024, [Mp4, Mov, Webm]),
+        [FileKind.Archive] = (50 * 1024 * 1024, [Zip]),
     };
 
-    public async Task<string> SaveAsync(IFormFile file, string folder, FileKind kind)
+    public async Task<string> SaveAsync(FileUpload file, string folder, FileKind kind)
     {
         if (file is null || file.Length == 0) throw new ArgumentException("Choose a file to upload.");
         var (maxBytes, types) = Rules[kind];
@@ -117,7 +100,8 @@ public class FileStorage(
             .Select(p => new string(p.Where(c => char.IsLetterOrDigit(c) || c is '-' or '_').ToArray()))
             .Where(p => p.Length > 0));
         var path = $"{safeFolder}/{Guid.NewGuid():N}{type.Extension}";
-        var isPrivate = _s.PrivateDocuments && kind == FileKind.Document;
+        // Generated archives (data exports) are personal data: always private, whatever PrivateDocuments says.
+        var isPrivate = kind == FileKind.Archive || (_s.PrivateDocuments && kind == FileKind.Document);
 
         await using var stream = file.OpenReadStream();
         if (_s.UseCloudinary) return await SaveToCloudinaryAsync(stream, safeFolder, type, kind, isPrivate);
@@ -134,6 +118,7 @@ public class FileStorage(
         if (b.Length >= 8 && b[..8].SequenceEqual(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A })) return Png;
         if (At(b, 0, "RIFF") && At(b, 8, "WEBP")) return Webp;
         if (At(b, 0, "%PDF-")) return Pdf;
+        if (b.Length >= 4 && b[0] == 0x50 && b[1] == 0x4B && b[2] == 0x03 && b[3] == 0x04) return Zip;
         if (b.Length >= 4 && b[0] == 0x1A && b[1] == 0x45 && b[2] == 0xDF && b[3] == 0xA3) return Webm;
         if (At(b, 4, "ftyp") && b.Length >= 12)
         {
@@ -276,6 +261,7 @@ public class FileStorage(
     {
         FileKind.Video => "video",
         FileKind.Document => "auto",   // PDFs and images
+        FileKind.Archive => "raw",     // ZIP data exports
         _ => "image",
     };
 

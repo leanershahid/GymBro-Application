@@ -6,13 +6,11 @@ using GymManagmentApplication.Application.Billing.Responses;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Billing;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
-using GymManagmentApplication.Infrastructure.Email;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Billing.Services;
 
-public class InvoiceService(AppDbContext db, ICurrentUser currentUser, BillingCore billing, IEmailSender email) : IInvoiceService
+public class InvoiceService(IAppDbContext db, ICurrentUser currentUser, BillingCore billing, IEmailSender email) : IInvoiceService
 {
     public async Task<PagedResponse<InvoiceResponse>> GetAllAsync(InvoiceListRequest request)
     {

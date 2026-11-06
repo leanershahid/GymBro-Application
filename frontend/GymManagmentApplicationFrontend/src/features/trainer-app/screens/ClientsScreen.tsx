@@ -22,9 +22,13 @@ import LoadingState from '../../common/components/LoadingState';
 import Skeleton from '../../common/components/Skeleton';
 import StatusPill from '../../common/components/StatusPill';
 import EmptyState from '../../common/components/EmptyState';
+import SmallButton from '../../common/components/SmallButton';
+import { apiErrorText } from '../../../api/apiError';
+import { useOpenConversation } from '../../messaging/routes';
 
 // ─── Client detail ─────────────────────────────────────────────────
-function ClientDetail({ trainerId, clientId, onBack }: { trainerId: number; clientId: number; onBack: () => void }) {
+function ClientDetail({ trainerId, clientId, onBack, onOpenThread }: { trainerId: number; clientId: number; onBack: () => void; onOpenThread?: (conversationId: number) => void }) {
+  const openThread = useOpenConversation();
   const { data: profile, isLoading } = useClientProfile(clientId);
   const { data: assignedTrainer }    = useTrainerProfile(profile?.trainerId ?? 0);
   const { data: timeline = [] }      = useClientTimeline(clientId);
@@ -64,6 +68,12 @@ function ClientDetail({ trainerId, clientId, onBack }: { trainerId: number; clie
         {profile?.status && (
           <View style={{ marginTop: 8, alignSelf: 'center' }}>
             <StatusPill label={profile.status} tone="brand" />
+          </View>
+        )}
+        {onOpenThread && (
+          <View style={{ marginTop: 12 }}>
+            <SmallButton label="Message" icon="message-circle" busy={openThread.isPending}
+              onPress={() => openThread.mutate(clientId, { onSuccess: d => onOpenThread(d.id), onError: e => showAlert("Can't message this client", apiErrorText(e)) })} />
           </View>
         )}
       </View>
@@ -167,9 +177,11 @@ interface Props {
   /** Open straight into this client's detail (e.g. tapped from the Today screen). */
   initialClientId?: number;
   onBack?: () => void;
+  /** "Message" on a client's page opens (or starts) the thread. */
+  onOpenThread?: (conversationId: number) => void;
 }
 
-export default function ClientsScreen({ trainerId, initialClientId, onBack }: Props) {
+export default function ClientsScreen({ trainerId, initialClientId, onBack, onOpenThread }: Props) {
   const [selectedClient, setSelectedClient] = useState<number | null>(initialClientId ?? null);
   const [search, setSearch] = useState('');
   const { data: clients = [], isLoading, isError, refetch } = useMyClients(trainerId);
@@ -197,7 +209,7 @@ export default function ClientsScreen({ trainerId, initialClientId, onBack }: Pr
   ), []);
 
   if (selectedClient !== null) {
-    return <ClientDetail trainerId={trainerId} clientId={selectedClient} onBack={() => setSelectedClient(null)} />;
+    return <ClientDetail trainerId={trainerId} clientId={selectedClient} onBack={() => setSelectedClient(null)} onOpenThread={onOpenThread} />;
   }
 
   return (

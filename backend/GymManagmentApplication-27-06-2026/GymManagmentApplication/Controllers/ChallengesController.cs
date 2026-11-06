@@ -2,6 +2,7 @@ using System.Security.Claims;
 using FluentValidation;
 using GymManagmentApplication.Application.Challenges.Interfaces;
 using GymManagmentApplication.Application.Challenges.Requests;
+using GymManagmentApplication.Application.Challenges.Services;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Filters;
 using Microsoft.AspNetCore.Mvc;
@@ -13,8 +14,14 @@ namespace GymManagmentApplication.Controllers;
 [PermissionModule("challenges")] // same key as RequireModule (admin.challenges grants both "challenges" and "gamification")
 [Route("api/challenges")]
 [RequireModule("challenges")]
+/// <summary>
+/// Every api/challenges endpoint (ARCH-077: the participation endpoints used to be a second
+/// controller on the same prefix): listing/creation/status via <see cref="IChallengesService"/>,
+/// detail/join/leave/progress and admin edits via <see cref="ChallengeParticipationService"/>.
+/// </summary>
 public class ChallengesController(
     IChallengesService service,
+    ChallengeParticipationService participation,
     IValidator<CreateChallengeRequest> createValidator) : ControllerBase
 {
     private ulong UserId => ulong.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
@@ -50,4 +57,31 @@ public class ChallengesController(
             ? NotFound(ApiResponse<object>.Fail($"Challenge {id} not found."))
             : Ok(ApiResponse<object>.Ok(result, "Challenge status updated."));
     }
+
+    // ── Participation (detail, join/leave, progress) and admin edits ──────
+
+    [HttpGet("{id:long}")]
+    [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
+    public async Task<ActionResult<ApiResponse<object>>> Get(ulong id)
+        => Ok(ApiResponse<object>.Ok(await participation.GetChallengeAsync(id)));
+
+    [HttpPut("{id:long}")]
+    [AuthorizeRoles(RoleNames.Admin)]
+    public async Task<ActionResult<ApiResponse<object>>> Update(ulong id, [FromBody] UpdateChallengeRequest request)
+        => Ok(ApiResponse<object>.Ok(await participation.UpdateChallengeAsync(id, request), "Challenge saved."));
+
+    [HttpPost("{id:long}/join")]
+    [AuthorizeRoles(RoleNames.Client)]
+    public async Task<ActionResult<ApiResponse<object>>> Join(ulong id)
+        => Ok(ApiResponse<object>.Ok(await participation.JoinAsync(id), "You joined the challenge."));
+
+    [HttpDelete("{id:long}/join")]
+    [AuthorizeRoles(RoleNames.Client)]
+    public async Task<ActionResult<ApiResponse<object>>> Leave(ulong id)
+        => Ok(ApiResponse<object>.Ok(await participation.LeaveAsync(id), "You left the challenge."));
+
+    [HttpPost("{id:long}/progress")]
+    [AuthorizeRoles(RoleNames.Client)]
+    public async Task<ActionResult<ApiResponse<object>>> Progress(ulong id, [FromBody] ChallengeProgressRequest request)
+        => Ok(ApiResponse<object>.Ok(await participation.LogProgressAsync(id, request), "Progress logged."));
 }

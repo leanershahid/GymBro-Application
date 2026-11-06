@@ -26,8 +26,6 @@ public static class ShopMappers
     public static IEnumerable<ShopVariant> OrderedVariants(this IEnumerable<ShopVariant> variants) =>
         variants.OrderByDescending(v => v.IsDefault).ThenBy(v => v.Price).ThenBy(v => v.Name);
 
-    public static int AvailableStock(this ShopVariant v) => v.Inventory?.Available ?? 0;
-
     public static ShopVariantDto ToDto(this ShopVariant v) => new()
     {
         Id = v.Id,

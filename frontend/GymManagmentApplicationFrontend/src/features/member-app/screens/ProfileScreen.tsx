@@ -18,6 +18,7 @@ import StatusPill from '../../common/components/StatusPill';
 import EmptyState from '../../common/components/EmptyState';
 import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
 import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
+import { SafetyProfileSection } from '../../safety/routes';
 import { PickedFile } from '../../../api/upload';
 import { apiErrorText } from '../../../api/apiError';
 
@@ -79,9 +80,20 @@ function TimelineRow({ event }: { event: { eventType: string; description: strin
   );
 }
 
-interface Props { userId: number; onLogout: () => void; onOpenBilling?: () => void; }
+interface Props {
+  userId: number; onLogout: () => void; onOpenBilling?: () => void;
+  onOpenNotifications?: () => void; onOpenSecurity?: () => void;
+  /** Privacy & data: consents, download my data, delete my account. */
+  onOpenPrivacy?: () => void;
+  /** Help & feedback: FAQ, contact the gym, my requests. */
+  onOpenHelp?: () => void;
+  /** Equipment problems: my reports (and report a new one). */
+  onOpenReports?: () => void;
+  /** Messages with my coaches (and the "Allow my trainer to message me" switch). */
+  onOpenMessages?: () => void;
+}
 
-export default function ProfileScreen({ userId, onLogout, onOpenBilling }: Props) {
+export default function ProfileScreen({ userId, onLogout, onOpenBilling, onOpenNotifications, onOpenSecurity, onOpenPrivacy, onOpenHelp, onOpenReports, onOpenMessages }: Props) {
   const { data: profile, isLoading } = useMyProfile(userId);
   const { data: timeline = [] }      = useMyTimeline(userId);
   const { mutate: update, isPending } = useUpdateProfile(userId);
@@ -224,6 +236,11 @@ export default function ProfileScreen({ userId, onLogout, onOpenBilling }: Props
               </View>
             )}
 
+            {/* Waiver & health status, emergency contact, consents */}
+            <View style={{ marginTop: 24 }}>
+              <SafetyProfileSection />
+            </View>
+
             {onOpenBilling && (
               <PrimaryButton
                 label="Membership & payments"
@@ -232,6 +249,34 @@ export default function ProfileScreen({ userId, onLogout, onOpenBilling }: Props
                 style={{ marginTop: 24 }}
                 onPress={onOpenBilling}
               />
+            )}
+            {onOpenNotifications && (
+              <PrimaryButton label="Notifications" icon="bell" variant="secondary"
+                style={{ marginTop: 12 }} onPress={onOpenNotifications} />
+            )}
+            {onOpenSecurity && (
+              <PrimaryButton label="Two-step sign-in" icon="shield" variant="secondary"
+                style={{ marginTop: 12 }} onPress={onOpenSecurity} />
+            )}
+            {onOpenPrivacy && (
+              <PrimaryButton label="Privacy & data" icon="lock" variant="secondary"
+                accessibilityHint="Consents, download your data, or delete your account"
+                style={{ marginTop: 12 }} onPress={onOpenPrivacy} />
+            )}
+            {onOpenMessages && (
+              <PrimaryButton label="Messages" icon="message-circle" variant="secondary"
+                accessibilityHint="Your conversations with your coaches"
+                style={{ marginTop: 12 }} onPress={onOpenMessages} />
+            )}
+            {onOpenHelp && (
+              <PrimaryButton label="Help & feedback" icon="life-buoy" variant="secondary"
+                accessibilityHint="Quick answers, contact the gym, and your requests"
+                style={{ marginTop: 12 }} onPress={onOpenHelp} />
+            )}
+            {onOpenReports && (
+              <PrimaryButton label="Equipment problems" icon="tool" variant="secondary"
+                accessibilityHint="Report broken or unsafe equipment and follow your reports"
+                style={{ marginTop: 12 }} onPress={onOpenReports} />
             )}
             <PrimaryButton
               label="Change password"

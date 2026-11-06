@@ -207,10 +207,11 @@ export function useTabs(parentKey: string): AccessModule[] {
  * A page's tab switcher from its granted tabs: `items` for SegmentedTabs, the selected `tab`
  * (the first granted one until the user picks another) and `has(key)` for gating content.
  */
-export function usePageTabs(parentKey: string) {
+export function usePageTabs(parentKey: string, initialTab: string | null = null) {
   const granted = useTabs(parentKey);
   const items = useMemo(() => granted.map(t => ({ key: normalizeRoute(t), label: t.name })), [granted]);
-  const [picked, setPicked] = useState<string | null>(null);
+  // An ungranted `initialTab` (e.g. from an old URL) falls back to the first tab, like any pick.
+  const [picked, setPicked] = useState<string | null>(initialTab);
   const tab = picked && items.some(i => i.key === picked) ? picked : items[0]?.key ?? null;
   return { items, tab, setTab: setPicked, has: (key: string) => items.some(i => i.key === key) };
 }

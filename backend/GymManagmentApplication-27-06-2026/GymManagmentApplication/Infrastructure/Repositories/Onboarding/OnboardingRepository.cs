@@ -2,6 +2,8 @@ using GymManagmentApplication.Domain.Entities.Platform;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
+using GymManagmentApplication.Application.Onboarding.Interfaces;
+
 namespace GymManagmentApplication.Infrastructure.Repositories.Onboarding;
 
 public class OnboardingRepository(AppDbContext db) : IOnboardingRepository

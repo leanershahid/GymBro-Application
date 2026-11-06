@@ -91,4 +91,8 @@ public class CheckInResultResponse
     /// <summary>Distance to the nearest configured branch (metres), for "you're 340 m away" feedback.</summary>
     public int? DistanceM { get; set; }
     public string? NearestBranch { get; set; }
+    /// <summary>Desk check-in stopped by the safety gate (missing waiver / health check); retry with override.</summary>
+    public bool SafetyBlocked { get; set; }
+    /// <summary>What the safety gate found missing (waiver, health, health_expired, clearance, emergency_contact).</summary>
+    public List<string>? SafetyMissing { get; set; }
 }

@@ -55,6 +55,9 @@ services:
         sync: false
       - key: Storage__PrivateDocuments    # true = documents need GET api/uploads/signed-url to open
         value: "false"
+      # ── Push notifications (Expo) ─────────────────────────────────────────────────
+      - key: EXPO_ACCESS_TOKEN            # optional; only if "Enhanced push security" is on for the Expo project
+        sync: false
       # ── Startup / ops switches (defaults shown) ───────────────────────────────────
       - key: Database__MigrateOnStartup   # false once migrations run as a pre-deploy step
         value: "true"

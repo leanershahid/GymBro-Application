@@ -9,8 +9,6 @@ using GymManagmentApplication.Application.Trainer.Responses;
 using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Domain.Entities.Training;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
-using GymManagmentApplication.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Trainer.Services;
@@ -19,7 +17,7 @@ public class TrainerService(
     ITrainerRepository repository,
     IAuthService authService,
     ICurrentUser currentUser,
-    AppDbContext db,
+    IAppDbContext db,
     GymManagmentApplication.Application.Scheduling.PtService pt) : ITrainerService
 {
     private static readonly JsonSerializerOptions _opts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };

@@ -24,9 +24,15 @@ export const fetchAttendanceLog = async (date?: string, branchId?: number, pageN
     params: { date, branchId, pageNumber, pageSize },
   })).data;
 
-/** Front desk: checks a member in by hand. A blocked membership comes back as success:false with the reason. */
-export const checkInMember = async (userId: number) =>
-  (await axiosInstance.post<ApiResponse<CheckInResult>>(`/attendance/members/${userId}/check-in`)).data;
+/**
+ * Front desk: checks a member in by hand. A blocked membership comes back as success:false with the
+ * reason; a missing waiver / health check as success:false with data.safetyBlocked — retry with
+ * `override` to check in anyway (the API records who overrode).
+ */
+export const checkInMember = async (userId: number, override?: { reason?: string }) =>
+  (await axiosInstance.post<ApiResponse<CheckInResult>>(`/attendance/members/${userId}/check-in`, null, {
+    params: override ? { overrideSafety: true, overrideReason: override.reason || undefined } : undefined,
+  })).data;
 
 export const checkOutMember = async (userId: number) =>
   (await axiosInstance.post<ApiResponse<AttendanceRecord>>(`/attendance/members/${userId}/check-out`)).data;

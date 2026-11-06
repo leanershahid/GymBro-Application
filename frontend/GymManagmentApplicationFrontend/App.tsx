@@ -14,6 +14,7 @@ import { logoutSession, refreshSession } from './src/features/auth/api/authApi';
 import { AccessProvider } from './src/features/access/context/AccessContext';
 import AppShell from './src/features/access/components/AppShell';
 import { clearStoredAccess } from './src/features/access/api/accessStore';
+import { PushNotificationsBridge, unregisterPushDevice } from './src/features/notifications';
 
 type AppState =
   | { status: 'unauthenticated'; error?: string }
@@ -39,7 +40,8 @@ async function renewSession(token: string | null): Promise<boolean> {
   if (!token) return false;
   try {
     const res = await refreshSession(token);
-    if (!res.success || !res.data) return false;
+    // 2FA grace over (feature 10): sign in again so the login sheet runs the setup gate.
+    if (!res.success || !res.data || res.data.twoFactorSetupBlocking) return false;
     await applyAuth(res.data);
     return true;
   } catch {
@@ -104,7 +106,8 @@ export default function App() {
   const logout = async () => {
     // Revoke this device's refresh token server-side (best effort, max ~2s), then clear locally.
     await Promise.race([
-      logoutSession(currentRefreshToken()).catch(() => {}),
+      // This phone stops getting the account's pushes (needs the access token, so before it's cleared).
+      Promise.all([unregisterPushDevice(), logoutSession(currentRefreshToken()).catch(() => {})]),
       new Promise(resolve => setTimeout(resolve, 2000)),
     ]);
     await endSession();
@@ -123,6 +126,7 @@ export default function App() {
               // Keyed by user, so a different account never sees the previous one's menu.
               <AccessProvider key={appState.userId} userId={appState.userId} homeApp={appState.status} onLogout={logout}>
                 <AppShell userId={appState.userId} onLogout={logout} />
+                <PushNotificationsBridge userId={appState.userId} />
               </AccessProvider>
             )}
           </View>

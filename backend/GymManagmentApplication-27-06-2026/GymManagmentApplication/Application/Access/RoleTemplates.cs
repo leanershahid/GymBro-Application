@@ -35,7 +35,8 @@ public static class RoleTemplates
             ("admin.workouts", Full), ("admin.plans", Full), ("admin.exercises", Full),
         ]),
         Make("manager", "Manager", "Everything in the admin app except roles, access and tenants.",
-            ModuleCatalog.All.Where(m => m.App == ModuleCatalog.AdminApp && !m.AdminOnly).Select(m => (m.Key, Full)).ToList()),
+            // The incident log and the messages review are sensitive: granted to a role on purpose, never by a template.
+            ModuleCatalog.All.Where(m => m.App == ModuleCatalog.AdminApp && !m.AdminOnly && m.Key != "admin.incidents" && m.Key != "admin.messages").Select(m => (m.Key, Full)).ToList()),
     ];
 
     private static RoleTemplate Make(string key, string name, string description, List<(string Key, Can Can)> modules)

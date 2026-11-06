@@ -1,7 +1,7 @@
 using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
+using GymManagmentApplication.Application.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Common;
@@ -24,14 +24,14 @@ public static class MemberScope
         u.Role.Equals(RoleNames.Trainer, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Ids of the clients actively assigned to the calling trainer.</summary>
-    public static IQueryable<ulong> AssignedClientIds(this AppDbContext db, ulong trainerUserId) =>
+    public static IQueryable<ulong> AssignedClientIds(this IAppDbContext db, ulong trainerUserId) =>
         from a in db.TrainerClientAssignments
         join t in db.TrainerProfiles on a.TrainerId equals t.Id
         where t.UserId == trainerUserId && a.Status == TrainerAssignmentStatus.Active
         select a.ClientId;
 
     /// <summary>True when the caller may read/act on <paramref name="targetUserId"/>.</summary>
-    public static async Task<bool> CanActOnAsync(this AppDbContext db, ICurrentUser me, ulong targetUserId)
+    public static async Task<bool> CanActOnAsync(this IAppDbContext db, ICurrentUser me, ulong targetUserId)
     {
         if (me.IsClient()) return me.UserId == targetUserId;
         if (me.IsTrainer())
@@ -41,7 +41,7 @@ public static class MemberScope
     }
 
     /// <summary>Throws (→ 403) unless the caller may act on every id (see <see cref="CanActOnAsync"/>).</summary>
-    public static async Task EnsureCanActOnAllAsync(this AppDbContext db, ICurrentUser me, IEnumerable<ulong> userIds)
+    public static async Task EnsureCanActOnAllAsync(this IAppDbContext db, ICurrentUser me, IEnumerable<ulong> userIds)
     {
         var ids = userIds.Distinct().ToList();
         if (me.IsTrainer())
@@ -65,7 +65,7 @@ public static class MemberScope
     /// The TrainerProfile id to record on an assignment. A trainer always records themselves;
     /// admins/staff may name any trainer of their gym (tenant-filtered) or none.
     /// </summary>
-    public static async Task<ulong?> ResolveAssigningTrainerAsync(this AppDbContext db, ICurrentUser me, ulong? requestedTrainerId)
+    public static async Task<ulong?> ResolveAssigningTrainerAsync(this IAppDbContext db, ICurrentUser me, ulong? requestedTrainerId)
     {
         if (me.IsTrainer())
             return await db.TrainerProfiles.Where(t => t.UserId == me.UserId).Select(t => (ulong?)t.Id).FirstOrDefaultAsync()
@@ -80,7 +80,7 @@ public static class MemberScope
     /// Loads a person the caller may act on, or throws 403. Returns null when the user doesn't
     /// exist in the caller's gym. Super admin accounts are only reachable by a super admin.
     /// </summary>
-    public static async Task<User?> GetActionableUserAsync(this AppDbContext db, ICurrentUser me, ulong targetUserId)
+    public static async Task<User?> GetActionableUserAsync(this IAppDbContext db, ICurrentUser me, ulong targetUserId)
     {
         var user = await db.Users.Include(u => u.Branch)
             .FirstOrDefaultAsync(u => u.Id == targetUserId && u.DeletedAt == null);

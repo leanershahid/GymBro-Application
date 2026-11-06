@@ -1,4 +1,4 @@
-using GymManagmentApplication.Infrastructure.Data;
+using GymManagmentApplication.Application.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Common;
@@ -11,20 +11,20 @@ namespace GymManagmentApplication.Application.Common;
 /// </summary>
 public static class TenantGuard
 {
-    public static async Task EnsureBranchAsync(this AppDbContext db, ulong? branchId, ulong tenantId)
+    public static async Task EnsureBranchAsync(this IAppDbContext db, ulong? branchId, ulong tenantId)
     {
         if (branchId is not { } id || id == 0) return;
         if (!await db.Branches.IgnoreQueryFilters().AnyAsync(b => b.Id == id && b.TenantId == tenantId))
             throw new ArgumentException($"Branch {id} does not belong to this gym.");
     }
 
-    public static async Task EnsureUserAsync(this AppDbContext db, ulong userId, ulong tenantId, string label = "Member")
+    public static async Task EnsureUserAsync(this IAppDbContext db, ulong userId, ulong tenantId, string label = "Member")
     {
         if (!await db.Users.IgnoreQueryFilters().AnyAsync(u => u.Id == userId && u.TenantId == tenantId && u.DeletedAt == null))
             throw new ArgumentException($"{label} {userId} does not belong to this gym.");
     }
 
-    public static async Task EnsureMembershipPlanAsync(this AppDbContext db, ulong planId, ulong tenantId)
+    public static async Task EnsureMembershipPlanAsync(this IAppDbContext db, ulong planId, ulong tenantId)
     {
         if (!await db.MembershipPlans.IgnoreQueryFilters().AnyAsync(p => p.Id == planId && p.TenantId == tenantId))
             throw new ArgumentException($"Membership plan {planId} does not belong to this gym.");

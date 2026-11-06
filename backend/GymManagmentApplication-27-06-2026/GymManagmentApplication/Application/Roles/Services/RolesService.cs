@@ -6,12 +6,11 @@ using GymManagmentApplication.Application.Roles.Requests;
 using GymManagmentApplication.Application.Roles.Responses;
 using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Domain.Entities.Identity;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Roles.Services;
 
-public class RolesService(AppDbContext db, ICurrentUser currentUser) : IRolesService
+public class RolesService(IAppDbContext db, ICurrentUser currentUser) : IRolesService
 {
     private static string ToSlug(string name) => Slug.From(name, "role");
 

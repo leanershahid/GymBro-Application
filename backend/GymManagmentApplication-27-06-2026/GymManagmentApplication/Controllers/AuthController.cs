@@ -47,7 +47,10 @@ public class AuthController(
         if (!v.IsValid) return BadRequest(ApiResponse<object>.Fail("Validation failed.", v.Errors.Select(e => e.ErrorMessage).ToList()));
         var result = await service.LoginAsync(request, Session());
         if (result is null) return Unauthorized(ApiResponse<object>.Fail("Invalid email or password."));
-        return Ok(ApiResponse<object>.Ok(result, "Login successful."));
+        // 2FA: still 200 + success (additive fields), but no tokens — finish with POST 2fa/verify.
+        return Ok(ApiResponse<object>.Ok(result, result.RequiresTwoFactor
+            ? "Enter the code from your authenticator app to finish signing in."
+            : "Login successful."));
     }
 
     [HttpPost("logout")]

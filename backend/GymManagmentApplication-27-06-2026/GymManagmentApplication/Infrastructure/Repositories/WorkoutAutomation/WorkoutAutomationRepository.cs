@@ -4,6 +4,8 @@ using GymManagmentApplication.Domain.Entities.Training;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
+using GymManagmentApplication.Application.WorkoutAutomation.Interfaces;
+
 namespace GymManagmentApplication.Infrastructure.Repositories.WorkoutAutomation;
 
 public class WorkoutAutomationRepository(AppDbContext db) : IWorkoutAutomationRepository

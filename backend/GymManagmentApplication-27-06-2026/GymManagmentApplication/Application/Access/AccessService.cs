@@ -2,7 +2,6 @@ using System.Text.Json;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Domain.Entities.Identity;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -59,7 +58,7 @@ public interface IAccessService
 /// the next request recomputes. With more than one API instance, another instance's cache catches up
 /// within the 30 seconds; a shared (distributed) version would be needed for instant propagation.
 /// </summary>
-public class AccessService(AppDbContext db, ICurrentUser currentUser, IMemoryCache cache) : IAccessService
+public class AccessService(IAppDbContext db, ICurrentUser currentUser, IMemoryCache cache) : IAccessService
 {
     private const string VersionKey = "access:version";
     private static readonly TimeSpan CacheFor = TimeSpan.FromSeconds(30);

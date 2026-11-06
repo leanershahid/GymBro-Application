@@ -20,6 +20,8 @@ import { T, SP, R, withAlpha } from '../../../theme';
 export interface ClassSchedulePageProps {
   onBack?: () => void;
   mode: 'admin' | 'trainer';
+  /** Admin with classes edit rights: opens the cancellation & no-show rules (route booking-rules). */
+  onOpenBookingRules?: () => void;
 }
 
 type Tab = 'schedule' | 'types';
@@ -29,7 +31,7 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 /** Weekly class schedule for staff (admin: all trainers + class types; trainer: their gym's classes, mine by default). */
-export default function ClassSchedulePage({ onBack, mode }: ClassSchedulePageProps) {
+export default function ClassSchedulePage({ onBack, mode, onOpenBookingRules }: ClassSchedulePageProps) {
   const isAdmin = mode === 'admin';
   const [tab, setTab] = useState<Tab>('schedule');
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
@@ -90,6 +92,13 @@ export default function ClassSchedulePage({ onBack, mode }: ClassSchedulePagePro
       {isAdmin && (
         <View style={{ paddingHorizontal: SP.xl, marginBottom: SP.md }}>
           <SegmentedTabs tabs={TABS} value={tab} onChange={setTab} />
+          {onOpenBookingRules && (
+            <Pressable onPress={onOpenBookingRules} accessibilityRole="button" hitSlop={8}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end', marginTop: SP.sm, minHeight: 32 }}>
+              <Feather name="sliders" size={13} color={T.brand} />
+              <Text style={{ color: T.brand, fontSize: 13, fontWeight: '700' }}>Booking rules</Text>
+            </Pressable>
+          )}
         </View>
       )}
 

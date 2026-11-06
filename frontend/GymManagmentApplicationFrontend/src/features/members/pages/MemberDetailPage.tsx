@@ -26,6 +26,10 @@ import { describeApiError, apiErrorText } from '../../../api/apiError';
 import { T, SP, R, withAlpha, Shadow } from '../../../theme';
 import SmallButton from '../../common/components/SmallButton';
 import DetailRow from '../../common/components/DetailRow';
+import { MemberSafetySection } from '../../safety/routes';
+import { MemberRequestsLink } from '../../self-service/routes';
+import { MemberPrivacySection } from '../../privacy/routes';
+import { MemberBookingsSection } from '../../booking-rules/routes';
 import { formatMoney } from '../../common/utils/format';
 
 type Tab = 'overview' | 'plans' | 'visits' | 'notes' | 'docs';
@@ -130,6 +134,11 @@ function OverviewTab({ m, canEdit, onAssign, onRemoveTrainer, onManageAccess }: 
         <Divider />
         <DetailRow numberOfLines={2} icon="calendar" label="Member since" value={fmtDate(m.createdAt)} />
       </Section>
+
+      <MemberSafetySection memberId={m.id} memberName={`${m.firstName} ${m.lastName}`.trim()} />
+      <MemberPrivacySection memberId={m.id} memberName={`${m.firstName} ${m.lastName}`.trim()} />
+      {/* Strikes, booking block (Lift block) and late-cancel / no-show penalties (Waive). */}
+      <MemberBookingsSection memberId={m.id} />
 
       <Section
         title="Trainer"
@@ -370,6 +379,8 @@ interface Props {
   onCheckIn?: () => void;
   /** Busy state for onCheckIn. */
   checkingIn?: boolean;
+  /** Opens this member's pause / cancel / plan-change requests (membership-requests access only). */
+  onOpenMembershipRequests?: () => void;
 }
 
 /** One round action under the member's name — the profile is the hub for the front desk's tasks. */
@@ -391,7 +402,7 @@ function HubAction({ icon, label, onPress, busy }: { icon: React.ComponentProps<
   );
 }
 
-export default function MemberDetailPage({ memberId, onBack, onEdit, canEdit = false, onNewMembership, onNewInvoice, onCheckIn, checkingIn }: Props) {
+export default function MemberDetailPage({ memberId, onBack, onEdit, canEdit = false, onNewMembership, onNewInvoice, onCheckIn, checkingIn, onOpenMembershipRequests }: Props) {
   const [tab, setTab] = useState<Tab>('overview');
   const [assignOpen, setAssignOpen] = useState(false);
   const [manageAccess, setManageAccess] = useState(false);
@@ -511,7 +522,14 @@ export default function MemberDetailPage({ memberId, onBack, onEdit, canEdit = f
           />
         )}
         {tab === 'plans'  && (
-          <MemberBillingSection memberId={member.id} memberName={`${member.firstName} ${member.lastName}`.trim()} onNewMembership={onNewMembership} />
+          <>
+            {onOpenMembershipRequests && (
+              <View style={{ marginBottom: SP.md }}>
+                <MemberRequestsLink memberId={member.id} onPress={onOpenMembershipRequests} />
+              </View>
+            )}
+            <MemberBillingSection memberId={member.id} memberName={`${member.firstName} ${member.lastName}`.trim()} onNewMembership={onNewMembership} />
+          </>
         )}
         {tab === 'visits' && <VisitsTab memberId={member.id} />}
         {tab === 'notes'  && <NotesTab memberId={member.id} />}

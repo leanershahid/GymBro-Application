@@ -77,7 +77,7 @@ public class ExerciseController(
     [RequestFormLimits(MultipartBodyLengthLimit = 110 * 1024 * 1024)]
     public async Task<ActionResult<ApiResponse<object>>> UploadVideo(ulong id, IFormFile video)
     {
-        var url = await service.UploadVideoAsync(id, video);
+        var url = await service.UploadVideoAsync(id, video.ToUpload());
         return string.IsNullOrEmpty(url)
             ? NotFound(ApiResponse<object>.Fail("Exercise not found."))
             : Ok(ApiResponse<object>.Ok(new { url }, "Video uploaded."));

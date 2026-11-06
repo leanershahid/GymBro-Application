@@ -4,12 +4,11 @@ using GymManagmentApplication.Application.WorkoutBuilder.Requests;
 using GymManagmentApplication.Application.WorkoutBuilder.Responses;
 using GymManagmentApplication.Domain.Entities.Training;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.WorkoutBuilder.Services;
 
-public class WorkoutBuilderService(AppDbContext db, ICurrentUser currentUser) : IWorkoutBuilderService
+public class WorkoutBuilderService(IAppDbContext db, ICurrentUser currentUser) : IWorkoutBuilderService
 {
     /// <summary>
     /// WorkoutSection has no TenantId, so check the parent workout through the tenant-filtered

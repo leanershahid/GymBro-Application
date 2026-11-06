@@ -4,14 +4,13 @@ using GymManagmentApplication.Application.Billing.Requests;
 using GymManagmentApplication.Application.Billing.Responses;
 using GymManagmentApplication.Domain.Entities.Membership;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
+using GymManagmentApplication.Application.Common;
 using Microsoft.EntityFrameworkCore;
 
-using GymManagmentApplication.Application.Common;
 
 namespace GymManagmentApplication.Application.Billing.Services;
 
-public class MembershipPlanService(AppDbContext db, ICurrentUser currentUser) : IMembershipPlanService
+public class MembershipPlanService(IAppDbContext db, ICurrentUser currentUser) : IMembershipPlanService
 {
     public async Task<List<MembershipPlanResponse>> GetAllAsync(ulong tenantId)
     {
@@ -39,7 +38,13 @@ public class MembershipPlanService(AppDbContext db, ICurrentUser currentUser) : 
             Features = request.Features != null
                 ? JsonDocument.Parse(JsonSerializer.Serialize(request.Features))
                 : null,
-            IsActive = true
+            IsActive = true,
+            IsPublic = request.IsPublic,
+            IsPopular = request.IsPopular,
+            JoiningFee = Money.Round(Math.Max(0, request.JoiningFee)),
+            ClassCredits = request.ClassCredits is > 0 ? request.ClassCredits : null,
+            PtSessions = request.PtSessions is > 0 ? request.PtSessions : null,
+            AccessHours = string.IsNullOrWhiteSpace(request.AccessHours) ? null : request.AccessHours.Trim(),
         };
         db.MembershipPlans.Add(plan);
         await db.SaveChangesAsync();
@@ -61,6 +66,13 @@ public class MembershipPlanService(AppDbContext db, ICurrentUser currentUser) : 
         if (request.Price.HasValue) plan.Price = request.Price.Value;
         if (request.BillingCycle is not null) plan.BillingCycle = ParseCycle(request.BillingCycle);
         if (request.IsActive.HasValue) plan.IsActive = request.IsActive.Value;
+        if (request.IsPublic.HasValue) plan.IsPublic = request.IsPublic.Value;
+        if (request.IsPopular.HasValue) plan.IsPopular = request.IsPopular.Value;
+        if (request.JoiningFee.HasValue)
+            plan.JoiningFee = request.JoiningFee.Value >= 0 ? Money.Round(request.JoiningFee.Value) : throw new ArgumentException("Joining fee can't be negative.");
+        if (request.ClassCredits.HasValue) plan.ClassCredits = request.ClassCredits.Value > 0 ? request.ClassCredits : null;
+        if (request.PtSessions.HasValue) plan.PtSessions = request.PtSessions.Value > 0 ? request.PtSessions : null;
+        if (request.AccessHours is not null) plan.AccessHours = string.IsNullOrWhiteSpace(request.AccessHours) ? null : request.AccessHours.Trim();
         plan.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return Map(plan);
@@ -113,7 +125,8 @@ public class MembershipPlanService(AppDbContext db, ICurrentUser currentUser) : 
                 _                       => 30
             },
             Features = features,
-            IsPublic = true, IsActive = p.IsActive, CreatedAt = p.CreatedAt
+            IsPublic = p.IsPublic, IsActive = p.IsActive, CreatedAt = p.CreatedAt,
+            IsPopular = p.IsPopular, JoiningFee = p.JoiningFee, ClassCredits = p.ClassCredits, PtSessions = p.PtSessions, AccessHours = p.AccessHours,
         };
     }
 

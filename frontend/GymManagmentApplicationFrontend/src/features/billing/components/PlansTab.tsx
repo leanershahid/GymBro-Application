@@ -58,6 +58,8 @@ export default function PlansTab() {
             <View style={{ flexDirection: 'row', gap: SP.sm, marginTop: 6, alignItems: 'center' }}>
               <StatusPill label={cycleLabel(item.billingCycle)} tone="info" />
               {!item.isPublic && <StatusPill label="Hidden" tone="neutral" />}
+              {item.isPopular && <StatusPill label="Most popular" tone="brand" />}
+              {!!item.joiningFee && <StatusPill label={`Joining ${fmtMoney(item.joiningFee, item.currency)}`} tone="neutral" />}
             </View>
             {!!item.description && <Text style={{ color: T.textSub, fontSize: 13, marginTop: SP.sm }} numberOfLines={2}>{item.description}</Text>}
             {item.features.length > 0 && (
@@ -87,6 +89,11 @@ function PlanSheet({ plan, onClose }: { plan: MembershipPlan | 'new' | null; onC
   const [features, setFeatures] = useState<string[]>([]);
   const [featureDraft, setFeatureDraft] = useState('');
   const [isPublic, setIsPublic] = useState(true);
+  const [isPopular, setIsPopular] = useState(false);
+  const [joiningFee, setJoiningFee] = useState('');
+  const [classCredits, setClassCredits] = useState('');
+  const [ptSessions, setPtSessions] = useState('');
+  const [accessHours, setAccessHours] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -97,6 +104,11 @@ function PlanSheet({ plan, onClose }: { plan: MembershipPlan | 'new' | null; onC
     setFeatures(existing?.features ?? []);
     setFeatureDraft('');
     setIsPublic(existing?.isPublic ?? true);
+    setIsPopular(existing?.isPopular ?? false);
+    setJoiningFee(existing?.joiningFee ? String(existing.joiningFee) : '');
+    setClassCredits(existing?.classCredits ? String(existing.classCredits) : '');
+    setPtSessions(existing?.ptSessions ? String(existing.ptSessions) : '');
+    setAccessHours(existing?.accessHours ?? '');
     setErrors({});
   }, [plan]);
 
@@ -120,16 +132,23 @@ function PlanSheet({ plan, onClose }: { plan: MembershipPlan | 'new' | null; onC
     setErrors(errs);
     if (Object.keys(errs).length) return;
     // A feature typed but not yet added still counts.
+    const online = {
+      isPopular,
+      joiningFee: toNumber(joiningFee) > 0 ? toNumber(joiningFee) : 0,
+      classCredits: Math.max(0, Math.round(toNumber(classCredits) || 0)),
+      ptSessions: Math.max(0, Math.round(toNumber(ptSessions) || 0)),
+      accessHours: accessHours.trim(),
+    };
     const allFeatures = featureDraft.trim() && !features.includes(featureDraft.trim()) ? [...features, featureDraft.trim()] : features;
 
     if (existing) {
       update.mutate(
-        { id: existing.id, patch: { name: name.trim(), description: description.trim() || null, price: p, billingCycle: cycle, isPublic }, features: allFeatures },
+        { id: existing.id, patch: { name: name.trim(), description: description.trim() || null, price: p, billingCycle: cycle, isPublic, ...online }, features: allFeatures },
         { onSuccess: () => { toast.show({ message: 'Plan updated.' }); onClose(); }, onError: onError('Plan not saved') },
       );
     } else {
       create.mutate(
-        { name: name.trim(), description: description.trim() || null, price: p, billingCycle: cycle, features: allFeatures, isPublic },
+        { name: name.trim(), description: description.trim() || null, price: p, billingCycle: cycle, features: allFeatures, isPublic, ...online },
         { onSuccess: () => { toast.show({ message: 'Plan created.' }); onClose(); }, onError: onError('Plan not created') },
       );
     }
@@ -172,8 +191,15 @@ function PlanSheet({ plan, onClose }: { plan: MembershipPlan | 'new' | null; onC
         ))}
         <Field label="Add a feature" value={featureDraft} onChangeText={setFeatureDraft} placeholder="e.g. Locker, 4 PT sessions"
           rightElement={<View style={{ paddingRight: SP.sm }}><SmallButton icon="plus" label="Add" onPress={addFeature} /></View>} />
-        <SwitchRow label="Show to members" value={isPublic} onValueChange={setIsPublic}
+        <Text style={{ color: T.textSub, fontSize: 13, marginBottom: 7 }}>What's included (shown on the member app's plan cards)</Text>
+        <Field label="Class credits per period (blank = unlimited)" value={classCredits} onChangeText={setClassCredits} keyboardType="number-pad" />
+        <Field label="PT sessions included (blank = none)" value={ptSessions} onChangeText={setPtSessions} keyboardType="number-pad" />
+        <Field label="Access hours (optional)" value={accessHours} onChangeText={setAccessHours} placeholder="e.g. 24/7, or 6am–11am weekdays" />
+        <Field label="Joining fee (one-off, blank = none)" value={joiningFee} onChangeText={setJoiningFee} keyboardType="decimal-pad" />
+        <SwitchRow label="Show to members (sell online)" value={isPublic} onValueChange={setIsPublic}
           description="Hidden plans can still be sold at the desk." />
+        <SwitchRow label="Mark as Most popular" value={isPopular} onValueChange={setIsPopular}
+          description="Highlighted with a badge in the member app's plan browser." />
 
         <PrimaryButton label={existing ? 'Save changes' : 'Create plan'} icon="check" onPress={save}
           loading={create.isPending || update.isPending} />

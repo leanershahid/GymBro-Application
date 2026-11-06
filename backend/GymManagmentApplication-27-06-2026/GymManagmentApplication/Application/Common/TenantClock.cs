@@ -1,4 +1,4 @@
-using GymManagmentApplication.Infrastructure.Data;
+using GymManagmentApplication.Application.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Common;
@@ -13,7 +13,7 @@ public sealed class TenantClock
 
     private TenantClock(TimeZoneInfo zone) => Zone = zone;
 
-    public static async Task<TenantClock> ForAsync(AppDbContext db, ulong? tenantId)
+    public static async Task<TenantClock> ForAsync(IAppDbContext db, ulong? tenantId)
     {
         var id = tenantId is null ? null
             : await db.Tenants.IgnoreQueryFilters().Where(t => t.Id == tenantId).Select(t => t.Timezone).FirstOrDefaultAsync();

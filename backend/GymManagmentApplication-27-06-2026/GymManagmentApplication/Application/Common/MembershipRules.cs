@@ -1,5 +1,5 @@
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
+using GymManagmentApplication.Application.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Common;
@@ -13,7 +13,7 @@ public static class MembershipRules
     /// Members with no membership record at all are allowed (gyms that don't track
     /// memberships in the app yet).
     /// </summary>
-    public static async Task<string?> BlockReasonAsync(AppDbContext db, ulong userId, DateOnly? day = null)
+    public static async Task<string?> BlockReasonAsync(IAppDbContext db, ulong userId, DateOnly? day = null)
     {
         var today = day ?? DateOnly.FromDateTime(DateTime.UtcNow);
         var memberships = await db.GymMemberships.IgnoreQueryFilters()
@@ -29,6 +29,8 @@ public static class MembershipRules
             return "Your membership is frozen. Ask the front desk to unfreeze it.";
         if (memberships.Any(m => (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Trial) && m.StartsAt > today))
             return "Your membership hasn't started yet.";
+        if (memberships.Any(m => m.Status == MembershipStatus.Pending))
+            return "Your membership starts once it's paid. Finish paying in the app or at the front desk.";
         return "Your membership has expired. Please renew it.";
     }
 }

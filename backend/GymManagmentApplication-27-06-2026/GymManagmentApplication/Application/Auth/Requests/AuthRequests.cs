@@ -13,6 +13,8 @@ public class LoginRequest
 {
     public string Email { get; set; } = default!;
     public string Password { get; set; } = default!;
+    /// <summary>Optional "remember this device" token from an earlier 2FA sign-in; skips the second step while valid.</summary>
+    public string? DeviceToken { get; set; }
 }
 
 public class RefreshTokenRequest

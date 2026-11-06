@@ -5,6 +5,8 @@ using ExerciseEntity = GymManagmentApplication.Domain.Entities.Training.Exercise
 using GymManagmentApplication.Domain.Entities.Training;
 using Microsoft.EntityFrameworkCore;
 
+using GymManagmentApplication.Application.Exercise.Interfaces;
+
 namespace GymManagmentApplication.Infrastructure.Repositories.Exercise;
 
 public class ExerciseRepository(AppDbContext db) : IExerciseRepository

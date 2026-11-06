@@ -2,7 +2,6 @@ using System.Globalization;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Shop.Common;
 using GymManagmentApplication.Domain.Entities.Shop;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Shop.Orders;
@@ -13,7 +12,7 @@ public interface IShopDashboardService
 }
 
 /// <summary>The shop's admin overview. Ported from the store's DashboardService.</summary>
-public sealed class ShopDashboardService(AppDbContext db, ICurrentUser currentUser, ShopOrderCore core) : IShopDashboardService
+public sealed class ShopDashboardService(IAppDbContext db, ICurrentUser currentUser, ShopOrderCore core) : IShopDashboardService
 {
     private const int Days = 30;
 

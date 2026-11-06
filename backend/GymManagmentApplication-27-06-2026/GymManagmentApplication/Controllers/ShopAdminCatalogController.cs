@@ -70,8 +70,11 @@ public class ShopAdminCatalogController(
     [HttpPost("products/{id}/images")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(6 * 1024 * 1024)]
-    public async Task<ActionResult<ApiResponse<object>>> UploadImage(ulong id, [FromForm] UploadShopImageRequest request)
-        => Ok(ApiResponse<object>.Ok(await products.UploadImageAsync(id, request), "Image uploaded"));
+    public async Task<ActionResult<ApiResponse<object>>> UploadImage(ulong id, [FromForm] UploadShopImageForm form)
+        => Ok(ApiResponse<object>.Ok(await products.UploadImageAsync(id, new UploadShopImageRequest
+        {
+            File = form.File.ToUploadOrNull(), AltText = form.AltText, IsPrimary = form.IsPrimary,
+        }), "Image uploaded"));
 
     [HttpPost("products/{id}/images/url")]
     public async Task<ActionResult<ApiResponse<object>>> AddImageUrl(ulong id, [FromBody] AddShopImageUrlRequest request)
@@ -120,4 +123,12 @@ public class ShopAdminCatalogController(
     [HttpPatch("inventory/{variantId}")]
     public async Task<ActionResult<ApiResponse<object>>> UpdateInventory(ulong variantId, [FromBody] UpdateShopInventoryRequest request)
         => Ok(ApiResponse<object>.Ok(await inventory.UpdateAsync(variantId, request), "Inventory updated"));
+}
+
+/// <summary>multipart/form-data body of POST products/{id}/images: file, altText, isPrimary.</summary>
+public sealed class UploadShopImageForm
+{
+    public IFormFile? File { get; init; }
+    public string? AltText { get; init; }
+    public bool IsPrimary { get; init; }
 }

@@ -16,6 +16,7 @@ import { usePtTypes, useTrainerOptions, useMyTrainerProfile, useBookPt, useUpdat
 import { MemberOption, PtSession, PtStatusInput } from '../types/classes.types';
 import { MemberPicker, SmallButton, fmtDay, fmtMoney, fmtTime, localDateKey, statusLabel, statusTone, toUtcIso } from './classesUi';
 import { T, SP } from '../../../theme';
+import { PenaltyList } from '../../booking-rules/routes';
 
 // ─── Session detail / status actions ─────────────────────────────
 
@@ -98,6 +99,7 @@ export function PtSessionSheet({ session, onClose, mode }: PtSessionSheetProps) 
           ) : (
             !!s.trainerNotes && <Info icon="edit-3" text={s.trainerNotes} />
           )}
+          <PenaltyList filter={{ ptSessionId: s.id }} canWaive={mode === 'admin'} />
         </ScrollView>
       )}
     </BottomSheet>

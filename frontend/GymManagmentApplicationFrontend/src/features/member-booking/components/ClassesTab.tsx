@@ -8,13 +8,17 @@ import StatusPill, { PillTone } from '../../common/components/StatusPill';
 import Skeleton from '../../common/components/Skeleton';
 import EmptyState from '../../common/components/EmptyState';
 import { useToast } from '../../common/components/Toast';
-import { useClassSchedule, useBookClass, useCancelClassBooking } from '../api/bookingQueries';
+import { useClassSchedule, useBookClass } from '../api/bookingQueries';
 import { GymClass } from '../types/booking.types';
 import {
   parseUtc, formatTimeRange, startOfLocalDay, addDays, sameLocalDay, dayLabel,
   classColor, isClassCancelled, spotsLeft,
 } from '../utils/bookingFormat';
 import { Card, InlineError, ActionButton, DayStrip } from './BookingUi';
+import { handleSafetyGateError } from '../../safety/routes';
+import { BookingPolicy, cancelRuleText } from '../../booking-rules/routes';
+import { useCancelFlow } from '../hooks/useCancelFlow';
+import { handleBookingBlocked } from '../hooks/bookingBlocked';
 
 const DAYS = 14;
 
@@ -31,8 +35,8 @@ const BOOKING_PILL: Record<string, { label: string; tone: PillTone }> = {
   NoShow: { label: 'Missed', tone: 'err' },
 };
 
-function ClassCard({ cls, pending, busy, onBook, onCancel }: {
-  cls: GymClass; pending: boolean; busy: boolean;
+function ClassCard({ cls, pending, busy, policy, onBook, onCancel }: {
+  cls: GymClass; pending: boolean; busy: boolean; policy?: BookingPolicy;
   onBook: (c: GymClass) => void; onCancel: (c: GymClass) => void;
 }) {
   const start = parseUtc(cls.startsAt);
@@ -43,6 +47,8 @@ function ClassCard({ cls, pending, busy, onBook, onCancel }: {
   const left = spotsLeft(cls);
   const full = left === 0;
   const pill = cancelled ? { label: 'Cancelled', tone: 'err' as PillTone } : cls.myBooking ? BOOKING_PILL[cls.myBooking] : undefined;
+  // The cancellation rule, shown before booking and while booked ("Free cancellation until 4:30 PM").
+  const rule = !cancelled && !started && cls.myBooking !== 'Waitlisted' ? cancelRuleText(cls.freeCancelUntil, policy) : null;
 
   let spotsText: string;
   if (left == null) spotsText = `${cls.booked} booked`;
@@ -102,13 +108,19 @@ function ClassCard({ cls, pending, busy, onBook, onCancel }: {
             </View>
             {action}
           </View>
+          {!!rule && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: SP.sm }}>
+              <Feather name="info" size={12} color={T.textFaint} />
+              <Text style={{ color: T.textFaint, fontSize: 12 }}>{rule}</Text>
+            </View>
+          )}
         </View>
       </View>
     </Card>
   );
 }
 
-export default function ClassesTab({ userId }: { userId: number }) {
+export default function ClassesTab({ userId, onContactGym }: { userId: number; onContactGym?: () => void }) {
   const toast = useToast();
   // The window is fixed per calendar day so the query key stays stable.
   const today = startOfLocalDay(new Date());
@@ -116,7 +128,7 @@ export default function ClassesTab({ userId }: { userId: number }) {
   const toIso = addDays(today, DAYS).toISOString();
   const scheduleQ = useClassSchedule(userId, fromIso, toIso);
   const bookM = useBookClass(userId);
-  const cancelM = useCancelClassBooking(userId);
+  const cancelFlow = useCancelFlow(userId);
   const [day, setDay] = useState<Date>(today);
   const [pendingId, setPendingId] = useState<number | null>(null);
 
@@ -143,36 +155,23 @@ export default function ClassesTab({ userId }: { userId: number }) {
     setPendingId(c.id);
     try {
       const res = await bookM.mutateAsync(c.id);
-      toast.show({ type: 'success', message: res.message || (res.cls.myBooking === 'Waitlisted' ? 'Added to the waitlist.' : 'Booked.') });
+      const rule = res.cls.myBooking === 'Booked' ? cancelRuleText(res.cls.freeCancelUntil, cancelFlow.policy) : null;
+      toast.show({ type: 'success', message: `${res.message || (res.cls.myBooking === 'Waitlisted' ? 'Added to the waitlist.' : 'Booked.')}${rule ? ` ${rule}.` : ''}` });
     } catch (e) {
+      if (handleBookingBlocked(e, onContactGym)) return;
+      if (handleSafetyGateError(e)) return;
       showAlert("Couldn't book", apiErrorText(e));
     } finally {
       setPendingId(null);
     }
   };
 
-  const doCancel = async (c: GymClass) => {
-    setPendingId(c.id);
-    try {
-      await cancelM.mutateAsync(c.id);
-      toast.show({ type: 'success', message: c.myBooking === 'Waitlisted' ? 'Removed from the waitlist.' : 'Booking cancelled.' });
-    } catch (e) {
-      showAlert("Couldn't cancel", apiErrorText(e));
-    } finally {
-      setPendingId(null);
-    }
-  };
-
   const cancel = (c: GymClass) => {
-    const wl = c.myBooking === 'Waitlisted';
-    showAlert(
-      wl ? 'Leave the waitlist?' : 'Cancel this booking?',
-      `${c.title}${parseUtc(c.startsAt) ? ` · ${dayLabel(parseUtc(c.startsAt)!)}` : ''}`,
-      [
-        { text: 'Keep', style: 'cancel' },
-        { text: wl ? 'Leave' : 'Cancel booking', style: 'destructive', onPress: () => { void doCancel(c); } },
-      ],
-    );
+    const start = parseUtc(c.startsAt);
+    cancelFlow.request({
+      kind: 'class', id: c.id, title: `${c.title}${start ? ` · ${dayLabel(start)}` : ''}`,
+      startsAt: c.startsAt, freeCancelUntil: c.freeCancelUntil, waitlisted: c.myBooking === 'Waitlisted',
+    });
   };
 
   return (
@@ -197,13 +196,15 @@ export default function ClassesTab({ userId }: { userId: number }) {
           <ClassCard
             key={c.id}
             cls={c}
-            pending={pendingId === c.id}
-            busy={pendingId !== null}
+            pending={pendingId === c.id || cancelFlow.pendingKey === `c${c.id}`}
+            busy={pendingId !== null || cancelFlow.pendingKey !== null}
+            policy={cancelFlow.policy}
             onBook={book}
             onCancel={cancel}
           />
         ))
       )}
+      {cancelFlow.sheet}
     </View>
   );
 }

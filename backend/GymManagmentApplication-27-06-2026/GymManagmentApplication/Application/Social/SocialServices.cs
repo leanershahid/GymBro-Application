@@ -1,7 +1,5 @@
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Social;
-using GymManagmentApplication.Infrastructure.Data;
-using GymManagmentApplication.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Social;
@@ -10,7 +8,7 @@ public interface ISocialPostService
 {
     Task<SocialFeedDto> GetFeedAsync(ulong? cursor, int pageSize);
     Task<SocialPostDto> GetAsync(ulong postId);
-    Task<SocialPostDto> CreateAsync(string? caption, IReadOnlyList<IFormFile> images);
+    Task<SocialPostDto> CreateAsync(string? caption, IReadOnlyList<FileUpload> images);
     Task DeleteAsync(ulong postId);
 }
 
@@ -41,7 +39,7 @@ internal static class SocialRules
     public static ulong Tenant(ICurrentUser u) => u.TenantId ?? throw new UnauthorizedAccessException("Your session has no tenant. Please sign in again.");
 
     /// <summary>Live posts of the caller's gym. Never trust a tenant or user id from the request.</summary>
-    public static IQueryable<SocialPost> Visible(AppDbContext db, ICurrentUser u)
+    public static IQueryable<SocialPost> Visible(IAppDbContext db, ICurrentUser u)
     {
         var tenant = Tenant(u);
         return db.SocialPosts.AsNoTracking().Where(p => p.TenantId == tenant && !p.IsDeleted && p.IsActive);
@@ -68,7 +66,7 @@ internal static class SocialRules
     public static string DisplayName(string name) => string.IsNullOrWhiteSpace(name) ? "Member" : name.Trim();
 }
 
-public class SocialPostService(AppDbContext db, ICurrentUser currentUser, IFileStorage storage, ILogger<SocialPostService> logger) : ISocialPostService
+public class SocialPostService(IAppDbContext db, ICurrentUser currentUser, IFileStorage storage, ILogger<SocialPostService> logger) : ISocialPostService
 {
     public async Task<SocialFeedDto> GetFeedAsync(ulong? cursor, int pageSize)
     {
@@ -99,7 +97,7 @@ public class SocialPostService(AppDbContext db, ICurrentUser currentUser, IFileS
         return row;
     }
 
-    public async Task<SocialPostDto> CreateAsync(string? caption, IReadOnlyList<IFormFile> images)
+    public async Task<SocialPostDto> CreateAsync(string? caption, IReadOnlyList<FileUpload> images)
     {
         var me = SocialRules.Me(currentUser);
         var tenant = SocialRules.Tenant(currentUser);
@@ -199,7 +197,7 @@ public class SocialPostService(AppDbContext db, ICurrentUser currentUser, IFileS
     }
 
     /// <summary>Type by declared content type AND file signature, plus size: a renamed file is rejected.</summary>
-    private static async Task ValidateImageAsync(IFormFile f)
+    private static async Task ValidateImageAsync(FileUpload f)
     {
         var name = string.IsNullOrWhiteSpace(f.FileName) ? "image" : Path.GetFileName(f.FileName);
         if (f.Length == 0) throw new ArgumentException($"{name} is empty.");
@@ -217,7 +215,7 @@ public class SocialPostService(AppDbContext db, ICurrentUser currentUser, IFileS
     }
 }
 
-public class SocialLikeService(AppDbContext db, ICurrentUser currentUser, ILogger<SocialLikeService> logger) : ISocialLikeService
+public class SocialLikeService(IAppDbContext db, ICurrentUser currentUser, ILogger<SocialLikeService> logger) : ISocialLikeService
 {
     public async Task<SocialLikeStateDto> LikeAsync(ulong postId)
     {
@@ -258,7 +256,7 @@ public class SocialLikeService(AppDbContext db, ICurrentUser currentUser, ILogge
     };
 }
 
-public class SocialCommentService(AppDbContext db, ICurrentUser currentUser, ILogger<SocialCommentService> logger) : ISocialCommentService
+public class SocialCommentService(IAppDbContext db, ICurrentUser currentUser, ILogger<SocialCommentService> logger) : ISocialCommentService
 {
     public async Task<PagedResponse<SocialCommentDto>> ListAsync(ulong postId, int pageNumber, int pageSize)
     {

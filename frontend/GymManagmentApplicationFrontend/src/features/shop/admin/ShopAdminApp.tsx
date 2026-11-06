@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, View } from 'react-native';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
@@ -6,7 +6,10 @@ import EmptyState from '../../common/components/EmptyState';
 import { SP } from '../../../theme';
 import { usePageTabs } from '../../access/context/AccessContext';
 import { ChipItem, ChipRow } from './components/kit';
-import { ShopNav, TabParams } from './nav';
+import { parseShopAdminPath, ShopAdminRoute, shopAdminPath, shopAdminRouteToPath, ShopNav, TabParams } from './nav';
+import type { OpenRequest } from '../../access/types/access.types';
+import { pathKey, syncStack } from '../../../navigation/paths';
+import { PathChange, useOpenRequest, useReportPath } from '../../../navigation/useAreaRoute';
 import DashboardTab from './DashboardTab';
 import ProductsTab from './ProductsTab';
 import ProductEditScreen from './ProductEditScreen';
@@ -19,21 +22,34 @@ import CustomerDetailScreen from './CustomerDetailScreen';
 import CouponsTab from './CouponsTab';
 import SettingsTab from './SettingsTab';
 
-type Route =
-  | { kind: 'product'; id: number | null }
-  | { kind: 'order'; orderNumber: string }
-  | { kind: 'customer'; id: number };
+type Route = ShopAdminRoute;
+const routeKey = (r: Route) => pathKey(shopAdminRouteToPath(r));
 
 const TAB_ICON: Record<string, ChipItem<string>['icon']> = {
   dashboard: 'bar-chart-2', orders: 'package', products: 'box', categories: 'folder',
   inventory: 'layers', coupons: 'tag', customers: 'users', settings: 'settings',
 };
 
+interface Props {
+  onBack?: () => void;
+  /** Path the shell asks for (tab / detail screen), from a URL or Back/Forward. */
+  open?: OpenRequest;
+  /** Reports the tab and top detail screen, for history and the URL (/admin/shop/...). */
+  onPathChange?: PathChange;
+}
+
 /** The admin shop (tabs Dashboard · Orders · Products · Categories · Inventory · Coupons · Customers · Settings). */
-export default function ShopAdminApp({ onBack }: { onBack?: () => void }) {
-  const { items, tab, setTab, has } = usePageTabs('admin.shop');
+export default function ShopAdminApp({ onBack, open, onPathChange }: Props) {
+  const [initial] = useState(() => parseShopAdminPath(open?.path ?? []));
+  const { items, tab, setTab, has } = usePageTabs('admin.shop', initial.tab);
   // Detail screens stack on top of the tabs (customer → order → back to customer).
-  const [stack, setStack] = useState<Route[]>([]);
+  const [stack, setStack] = useState<Route[]>(() => (initial.route ? [initial.route] : []));
+  useOpenRequest(open, path => {
+    const p = parseShopAdminPath(path);
+    setTab(p.tab);
+    setStack(s => syncStack(s, p.route, routeKey));
+  });
+  const replacing = useRef(false);
   const [params, setParams] = useState<TabParams>({});
   const [paramsVersion, setParamsVersion] = useState(0);
 
@@ -61,9 +77,12 @@ export default function ShopAdminApp({ onBack }: { onBack?: () => void }) {
   }), [push, has, setTab]);
 
   const top = stack[stack.length - 1];
+  useReportPath(shopAdminPath(tab, items[0]?.key ?? null, top), onPathChange, () => {
+    const r = replacing.current; replacing.current = false; return r;
+  });
   const detail =
     top?.kind === 'product' ? <ProductEditScreen key={`p${top.id ?? 'new'}`} productId={top.id} nav={nav} onBack={pop}
-      onCreated={id => setStack(s => [...s.slice(0, -1), { kind: 'product', id }])} />
+      onCreated={id => { replacing.current = true; setStack(s => [...s.slice(0, -1), { kind: 'product', id }]); }} />
     : top?.kind === 'order' ? <OrderDetailScreen key={`o${top.orderNumber}`} orderNumber={top.orderNumber} nav={nav} onBack={pop} />
     : top?.kind === 'customer' ? <CustomerDetailScreen key={`c${top.id}`} customerId={top.id} nav={nav} onBack={pop} />
     : null;

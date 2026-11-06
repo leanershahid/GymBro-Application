@@ -285,6 +285,28 @@ public class PostgresModelTests
     }
 
     [Fact]
+    public void Ulong_ids_come_from_per_table_sequences_and_composite_keys_are_untouched()
+    {
+        using var db = NpgsqlContext();
+        var keyed = db.Model.GetEntityTypes()
+            .Where(t => !t.IsOwned() && t.FindPrimaryKey() is { Properties: [{ Name: "Id" } p] } && p.ClrType == typeof(ulong))
+            .ToList();
+        Assert.NotEmpty(keyed);
+        foreach (var type in keyed)
+        {
+            var id = type.FindProperty("Id")!;
+            Assert.Equal(Microsoft.EntityFrameworkCore.Metadata.ValueGenerated.OnAdd, id.ValueGenerated);
+            Assert.NotNull(id.GetValueGeneratorFactory());
+            var seq = db.Model.FindSequence(AppDbContext.IdSequenceName(type.GetTableName()!));
+            Assert.NotNull(seq);
+            Assert.Equal(IdSequenceValueGenerator.BlockSize, seq!.IncrementBy);
+        }
+
+        var counter = db.Model.FindEntityType(typeof(GymManagmentApplication.Domain.Entities.Platform.TenantCounter))!;
+        Assert.All(counter.FindPrimaryKey()!.Properties, p => Assert.Equal(Microsoft.EntityFrameworkCore.Metadata.ValueGenerated.Never, p.ValueGenerated));
+    }
+
+    [Fact]
     public void Model_has_no_changes_missing_from_the_migrations()
     {
         using var db = NpgsqlContext();

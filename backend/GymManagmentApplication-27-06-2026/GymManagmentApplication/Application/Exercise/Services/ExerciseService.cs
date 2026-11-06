@@ -3,13 +3,12 @@ using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Exercise.Interfaces;
 using GymManagmentApplication.Application.Exercise.Requests;
 using GymManagmentApplication.Application.Exercise.Responses;
-using GymManagmentApplication.Infrastructure.Repositories.Exercise;
 using Microsoft.AspNetCore.Http;
 
 namespace GymManagmentApplication.Application.Exercise.Services;
 
 public class ExerciseService(IExerciseRepository repository, ICurrentUser currentUser,
-    GymManagmentApplication.Infrastructure.Storage.IFileStorage storage) : IExerciseService
+    IFileStorage storage) : IExerciseService
 {
     public async Task<PagedResponse<ExerciseResponse>> GetAllAsync(ExerciseListRequest request)
     {
@@ -107,13 +106,13 @@ public class ExerciseService(IExerciseRepository repository, ICurrentUser curren
         return alts.Select(Map).ToList();
     }
 
-    public async Task<string> UploadVideoAsync(ulong id, IFormFile video)
+    public async Task<string> UploadVideoAsync(ulong id, FileUpload video)
     {
         var e = await repository.GetByIdAsync(id);
         if (e is null) return string.Empty;
         EnsureCanEdit(e);
         var url = await storage.SaveAsync(video, $"exercises/{id}/video",
-            GymManagmentApplication.Infrastructure.Storage.FileKind.Video);
+            FileKind.Video);
         var previous = e.VideoUrl;
         e.VideoUrl = url;
         await repository.UpdateAsync(e);

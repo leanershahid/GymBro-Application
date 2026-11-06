@@ -73,7 +73,6 @@ using GymManagmentApplication.Infrastructure.Repositories.Tenant;
 using Microsoft.EntityFrameworkCore;
 using GymManagmentApplication.Infrastructure.Repositories.Corporate;
 using GymManagmentApplication.Infrastructure.Repositories.Lead;
-using GymManagmentApplication.Infrastructure.Repositories.Member;
 using GymManagmentApplication.Infrastructure.Repositories.Onboarding;
 using GymManagmentApplication.Infrastructure.Data;
 using GymManagmentApplication.Middleware;
@@ -100,6 +99,8 @@ var enableDbRetry = builder.Configuration.GetValue<bool>("Database:EnableRetryOn
 builder.Services.AddDbContext<AppDbContext>((sp, options) =>
     GymManagmentApplication.Infrastructure.Data.AppDbContextOptions.Configure(
         options, sp.GetRequiredService<Npgsql.NpgsqlDataSource>(), enableDbRetry));
+// ARCH-022: Application services depend on IAppDbContext — the same scoped AppDbContext instance.
+builder.Services.AddScoped<GymManagmentApplication.Application.Common.IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
 
 // JWT Settings — validated at startup, so a missing/short key fails the deploy instead of the first login.
 builder.Services.AddOptions<JwtSettings>()
@@ -252,11 +253,16 @@ builder.Services.AddHttpClient(GymManagmentApplication.Infrastructure.Storage.Fi
 
 // File storage — Cloudinary / Supabase Storage when configured, local wwwroot/uploads otherwise.
 builder.Services.Configure<GymManagmentApplication.Infrastructure.Storage.StorageSettings>(builder.Configuration.GetSection("Storage"));
-builder.Services.AddScoped<GymManagmentApplication.Infrastructure.Storage.IFileStorage, GymManagmentApplication.Infrastructure.Storage.FileStorage>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Common.IFileStorage, GymManagmentApplication.Infrastructure.Storage.FileStorage>();
 
 // Email (SMTP) — codes for password reset / email verification, invoices.
 builder.Services.Configure<GymManagmentApplication.Infrastructure.Email.EmailSettings>(builder.Configuration.GetSection("Email"));
-builder.Services.AddScoped<GymManagmentApplication.Infrastructure.Email.IEmailSender, GymManagmentApplication.Infrastructure.Email.SmtpEmailSender>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Common.IEmailSender, GymManagmentApplication.Infrastructure.Email.SmtpEmailSender>();
+// ARCH-046: email outbox (CommunicationLogs rows) drained by a background sender.
+builder.Services.AddScoped<GymManagmentApplication.Application.Common.IEmailOutbox, GymManagmentApplication.Infrastructure.Email.EmailOutbox>();
+builder.Services.AddHostedService<GymManagmentApplication.Infrastructure.Email.EmailOutboxProcessor>();
+// Push notifications (Expo), notification preferences, class/PT reminders and waitlist offers.
+GymManagmentApplication.Infrastructure.Push.PushRegistration.AddPushNotifications(builder.Services, builder.Configuration);
 // Validators — every validator lives in this one assembly, so a single scan registers them all.
 builder.Services.AddValidatorsFromAssemblyContaining<LoginValidator>();
 
@@ -266,9 +272,14 @@ builder.Services.AddScoped<GymManagmentApplication.Application.Common.ICurrentUs
 
 // Application Services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Auth.TwoFactor.TwoFactorService>(); // 2FA (feature 10)
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IBranchService, BranchService>();
 builder.Services.AddScoped<ITrainerService, TrainerService>();
+builder.Services.AddScoped<MemberDirectoryService>();
+builder.Services.AddScoped<MemberFilesService>();
+builder.Services.AddScoped<MemberNotesService>();
+builder.Services.AddScoped<MemberTagsService>();
 builder.Services.AddScoped<IMemberService, MemberService>();
 builder.Services.AddScoped<ILeadService, LeadService>();
 builder.Services.AddScoped<IOnboardingService, OnboardingService>();
@@ -284,6 +295,11 @@ builder.Services.AddScoped<IWorkoutAutomationService, WorkoutAutomationService>(
 builder.Services.AddScoped<IAccessService, AccessService>();
 GymManagmentApplication.Application.Common.DataServicesRegistration.AddDataServices(builder.Services);
 GymManagmentApplication.Application.Common.ApiServicesRegistration.AddApiServices(builder.Services);
+// Gym operations: opening hours, service status, announcements (+ the scheduled-announcement sender).
+GymManagmentApplication.Application.Operations.OperationsServicesRegistration.AddOperationsServices(builder.Services);
+// Facilities: equipment register, problem reports, incident log.
+GymManagmentApplication.Application.Facilities.FacilitiesServicesRegistration.AddFacilitiesServices(builder.Services);
+builder.Services.AddHostedService<GymManagmentApplication.Infrastructure.Jobs.AnnouncementPublishJob>();
 // Shop (members buy, admins run it) — settings, catalog, and cart/orders.
 builder.Services.AddScoped<GymManagmentApplication.Application.Shop.Common.IShopSettingsService, GymManagmentApplication.Application.Shop.Common.ShopSettingsService>();
 GymManagmentApplication.Application.Shop.Catalog.ShopCatalogRegistration.AddShopCatalog(builder.Services);
@@ -297,14 +313,25 @@ builder.Services.AddScoped<BillingCore>();
 
 // Background housekeeping: membership expiry/auto-renewal, overdue invoices, reminders, cleanup.
 builder.Services.AddHostedService<GymManagmentApplication.Infrastructure.Jobs.DailyJobs>();
+// Privacy: build data exports (every minute), expire them, anonymise accounts past their grace period.
+builder.Services.AddHostedService<GymManagmentApplication.Infrastructure.Jobs.PrivacyJobs>();
+builder.Services.AddHostedService<GymManagmentApplication.Infrastructure.Jobs.MembershipRequestJob>(); // self-service: apply approved pauses / cancels / plan changes
+// Help & feedback: support requests, FAQ, canned replies, class feedback (+ auto-close / overdue digest job).
+GymManagmentApplication.Application.Support.SupportServicesRegistration.AddSupportServices(builder.Services);
+builder.Services.AddHostedService<GymManagmentApplication.Infrastructure.Jobs.SupportJob>();
+// Trainer ↔ member messaging (polling, no job) + the admin safeguarding review.
+GymManagmentApplication.Application.Messaging.MessagingServicesRegistration.AddMessagingServices(builder.Services);
+// Cancellation & no-show rules: automatic no-shows (when enabled) and "you can book again" notices.
+builder.Services.AddHostedService<GymManagmentApplication.Infrastructure.Jobs.BookingRulesJob>();
 builder.Services.AddScoped<IMyBillingService, MyBillingService>();
 builder.Services.AddScoped<GymManagmentApplication.Application.Scheduling.ClassService>();
 builder.Services.AddScoped<GymManagmentApplication.Application.Scheduling.PtService>();
 builder.Services.AddScoped<GymManagmentApplication.Application.Workout.WorkoutStructureService>();
 builder.Services.AddScoped<GymManagmentApplication.Application.Engagement.Notifier>();
-builder.Services.AddScoped<GymManagmentApplication.Application.Engagement.EngagementService>();
-builder.Services.AddScoped<GymManagmentApplication.Infrastructure.Payments.RazorpayClient>();
-builder.Services.AddSingleton<GymManagmentApplication.Infrastructure.Security.ISecretProtector, GymManagmentApplication.Infrastructure.Security.SecretProtector>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Challenges.Services.ChallengeParticipationService>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Health.Services.ProgressService>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Billing.Payments.IRazorpayClient, GymManagmentApplication.Infrastructure.Payments.RazorpayClient>();
+builder.Services.AddSingleton<GymManagmentApplication.Application.Common.ISecretProtector, GymManagmentApplication.Infrastructure.Security.SecretProtector>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IPricingService, PricingService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
@@ -317,7 +344,6 @@ builder.Services.AddScoped<GymManagmentApplication.Application.Attendance.IAtten
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
 builder.Services.AddScoped<IBranchRepository, BranchRepository>();
 builder.Services.AddScoped<ITrainerRepository, TrainerRepository>();
-builder.Services.AddScoped<IMemberRepository, MemberRepository>();
 builder.Services.AddScoped<ILeadRepository, LeadRepository>();
 builder.Services.AddScoped<IOnboardingRepository, OnboardingRepository>();
 builder.Services.AddScoped<ICorporateRepository, CorporateRepository>();
@@ -329,7 +355,7 @@ builder.Services.AddScoped<IWorkoutAutomationRepository, WorkoutAutomationReposi
 var app = builder.Build();
 
 // Fail fast on configuration that would otherwise break later (Secrets:Key is required in Production).
-app.Services.GetRequiredService<GymManagmentApplication.Infrastructure.Security.ISecretProtector>();
+app.Services.GetRequiredService<GymManagmentApplication.Application.Common.ISecretProtector>();
 
 // Apply pending EF Core migrations, then seed default tenant/roles/modules, on startup.
 // Database:MigrateOnStartup / Database:SeedOnStartup (both default true — today's behaviour) can be
@@ -397,6 +423,7 @@ if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger
 app.UseStaticFiles(); // local uploads (wwwroot/uploads) when Supabase Storage isn't configured
 app.UseCors("Frontend");
 app.UseAuthentication();
+app.UseMiddleware<GymManagmentApplication.Middleware.TwoFactorSetupGate>(); // 2FA setup required → /api/auth/* only
 app.UseAuthorization();
 app.UseRateLimiter();
 app.MapHealthChecks("/healthz", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions { Predicate = _ => false })

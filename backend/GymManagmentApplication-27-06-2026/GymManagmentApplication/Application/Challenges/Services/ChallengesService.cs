@@ -3,14 +3,13 @@ using GymManagmentApplication.Application.Challenges.Interfaces;
 using GymManagmentApplication.Application.Challenges.Requests;
 using GymManagmentApplication.Application.Challenges.Responses;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
+using GymManagmentApplication.Application.Common;
 using Microsoft.EntityFrameworkCore;
 
-using GymManagmentApplication.Application.Common;
 
 namespace GymManagmentApplication.Application.Challenges.Services;
 
-public class ChallengesService(AppDbContext db, ICurrentUser currentUser) : IChallengesService
+public class ChallengesService(IAppDbContext db, ICurrentUser currentUser) : IChallengesService
 {
     public async Task<List<ChallengeAdminResponse>> GetAllAsync()
     {

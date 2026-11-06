@@ -4,6 +4,7 @@ import {
   fetchPtTypes, fetchMyPtSessions, bookPtSession, cancelPtSession, ratePtSession,
 } from './bookingApi';
 import { BookPtPayload } from '../types/booking.types';
+import { bookingRulesKeys } from '../../booking-rules/routes';
 
 // Local keys, scoped by user so a sign-out/sign-in never shows the previous member's bookings.
 export const memberBookingKeys = {
@@ -28,14 +29,18 @@ export const usePtTypes = (userId: number) =>
 export const useMyPtSessions = (userId: number) =>
   useQuery({ queryKey: K.ptSessions(userId), queryFn: fetchMyPtSessions, enabled: userId > 0 });
 
-/** Any booking change refreshes every booking list (and billing, since PT bookings raise/void invoices). */
+/** Any booking change refreshes every booking list (and billing, since PT bookings and late fees raise/void invoices). */
 function useInvalidateAll(userId: number) {
   const qc = useQueryClient();
   return () => Promise.all([
     qc.invalidateQueries({ queryKey: K.all(userId) }),
     qc.invalidateQueries({ queryKey: ['member-billing', userId] }),
+    qc.invalidateQueries({ queryKey: bookingRulesKeys.me(userId) }),
   ]);
 }
+
+/** Cancel variables: `confirmLate` after the member accepted the late-cancel consequence. */
+export interface CancelVars { id: number; confirmLate?: boolean }
 
 export const useBookClass = (userId: number) => {
   const invalidate = useInvalidateAll(userId);
@@ -44,7 +49,7 @@ export const useBookClass = (userId: number) => {
 
 export const useCancelClassBooking = (userId: number) => {
   const invalidate = useInvalidateAll(userId);
-  return useMutation({ mutationFn: (classId: number) => cancelClassBooking(classId), onSuccess: invalidate });
+  return useMutation({ mutationFn: ({ id, confirmLate }: CancelVars) => cancelClassBooking(id, confirmLate), onSuccess: invalidate });
 };
 
 export const useBookPtSession = (userId: number) => {
@@ -54,7 +59,7 @@ export const useBookPtSession = (userId: number) => {
 
 export const useCancelPtSession = (userId: number) => {
   const invalidate = useInvalidateAll(userId);
-  return useMutation({ mutationFn: (sessionId: number) => cancelPtSession(sessionId), onSuccess: invalidate });
+  return useMutation({ mutationFn: ({ id, confirmLate }: CancelVars) => cancelPtSession(id, confirmLate), onSuccess: invalidate });
 };
 
 export const useRatePtSession = (userId: number) => {

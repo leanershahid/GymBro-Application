@@ -1,15 +1,13 @@
-using GymManagmentApplication.Infrastructure.Data;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.WorkoutAutomation.Interfaces;
 using GymManagmentApplication.Application.WorkoutAutomation.Requests;
 using GymManagmentApplication.Application.WorkoutAutomation.Responses;
 using GymManagmentApplication.Domain.Entities.Training;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Repositories.WorkoutAutomation;
 
 namespace GymManagmentApplication.Application.WorkoutAutomation.Services;
 
-public class WorkoutAutomationService(IWorkoutAutomationRepository repository, ICurrentUser currentUser, AppDbContext db) : IWorkoutAutomationService
+public class WorkoutAutomationService(IWorkoutAutomationRepository repository, ICurrentUser currentUser, IAppDbContext db) : IWorkoutAutomationService
 {
     public async Task<List<AutomationRuleResponse>> GetRulesAsync(ulong tenantId)
     {

@@ -1,6 +1,8 @@
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
+using GymManagmentApplication.Application.Tenant.Interfaces;
+
 namespace GymManagmentApplication.Infrastructure.Repositories.Tenant;
 
 public class TenantRepository(AppDbContext db) : ITenantRepository

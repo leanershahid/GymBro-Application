@@ -1,7 +1,6 @@
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Training;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Workout;
@@ -100,7 +99,7 @@ public class AssignedPlanDto
 /// Workout contents (sections → exercises with sets/reps), a plan's week-by-week schedule of
 /// workouts, and the signed-in member's assigned workouts/plans with "today's workout".
 /// </summary>
-public class WorkoutStructureService(AppDbContext db, ICurrentUser currentUser)
+public class WorkoutStructureService(IAppDbContext db, ICurrentUser currentUser)
 {
     private const int MaxSections = 20;
     private const int MaxExercisesPerSection = 40;

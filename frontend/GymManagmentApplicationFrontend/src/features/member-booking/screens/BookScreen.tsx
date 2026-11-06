@@ -16,6 +16,8 @@ interface Props {
   userId: number;
   onBack?: () => void;
   onOpenBilling?: () => void;
+  /** "Contact the gym" (help screen) from the booking-paused banner / alert. */
+  onContactGym?: () => void;
   /** Tab to open on (e.g. "mine"); falls back to the first granted tab. */
   initialTab?: string;
 }
@@ -25,7 +27,7 @@ interface Props {
 let requestedTab: string | null = null;
 export const openBookOn = (tab: string) => { requestedTab = tab; };
 
-export default function BookScreen({ userId, onBack, onOpenBilling, initialTab }: Props) {
+export default function BookScreen({ userId, onBack, onOpenBilling, onContactGym, initialTab }: Props) {
   const { hPad } = useLayout();
   const qc = useQueryClient();
   // Tabs come from the access list (member.book.*).
@@ -56,9 +58,9 @@ export default function BookScreen({ userId, onBack, onOpenBilling, initialTab }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.brand} colors={[T.brand]} />}
       >
         {tabs.length > 1 && <SegmentedTabs tabs={tabs} value={tab ?? ''} onChange={setTab} style={{ marginBottom: SP.lg }} />}
-        {tab === 'classes' && <ClassesTab userId={userId} />}
-        {tab === 'mine' && <MyBookingsTab userId={userId} />}
-        {tab === 'pt' && <PtTab userId={userId} onOpenBilling={onOpenBilling} />}
+        {tab === 'classes' && <ClassesTab userId={userId} onContactGym={onContactGym} />}
+        {tab === 'mine' && <MyBookingsTab userId={userId} onContactGym={onContactGym} />}
+        {tab === 'pt' && <PtTab userId={userId} onOpenBilling={onOpenBilling} onContactGym={onContactGym} />}
       </ScrollView>
     </Screen>
   );

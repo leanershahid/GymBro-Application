@@ -2,13 +2,12 @@ using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Dashboard.Interfaces;
 using GymManagmentApplication.Application.Dashboard.Responses;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace GymManagmentApplication.Application.Dashboard.Services;
 
-public class DashboardService(AppDbContext db, ICurrentUser currentUser, IMemoryCache cache) : IDashboardService
+public class DashboardService(IAppDbContext db, ICurrentUser currentUser, IMemoryCache cache) : IDashboardService
 {
     private const string ClientRoleSlug = "client";
     private static readonly TimeSpan CacheFor = TimeSpan.FromSeconds(30);

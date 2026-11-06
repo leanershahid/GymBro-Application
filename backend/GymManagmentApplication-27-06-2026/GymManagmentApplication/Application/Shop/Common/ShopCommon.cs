@@ -5,7 +5,6 @@ using System.Text.RegularExpressions;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Core;
 using GymManagmentApplication.Domain.Entities.Shop;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Shop.Common;
@@ -103,7 +102,7 @@ public interface IShopSettingsService
     Task<ShopSettings> UpdateAsync(ShopSettings settings);
 }
 
-public class ShopSettingsService(AppDbContext db, ICurrentUser currentUser) : IShopSettingsService
+public class ShopSettingsService(IAppDbContext db, ICurrentUser currentUser) : IShopSettingsService
 {
     private const string Key = "shop";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -147,7 +146,7 @@ public static class ShopOrderNumbers
     /// number; inside the placing transaction the row stays locked until commit, and a rolled-back
     /// attempt gives its number back. The first call continues from the newest existing order.
     /// </summary>
-    public static async Task<string> NextAsync(AppDbContext db, ulong tenantId, string prefix)
+    public static async Task<string> NextAsync(IAppDbContext db, ulong tenantId, string prefix)
     {
         long floor = 10001;
         if (!await db.TenantCounters.IgnoreQueryFilters().AnyAsync(c => c.TenantId == tenantId && c.Key == CounterKey))

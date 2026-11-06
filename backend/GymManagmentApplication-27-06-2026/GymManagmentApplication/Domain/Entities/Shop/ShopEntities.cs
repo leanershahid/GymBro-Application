@@ -93,6 +93,9 @@ public class ShopVariant : BaseEntity, ISoftDeletable
 
     public ShopProduct Product { get; set; } = default!;
     public ShopInventory? Inventory { get; set; }
+
+    /// <summary>Units that can be sold now (on hand − reserved; 0 without an inventory row). ARCH-084.</summary>
+    public int AvailableStock() => Inventory?.Available ?? 0;
 }
 
 public class ShopInventory : BaseEntity

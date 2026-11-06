@@ -1,7 +1,6 @@
 using System.Text.RegularExpressions;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Shop;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Shop.Orders;
@@ -16,7 +15,7 @@ public interface IShopAddressService
 }
 
 /// <summary>The member's saved delivery addresses (the address part of the store's CustomerService).</summary>
-public sealed partial class ShopAddressService(AppDbContext db, ICurrentUser currentUser) : IShopAddressService
+public sealed partial class ShopAddressService(IAppDbContext db, ICurrentUser currentUser) : IShopAddressService
 {
     public const int MaxAddresses = 20;
 

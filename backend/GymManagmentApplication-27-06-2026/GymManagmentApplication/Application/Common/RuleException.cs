@@ -14,6 +14,12 @@ public class RuleException(string message, int statusCode) : Exception(message)
 
     public int StatusCode { get; } = statusCode;
 
+    /// <summary>Optional machine-readable code, returned as the envelope's <c>code</c>.</summary>
+    public string? Code { get; init; }
+
+    /// <summary>Optional payload returned as the envelope's <c>data</c> (e.g. what is missing).</summary>
+    public object? Payload { get; init; }
+
     public static RuleException Conflict(string message) => new(message, ConflictStatus);
     public static RuleException Unprocessable(string message) => new(message, UnprocessableStatus);
 }

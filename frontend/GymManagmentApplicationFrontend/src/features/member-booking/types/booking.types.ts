@@ -23,6 +23,8 @@ export interface GymClass {
   seriesId?: number | null;
   notes?: string | null;
   myBooking?: MyClassBooking | null;
+  /** Free cancellation until this UTC instant (gym booking rules); later is a late cancel. */
+  freeCancelUntil?: string | null;
 }
 
 export interface PtType {
@@ -57,6 +59,8 @@ export interface PtSession {
   trainerNotes?: string | null;
   rating?: number | null;
   invoiceId?: number | null;
+  /** Free cancellation until this UTC instant (gym booking rules); later is a late cancel. */
+  freeCancelUntil?: string | null;
 }
 
 export interface BookPtPayload {

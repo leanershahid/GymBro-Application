@@ -3,7 +3,6 @@ using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Shop.Common;
 using GymManagmentApplication.Domain.Entities.Billing;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Shop.Orders;
@@ -31,7 +30,7 @@ public interface IShopCouponService
 /// DiscountType → Type (Percentage / Fixed), MinOrderAmount → MinOrder (0 = none), MaxDiscountAmount →
 /// MaxDiscount, StartsAt/EndsAt → ValidFrom/ValidUntil, UsageLimit/UsedCount → MaxUses/UsesCount.
 /// </summary>
-public sealed partial class ShopCouponService(AppDbContext db, ICurrentUser currentUser) : IShopCouponService
+public sealed partial class ShopCouponService(IAppDbContext db, ICurrentUser currentUser) : IShopCouponService
 {
     private static readonly CouponType[] ShopTypes = [CouponType.Percentage, CouponType.Fixed];
 

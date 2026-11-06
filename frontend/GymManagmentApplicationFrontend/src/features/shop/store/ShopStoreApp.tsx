@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, BackHandler, StyleSheet } from 'react-native';
 import { T, SP } from '../../../theme';
 import { useLayout } from '../../../utils/useLayout';
@@ -8,7 +8,10 @@ import SegmentedTabs from '../../common/components/SegmentedTabs';
 import EmptyState from '../../common/components/EmptyState';
 import { usePageTabs } from '../../access/context/AccessContext';
 import { useCart, useStoreSettings, useWishlist } from '../api/storeQueries';
-import { ShopNav, ShopNavContext, ShopRoute } from './shopNav';
+import { parseShopPath, shopPath, ShopNav, ShopNavContext, ShopRoute, shopRouteToPath } from './shopNav';
+import type { OpenRequest } from '../../access/types/access.types';
+import { pathKey, syncStack } from '../../../navigation/paths';
+import { PathChange, useOpenRequest, useReportPath } from '../../../navigation/useAreaRoute';
 import HomeTab from './HomeTab';
 import CartTab, { WishlistTab } from './CartTab';
 import ListingScreen from './ListingScreen';
@@ -36,10 +39,30 @@ function Pushed({ route }: { route: ShopRoute }) {
  * listing, checkout and order screens pushed over them. Pushed screens stack on top of the tabs
  * (which stay mounted), so going back keeps scroll position and state.
  */
-export default function ShopStoreApp() {
+interface Props {
+  /** Path the shell asks for (tab / pushed screen), from a URL or Back/Forward. */
+  open?: OpenRequest;
+  /** Reports the tab and top pushed screen, for history and the URL (/member/shop/...). */
+  onPathChange?: PathChange;
+}
+
+type Entry = { key: number; route: ShopRoute };
+const entryKey = (e: Entry) => pathKey(shopRouteToPath(e.route));
+
+export default function ShopStoreApp({ open, onPathChange }: Props = {}) {
   const { hPad } = useLayout();
-  const { items: tabs, tab, setTab } = usePageTabs('member.shop');
-  const [stack, setStack] = useState<{ key: number; route: ShopRoute }[]>([]);
+  const [initial] = useState(() => parseShopPath(open?.path ?? []));
+  const { items: tabs, tab, setTab } = usePageTabs('member.shop', initial.tab);
+  const [stack, setStack] = useState<Entry[]>(() => (initial.route ? [{ key: ++seq, route: initial.route }] : []));
+  useOpenRequest(open, path => {
+    const p = parseShopPath(path);
+    setTab(p.tab);
+    setStack(s => syncStack(s, p.route && { key: ++seq, route: p.route }, entryKey));
+  });
+  const replacing = useRef(false);
+  useReportPath(shopPath(tab, tabs[0]?.key ?? null, stack[stack.length - 1]?.route), onPathChange, () => {
+    const r = replacing.current; replacing.current = false; return r;
+  });
   const store = useStoreSettings();
   const cart = useCart();
   const wishlist = useWishlist();
@@ -47,7 +70,7 @@ export default function ShopStoreApp() {
   const nav = useMemo<ShopNav>(() => {
     return {
       push: route => setStack(s => [...s, { key: ++seq, route }]),
-      replace: route => setStack(s => [...s.slice(0, -1), { key: ++seq, route }]),
+      replace: route => { replacing.current = true; setStack(s => [...s.slice(0, -1), { key: ++seq, route }]); },
       pop: () => setStack(s => s.slice(0, -1)),
       home: t => { setStack([]); if (t) setTab(t); },
       setTab: t => { setStack([]); setTab(t); },

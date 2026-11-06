@@ -1,7 +1,6 @@
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Shop.Common;
 using GymManagmentApplication.Domain.Entities.Shop;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -23,7 +22,7 @@ public interface IShopCartService
 }
 
 /// <summary>The member's cart: one per person per gym. Ported from the store's CartService + CartRepository.</summary>
-public sealed class ShopCartService(AppDbContext db, ICurrentUser currentUser) : IShopCartService
+public sealed class ShopCartService(IAppDbContext db, ICurrentUser currentUser) : IShopCartService
 {
     public const int MaxQuantityPerLine = 99;
 

@@ -1,8 +1,6 @@
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Shop.Common;
 using GymManagmentApplication.Domain.Entities.Shop;
-using GymManagmentApplication.Infrastructure.Data;
-using GymManagmentApplication.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Shop.Catalog;
@@ -29,7 +27,7 @@ public interface IShopAdminProductService
 }
 
 public sealed class ShopAdminProductService(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUser currentUser,
     IShopProductQueries products,
     IFileStorage storage,
@@ -466,7 +464,7 @@ public interface IShopAdminCategoryService
     Task DeleteAsync(ulong id);
 }
 
-public sealed class ShopAdminCategoryService(AppDbContext db, ICurrentUser currentUser) : IShopAdminCategoryService
+public sealed class ShopAdminCategoryService(IAppDbContext db, ICurrentUser currentUser) : IShopAdminCategoryService
 {
     private ulong Tid => currentUser.ResolveTenantId();
 

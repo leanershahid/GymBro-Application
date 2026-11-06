@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { showAlert } from '../../common/components/dialogs';
 import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
@@ -11,8 +11,10 @@ import { useDashboardStats } from '../hooks/useDashboardStats';
 import { useVisibleAdminActions } from '../adminActions';
 import { getSession, isSuperAdmin, isAdminRole } from '../../../api/session';
 import { useLanding, useMenu } from '../../access/context/AccessContext';
-import { ShellHosted } from '../../access/types/access.types';
-import { AdminScreen, ALWAYS_OPEN, ownerOf } from '../admin/adminRoutes';
+import { OpenRequest, ShellHosted } from '../../access/types/access.types';
+import { pathKey } from '../../../navigation/paths';
+import { PathChange, useOpenRequest, useReportLocation } from '../../../navigation/useAreaRoute';
+import { AdminLocation, AdminScreen, ALWAYS_OPEN, adminFromPath, adminPath, isAdminScreen, ownerOf } from '../admin/adminRoutes';
 import { useAdminAccess } from '../admin/useAdminAccess';
 import { useFrontDesk } from '../admin/useFrontDesk';
 import { renderAdminScreen } from '../admin/AdminRouter';
@@ -28,7 +30,8 @@ interface AdminDashboardProps extends ShellHosted { adminName?: string; onLogout
  */
 export default function AdminDashboard({ adminName = 'Admin', onLogout, open: openRequest, onRouteChange }: AdminDashboardProps) {
   const { routes } = useMenu();
-  const landing = useLanding('home', 'more-actions') as AdminScreen;
+  const landingRoute = useLanding('home', 'more-actions');
+  const landing: AdminScreen = isAdminScreen(landingRoute) ? landingRoute : 'more-actions';
   const { data, loading, refreshing, error, refresh } = useDashboardStats(routes.has('home'));
   const actions = useVisibleAdminActions();
   const role = getSession()?.role;
@@ -42,28 +45,43 @@ export default function AdminDashboard({ adminName = 'Admin', onLogout, open: op
     { text: 'Cancel', style: 'cancel' },
     { text: 'Log out', style: 'destructive', onPress: onLogout },
   ]));
-  const [screen, setScreen] = useState<AdminScreen>((openRequest?.route ?? landing) as AdminScreen);
-  // Record the current detail/edit screen is about (member, branch, tenant, role).
-  const [selectedId, setSelectedId] = useState<number>(0);
+  // A path from the shell (tab, Back, URL): unknown paths open the landing screen.
+  const resolve = (o: OpenRequest | undefined): AdminLocation => {
+    const l = o && adminFromPath(o.path);
+    if (!l) return { screen: landing, id: 0, sub: [] };
+    return l.screen === 'shop' ? { ...l, subOpen: { path: l.sub, at: o.at } } : l;
+  };
+  const [loc, setLoc] = useState<AdminLocation>(() => resolve(openRequest));
+  useOpenRequest(openRequest, () => setLoc(resolve(openRequest)));
+  // ARCH-113: report the real screen + record (not just its module), so Back and the URL reach it.
+  useReportLocation({ path: adminPath(loc), module: ownerOf(loc.screen) }, openRequest, onRouteChange);
+  const screen = loc.screen;
+  const selectedId = loc.id;
   const canOpen = (s: AdminScreen) => ALWAYS_OPEN.has(s) || routes.has(ownerOf(s));
 
   const access = useAdminAccess();
 
-  const go = useCallback((s: AdminScreen) => setScreen(s), []);
-  const open = useCallback((s: AdminScreen, id: number) => { setSelectedId(id); setScreen(s); }, []);
-  const goHome = useCallback(() => setScreen(landing), [landing]);
+  // go keeps the record (detail → edit → back to detail); open switches to another record.
+  // The record id carries over only within one module (member-detail → edit-member); a screen of
+  // another module (e.g. branch-hours opened from the menu) starts without a stale id.
+  const go = useCallback((s: AdminScreen) =>
+    setLoc(l => ({ screen: s, id: ownerOf(s) === ownerOf(l.screen) ? l.id : 0, sub: [] })), []);
+  const open = useCallback((s: AdminScreen, id: number) => setLoc({ screen: s, id, sub: [] }), []);
+  const goHome = useCallback(() => setLoc(l => ({ screen: landing, id: l.id, sub: [] })), [landing]);
+  // The shop's own screens become part of this area's path.
+  const onShopPath = useCallback<PathChange>((sub, replace) => {
+    setLoc(l => (l.screen === 'shop' && pathKey(l.sub) !== pathKey(sub) ? { ...l, sub } : l));
+    if (replace) onRouteChange?.({ path: ['shop', ...sub], module: 'shop', replace });
+  }, [onRouteChange]);
 
   const desk = useFrontDesk(access, go, open);
 
-  useEffect(() => { if (openRequest) go(openRequest.route as AdminScreen); }, [openRequest, go]);
-  // A detail or add screen reports the module it belongs to, so that module's tab stays lit.
-  useEffect(() => { onRouteChange?.(ownerOf(screen)); }, [screen]);
 
   // Sub-page routing — only screens of granted modules (and their own sub-screens) open,
   // even when reached some other way.
   const subPage = !canOpen(screen)
     ? <NoModuleAccess onBack={goHome} />
-    : renderAdminScreen(screen, { access, desk, selectedId, go, open, goHome, roleLabel, confirmLogout });
+    : renderAdminScreen(screen, { access, desk, selectedId, go, open, goHome, roleLabel, confirmLogout, shop: { open: loc.subOpen, onPathChange: onShopPath } });
 
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>

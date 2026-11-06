@@ -34,7 +34,7 @@ public class SocialController(ISocialPostService posts, ISocialLikeService likes
     [RequestFormLimits(MultipartBodyLengthLimit = 64L * 1024 * 1024)]
     public async Task<ActionResult<ApiResponse<object>>> CreatePost([FromForm] string? caption, [FromForm] List<IFormFile> images)
     {
-        var created = await posts.CreateAsync(caption, images);
+        var created = await posts.CreateAsync(caption, (images ?? []).Select(f => f.ToUpload()).ToList());
         return StatusCode(StatusCodes.Status201Created, ApiResponse<object>.Ok(created, "Post published."));
     }
 

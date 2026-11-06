@@ -20,6 +20,10 @@ public class CommunicationLog
     public DateTime? DeliveredAt { get; set; }
     /// <summary>Delivery attempts made by the email outbox (Status stays Queued until sent or given up).</summary>
     public int Attempts { get; set; }
+    /// <summary>Push outbox: payload and delivery details ({kind, refId, route, category, urgent, expiresAt, tickets, reason}).</summary>
+    public System.Text.Json.JsonDocument? Meta { get; set; }
+    /// <summary>Push outbox: not sent before this instant (quiet hours defer a row by setting it).</summary>
+    public DateTime? NotBefore { get; set; }
 
     public Core.Tenant Tenant { get; set; } = default!;
 }

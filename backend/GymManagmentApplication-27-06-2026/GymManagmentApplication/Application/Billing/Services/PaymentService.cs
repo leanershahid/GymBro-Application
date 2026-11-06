@@ -5,10 +5,7 @@ using GymManagmentApplication.Application.Billing.Responses;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Billing;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
-using GymManagmentApplication.Infrastructure.Email;
-using GymManagmentApplication.Infrastructure.Payments;
-using GymManagmentApplication.Infrastructure.Security;
+using GymManagmentApplication.Application.Billing.Payments;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Billing.Services;
@@ -20,10 +17,10 @@ namespace GymManagmentApplication.Application.Billing.Services;
 /// before the payment is recorded. Nothing is ever marked paid without one of those two.
 /// </summary>
 public class PaymentService(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUser currentUser,
     BillingCore billing,
-    RazorpayClient razorpay,
+    IRazorpayClient razorpay,
     ISecretProtector secrets,
     IEmailOutbox outbox,
     ILogger<PaymentService> logger) : IPaymentService
@@ -62,6 +59,7 @@ public class PaymentService(
                 var amount = request.Amount > 0 ? request.Amount : BillingCore.Balance(invoice);
                 var payment = billing.ApplyPayment(invoice, amount, method, request.Reference, null, currentUser.UserId, request.Notes);
                 payment.IdempotencyKey = key;
+                await billing.ActivatePaidMembershipAsync(invoice); // self-service: pay-at-desk joins go live
                 await db.SaveChangesAsync();
                 return Map(payment, invoice);
             });
@@ -239,7 +237,7 @@ public class PaymentService(
     {
         var (gateway, keys) = await ActiveGatewayAsync(invoice.TenantId)
                               ?? throw new ArgumentException("Online payments aren't set up for this gym.");
-        if (!RazorpayClient.VerifySignature(keys, request.OrderId, request.PaymentId, request.Signature))
+        if (!RazorpayApi.VerifySignature(keys, request.OrderId, request.PaymentId, request.Signature))
             throw new ArgumentException("The payment couldn't be verified. If money was taken, contact the gym with your payment id.");
 
         if (await FindByGatewayRefAsync(invoice.TenantId, request.PaymentId) is { } existing) return existing;
@@ -257,7 +255,7 @@ public class PaymentService(
     /// verify racing the webhook) into "already recorded".
     /// </summary>
     private async Task<PaymentResponse> RecordGatewayPaymentAsync(ulong invoiceId, ulong tenantId, PaymentGateway gateway,
-        RazorpayKeys keys, RazorpayClient.PaymentInfo info)
+        RazorpayKeys keys, RazorpayPaymentInfo info)
     {
         if (info.Status == "authorized")
         {
@@ -282,6 +280,8 @@ public class PaymentService(
                     reference: info.OrderId, gatewayRef: info.Id, recordedBy: null, notes: "Paid online via Razorpay");
                 payment.GatewayId = gateway.Id;
                 payment.GatewayResponse = JsonSerializer.SerializeToDocument(new { info.Id, info.Status, info.Method, info.AmountMinor, info.OrderId });
+                // Self-service join: the Pending membership goes live only now, with the verified payment (once).
+                await billing.ActivatePaidMembershipAsync(invoice);
                 await db.SaveChangesAsync();
                 return Map(payment, invoice);
             });
@@ -311,7 +311,7 @@ public class PaymentService(
     {
         var active = await ActiveGatewayAsync(tenantId);
         if (active is not { } a || ReadWebhookSecret(a.Gateway) is not { } secret
-            || !RazorpayClient.VerifyWebhookSignature(secret, rawBody, signature))
+            || !RazorpayApi.VerifyWebhookSignature(secret, rawBody, signature))
             return false;
 
         using var doc = JsonDocument.Parse(rawBody);
@@ -322,13 +322,13 @@ public class PaymentService(
             || !payload.TryGetProperty("payment", out var pay) || !pay.TryGetProperty("entity", out var entity))
             return true;
 
-        var info = RazorpayClient.ReadPayment(entity);
+        var info = RazorpayApi.ReadPayment(entity);
         if (await FindByGatewayRefAsync(tenantId, info.Id) is not null) return true;
 
         // The invoice id travels in the order's notes (set in CreateOrderAsync).
         IReadOnlyDictionary<string, string> notes = payload.TryGetProperty("order", out var ord) && ord.TryGetProperty("entity", out var orderEntity)
-            ? RazorpayClient.ReadNotes(orderEntity)
-            : RazorpayClient.ReadNotes(entity);
+            ? RazorpayApi.ReadNotes(orderEntity)
+            : RazorpayApi.ReadNotes(entity);
         if (!notes.ContainsKey("invoiceId") && info.OrderId is { } orderId)
             notes = await razorpay.GetOrderNotesAsync(a.Keys, orderId);
         if (!notes.TryGetValue("invoiceId", out var rawInvoiceId) || !ulong.TryParse(rawInvoiceId, out var invoiceId))

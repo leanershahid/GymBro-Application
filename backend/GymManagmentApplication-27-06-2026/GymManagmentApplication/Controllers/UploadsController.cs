@@ -40,7 +40,7 @@ public class UploadsController(IFileStorage storage, ICurrentUser currentUser) :
         if (!Folders.Contains(folder)) folder = "media";
         var tenant = currentUser.TenantId?.ToString() ?? "shared";
 
-        var url = await storage.SaveAsync(file, $"tenant-{tenant}/{folder}", fileKind);
+        var url = await storage.SaveAsync(file.ToUpload(), $"tenant-{tenant}/{folder}", fileKind);
         return Ok(ApiResponse<object>.Ok(new { url }, "Uploaded."));
     }
 

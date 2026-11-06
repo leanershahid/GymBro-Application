@@ -23,6 +23,9 @@ import { useInvoiceCheckout } from '../hooks/useInvoiceCheckout';
 interface Props {
   userId: number;
   onBack?: () => void;
+  /** Self-service: pause / cancel / change plan (My membership) and the plan browser. */
+  onManageMembership?: () => void;
+  onBrowsePlans?: () => void;
 }
 
 // ── Small building blocks ────────────────────────────────────────────────────
@@ -267,7 +270,7 @@ function PaymentRow({ p, first }: { p: MyPayment; first: boolean }) {
 
 // ── Screen ───────────────────────────────────────────────────────────────────
 
-export default function MyBillingScreen({ userId, onBack }: Props) {
+export default function MyBillingScreen({ userId, onBack, onManageMembership, onBrowsePlans }: Props) {
   const { hPad } = useLayout();
   const membershipsQ = useMyMemberships(userId);
   const invoicesQ = useMyInvoices(userId);
@@ -326,7 +329,12 @@ export default function MyBillingScreen({ userId, onBack }: Props) {
           <>
             {/* ── Membership ── */}
             <View style={{ marginBottom: SP.xxl }}>
-              <SectionTitle title="Membership" />
+              <SectionTitle title="Membership" right={current && onManageMembership ? (
+                <Pressable onPress={onManageMembership} accessibilityRole="button" accessibilityLabel="Manage membership" hitSlop={8}
+                  style={{ minHeight: 44, justifyContent: 'center' }}>
+                  <Text style={{ color: T.brand, fontSize: 14, fontWeight: '700' }}>Manage</Text>
+                </Pressable>
+              ) : undefined} />
               {membershipsQ.isError ? (
                 <InlineError error={membershipsQ.error} onRetry={() => membershipsQ.refetch()} />
               ) : current ? (
@@ -336,7 +344,9 @@ export default function MyBillingScreen({ userId, onBack }: Props) {
                 </>
               ) : (
                 <Card>
-                  <EmptyState icon="award" title="No membership yet" subtitle="Ask at the front desk to get started with a plan." />
+                  <EmptyState icon="award" title="No membership yet"
+                    subtitle={onBrowsePlans ? 'Compare plans and join in a couple of minutes.' : 'Ask at the front desk to get started with a plan.'}
+                    action={onBrowsePlans ? { label: 'Choose your membership', onPress: onBrowsePlans } : undefined} />
                 </Card>
               )}
             </View>

@@ -24,6 +24,12 @@ export interface MembershipPlan {
   isPublic: boolean;
   isActive: boolean;
   createdAt: string;
+  /** Online plan browser (member self-service). */
+  isPopular?: boolean;
+  joiningFee?: number;
+  classCredits?: number | null;
+  ptSessions?: number | null;
+  accessHours?: string | null;
 }
 
 export interface CreatePlanPayload {
@@ -34,6 +40,12 @@ export interface CreatePlanPayload {
   billingCycle: BillingCycleInput;
   features: string[];
   isPublic?: boolean;
+  /** Online plan browser (member self-service). */
+  isPopular?: boolean;
+  joiningFee?: number;
+  classCredits?: number | null;
+  ptSessions?: number | null;
+  accessHours?: string | null;
 }
 
 export interface UpdatePlanPayload {
@@ -43,6 +55,12 @@ export interface UpdatePlanPayload {
   billingCycle?: BillingCycleInput;
   isPublic?: boolean;
   isActive?: boolean;
+  /** Online plan browser (member self-service). */
+  isPopular?: boolean;
+  joiningFee?: number;
+  classCredits?: number;
+  ptSessions?: number;
+  accessHours?: string | null;
 }
 
 /** Status: Active | Paused (frozen) | Cancelled | Expired | Trial | Pending */

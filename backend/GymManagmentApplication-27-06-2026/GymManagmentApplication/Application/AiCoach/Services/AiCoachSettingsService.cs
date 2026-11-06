@@ -3,14 +3,13 @@ using GymManagmentApplication.Application.AiCoach.Interfaces;
 using GymManagmentApplication.Application.AiCoach.Requests;
 using GymManagmentApplication.Application.AiCoach.Responses;
 using GymManagmentApplication.Domain.Entities.Core;
-using GymManagmentApplication.Infrastructure.Data;
+using GymManagmentApplication.Application.Common;
 using Microsoft.EntityFrameworkCore;
 
-using GymManagmentApplication.Application.Common;
 
 namespace GymManagmentApplication.Application.AiCoach.Services;
 
-public class AiCoachSettingsService(AppDbContext db, ICurrentUser currentUser) : IAiCoachSettingsService
+public class AiCoachSettingsService(IAppDbContext db, ICurrentUser currentUser) : IAiCoachSettingsService
 {
     private const string SettingKey = "ai-coach-tips";
 

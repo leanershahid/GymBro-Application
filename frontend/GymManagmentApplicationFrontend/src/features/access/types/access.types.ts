@@ -28,18 +28,31 @@ export interface AccessList {
 
 export type AccessApp = 'admin' | 'trainer' | 'member';
 
-/** The shell asking an area's screens to open `route`; `at` makes a repeat tap reopen it. */
+/**
+ * The shell asking an area's screens to open `path` (e.g. ['members'], ['workout', '12'];
+ * [] = the area's landing screen). A new object each time, so a repeat tap reopens it.
+ */
 export interface OpenRequest {
-  route: string;
+  path: string[];
   at: number;
+}
+
+/** Where an area is, as it reports it to the shell (src/navigation). */
+export interface AreaLocation {
+  /** Full route path inside the area, ids included — becomes the web URL and a history entry. */
+  path: string[];
+  /** Menu module the screen belongs to, so its tab stays lit. */
+  module: string;
+  /** The screen replaced the previous one (e.g. checkout → order confirmed) instead of opening over it. */
+  replace?: boolean;
 }
 
 /** Props every area's screens take when the shell hosts them. */
 export interface ShellHosted {
   /** Screen the shell wants open. */
   open?: OpenRequest;
-  /** Reports the screen showing, so the shell can highlight its tab. */
-  onRouteChange?: (route: string) => void;
+  /** Reports every screen change (route + ids), for the tab bar, history and URL. */
+  onRouteChange?: (loc: AreaLocation) => void;
 }
 
 /** A module master row, for the admin screens that grant access. */

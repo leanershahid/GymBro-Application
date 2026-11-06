@@ -1,5 +1,5 @@
 using System.Data;
-using GymManagmentApplication.Infrastructure.Data;
+using GymManagmentApplication.Application.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Common;
@@ -12,7 +12,7 @@ namespace GymManagmentApplication.Application.Common;
 /// </summary>
 public static class UnitOfWork
 {
-    public static async Task<T> InTransactionAsync<T>(this AppDbContext db, Func<Task<T>> work,
+    public static async Task<T> InTransactionAsync<T>(this IAppDbContext db, Func<Task<T>> work,
         IsolationLevel isolation = IsolationLevel.ReadCommitted, CancellationToken ct = default)
     {
         if (db.Database.CurrentTransaction is not null) return await work();
@@ -27,7 +27,7 @@ public static class UnitOfWork
         });
     }
 
-    public static Task InTransactionAsync(this AppDbContext db, Func<Task> work,
+    public static Task InTransactionAsync(this IAppDbContext db, Func<Task> work,
         IsolationLevel isolation = IsolationLevel.ReadCommitted, CancellationToken ct = default) =>
         db.InTransactionAsync(async () => { await work(); return true; }, isolation, ct);
 
@@ -36,7 +36,7 @@ public static class UnitOfWork
     /// so concurrent requests touching the same row (a class's capacity, an invoice's balance, a
     /// trainer's calendar) run one after the other until the surrounding transaction ends.
     /// </summary>
-    public static async Task LockRowAsync<TEntity>(this AppDbContext db, ulong id, CancellationToken ct = default)
+    public static async Task LockRowAsync<TEntity>(this IAppDbContext db, ulong id, CancellationToken ct = default)
         where TEntity : class
     {
         if (db.Database.CurrentTransaction is null)

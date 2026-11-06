@@ -5,13 +5,11 @@ using GymManagmentApplication.Application.Workout.Requests;
 using GymManagmentApplication.Application.Workout.Responses;
 using GymManagmentApplication.Domain.Entities.Training;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
-using GymManagmentApplication.Infrastructure.Repositories.Workout;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Workout.Services;
 
-public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentUser, AppDbContext db, GymManagmentApplication.Application.Engagement.Notifier notifier) : IWorkoutService
+public class WorkoutService(IWorkoutRepository repository, ICurrentUser currentUser, IAppDbContext db, GymManagmentApplication.Application.Engagement.Notifier notifier) : IWorkoutService
 {
     public async Task<PagedResponse<WorkoutResponse>> GetAllAsync(WorkoutListRequest request)
     {

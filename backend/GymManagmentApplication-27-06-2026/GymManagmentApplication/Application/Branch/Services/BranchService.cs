@@ -3,13 +3,11 @@ using GymManagmentApplication.Application.Branch.Requests;
 using GymManagmentApplication.Application.Branch.Responses;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
-using GymManagmentApplication.Infrastructure.Repositories.Branch;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Branch.Services;
 
-public class BranchService(IBranchRepository repository, ICurrentUser currentUser, AppDbContext db) : IBranchService
+public class BranchService(IBranchRepository repository, ICurrentUser currentUser, IAppDbContext db) : IBranchService
 {
     public async Task<List<BranchResponse>> GetAllAsync()
         => (await repository.GetAllAsync()).Select(Map).ToList();

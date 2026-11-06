@@ -4,14 +4,14 @@ using GymManagmentApplication.Application.Billing.Responses;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Membership;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Billing.Services;
 
-public class SubscriptionService(AppDbContext db, ICurrentUser currentUser, BillingCore billing) : ISubscriptionService
+public class SubscriptionService(IAppDbContext db, ICurrentUser currentUser, BillingCore billing) : ISubscriptionService
 {
-    private static int CycleToDays(BillingCycle? cycle) => cycle switch
+    /// <summary>Length of one billing period in days (also used by self-service quotes).</summary>
+    public static int CycleToDays(BillingCycle? cycle) => cycle switch
     {
         BillingCycle.Daily       => 1,
         BillingCycle.Weekly      => 7,

@@ -11,6 +11,9 @@ interface Props {
   /** Shown as a pill under the name; hidden when null (e.g. stats module disabled). */
   streakDays: number | null;
   onOpenProfile: () => void;
+  /** Shows the alerts bell (with an unread badge) when set. */
+  onOpenAlerts?: () => void;
+  unread?: number;
 }
 
 function greeting(d = new Date()) {
@@ -19,7 +22,7 @@ function greeting(d = new Date()) {
 }
 
 /** Member home header: avatar, time-of-day greeting and streak pill. */
-export default function HomeGreeting({ firstName, avatarUrl, streakDays, onOpenProfile }: Props) {
+export default function HomeGreeting({ firstName, avatarUrl, streakDays, onOpenProfile, onOpenAlerts, unread = 0 }: Props) {
   const streakLabel = streakDays == null ? null
     : streakDays > 0 ? `${streakDays}-day streak` : 'Start a streak today';
 
@@ -58,6 +61,30 @@ export default function HomeGreeting({ firstName, avatarUrl, streakDays, onOpenP
           </View>
         )}
       </View>
+
+      {onOpenAlerts && (
+        <Pressable
+          onPress={onOpenAlerts}
+          accessibilityRole="button"
+          accessibilityLabel={unread > 0 ? `Alerts, ${unread} unread` : 'Alerts'}
+          hitSlop={8}
+          style={({ pressed }) => ({
+            width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+            backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line, opacity: pressed ? 0.75 : 1,
+          })}
+        >
+          <Feather name="bell" size={19} color={T.text} />
+          {unread > 0 && (
+            <View style={{
+              position: 'absolute', top: 4, right: 4, minWidth: 18, height: 18, paddingHorizontal: 4,
+              borderRadius: 9, backgroundColor: T.brand, alignItems: 'center', justifyContent: 'center',
+              borderWidth: 2, borderColor: T.bg,
+            }}>
+              <Text style={{ color: T.onBrand, fontSize: 10, fontWeight: '800' }}>{unread > 9 ? '9+' : unread}</Text>
+            </View>
+          )}
+        </Pressable>
+      )}
     </View>
   );
 }

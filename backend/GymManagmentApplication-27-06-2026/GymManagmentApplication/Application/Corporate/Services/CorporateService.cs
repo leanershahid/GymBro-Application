@@ -1,16 +1,14 @@
 using Microsoft.EntityFrameworkCore;
-using GymManagmentApplication.Infrastructure.Data;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Corporate.Interfaces;
 using GymManagmentApplication.Application.Corporate.Requests;
 using GymManagmentApplication.Application.Corporate.Responses;
 using GymManagmentApplication.Domain.Entities.Membership;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Repositories.Corporate;
 
 namespace GymManagmentApplication.Application.Corporate.Services;
 
-public class CorporateService(ICorporateRepository repository, ICurrentUser currentUser, AppDbContext db) : ICorporateService
+public class CorporateService(ICorporateRepository repository, ICurrentUser currentUser, IAppDbContext db) : ICorporateService
 {
     public async Task<PagedResponse<CorporateAccountResponse>> GetAllAsync(CorporateAccountListRequest request)
     {

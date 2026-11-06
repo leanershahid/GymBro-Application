@@ -6,6 +6,8 @@ using GymManagmentApplication.Infrastructure;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
+using GymManagmentApplication.Application.Trainer.Interfaces;
+
 namespace GymManagmentApplication.Infrastructure.Repositories;
 
 public class TrainerRepository(AppDbContext db) : ITrainerRepository

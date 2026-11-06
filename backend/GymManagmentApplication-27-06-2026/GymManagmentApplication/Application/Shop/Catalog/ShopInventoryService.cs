@@ -1,7 +1,6 @@
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Shop.Common;
 using GymManagmentApplication.Domain.Entities.Shop;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Shop.Catalog;
@@ -17,7 +16,7 @@ public interface IShopInventoryService
     Task<ShopInventoryItemDto> UpdateAsync(ulong variantId, UpdateShopInventoryRequest request);
 }
 
-public sealed class ShopInventoryService(AppDbContext db, ICurrentUser currentUser, ILogger<ShopInventoryService> logger) : IShopInventoryService
+public sealed class ShopInventoryService(IAppDbContext db, ICurrentUser currentUser, ILogger<ShopInventoryService> logger) : IShopInventoryService
 {
     /// <summary>Non-deleted variants of non-deleted products of this gym.</summary>
     private IQueryable<ShopVariant> Variants()

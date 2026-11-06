@@ -17,6 +17,8 @@ import ActionList, { ActionItem } from '../../common/components/dashboard/Action
 import TrainerHomeHeader from '../components/TrainerHomeHeader';
 import RatingTile from '../components/RatingTile';
 import ClientPreviewRow from '../components/ClientPreviewRow';
+import { AssignedSupportCard } from '../../support/routes';
+import { MessagesEntryCard } from '../../messaging/routes';
 
 const IMG_COACH = require('../../../assets/dashboard/coach-2.jpg');
 
@@ -158,6 +160,10 @@ export default function TrainerHomeScreen({ trainerId, onNavigate }: Props) {
 
         {/* Location check-in (only when the gym has it switched on at a branch) */}
         <View style={{ marginTop: SP.xl }}><CheckInCard /></View>
+        {/* Help requests assigned to this trainer (hidden when none). */}
+        <AssignedSupportCard style={{ marginTop: SP.lg }} onPress={() => onNavigate('support')} />
+        {/* Messages with clients: unread count (hidden with no clients and nothing unread). */}
+        <MessagesEntryCard side="trainer" style={{ marginTop: SP.lg }} onPress={() => onNavigate('messages')} />
 
         {/* 2 ── Photo hero: the month's number */}
         <View style={{ marginTop: SP.xl }}>

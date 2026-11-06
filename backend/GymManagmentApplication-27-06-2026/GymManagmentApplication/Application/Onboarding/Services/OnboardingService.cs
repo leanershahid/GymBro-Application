@@ -5,13 +5,11 @@ using GymManagmentApplication.Application.Onboarding.Requests;
 using GymManagmentApplication.Application.Onboarding.Responses;
 using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Domain.Entities.Platform;
-using GymManagmentApplication.Infrastructure.Data;
-using GymManagmentApplication.Infrastructure.Repositories.Onboarding;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Onboarding.Services;
 
-public class OnboardingService(IOnboardingRepository repository, ICurrentUser currentUser, AppDbContext db) : IOnboardingService
+public class OnboardingService(IOnboardingRepository repository, ICurrentUser currentUser, IAppDbContext db) : IOnboardingService
 {
     private static readonly string[] DefaultSteps = ["profile", "goals", "health", "payment", "agreement"];
 

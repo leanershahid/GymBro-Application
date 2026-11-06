@@ -17,15 +17,24 @@ import RecentMemberRow from '../components/RecentMemberRow';
 import { formatInrCompact, formatPct } from '../components/formatInr';
 import { DashboardData } from '../types/dashboard';
 import { AdminAction } from '../adminActions';
-import { AdminScreen } from './adminRoutes';
+import { AdminScreen, isAdminScreen } from './adminRoutes';
+import { useMembershipRequestBadge } from '../../self-service/routes';
+import { useSupportBadge } from '../../support/routes';
 
 const SECTION = SP.xxl; // 28px between home sections
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /** "Today" — things that need the admin's attention, built only from live dashboard data. */
-function buildTodayItems({ stats, branches, recentMembers }: DashboardData, go: (s: AdminScreen) => void): ActionItem[] {
+function buildTodayItems({ stats, branches, recentMembers }: DashboardData, go: (s: AdminScreen) => void, pendingRequests = 0): ActionItem[] {
   const items: ActionItem[] = [];
+
+  if (pendingRequests > 0) items.push({
+    key: 'membership-requests', icon: 'inbox', tone: 'warn', badge: `${pendingRequests}`,
+    title: plural(pendingRequests, 'membership request', 'membership requests'),
+    subtitle: 'Pauses, cancellations and plan changes to review',
+    onPress: () => go('membership-requests'),
+  });
 
   if (stats.newSignupsToday > 0) items.push({
     key: 'signups', icon: 'user-plus', tone: 'brand', badge: 'Today',
@@ -101,6 +110,8 @@ export default function AdminHome({
   onPressAvatar, onSearch, onQuickCreate, go, open,
 }: Props) {
   const { tileW } = useLayout();
+  const pendingRequests = useMembershipRequestBadge();
+  const supportBadge = useSupportBadge();
   const kpiW = tileW(2, 12);
 
   if (loading && !data) return <LoadingState fullScreen label="Loading dashboard" />;
@@ -120,7 +131,13 @@ export default function AdminHome({
   if (!data) return null;
 
   const { stats, revenueTrend, branches, recentMembers } = data;
-  const todayItems = buildTodayItems(data, go);
+  const todayItems = buildTodayItems(data, go, pendingRequests);
+  if (supportBadge > 0) todayItems.unshift({
+    key: 'support', icon: 'life-buoy', tone: 'warn', badge: `${supportBadge}`,
+    title: plural(supportBadge, 'help request needs you', 'help requests need you'),
+    subtitle: 'Unassigned or past the response target',
+    onPress: () => go('support'),
+  });
 
   const closedCount = branches.filter(b => !b.isOpen).length;
   const openBranches = branches.filter(b => b.isOpen);
@@ -172,7 +189,7 @@ export default function AdminHome({
           <View style={{ marginBottom: SECTION }}>
             <SectionHeader title="Shortcuts" actionLabel={actions.length > 8 ? 'All' : undefined}
               onPressAction={actions.length > 8 ? () => go('more-actions') : undefined} />
-            <QuickAccessGrid actions={actions.slice(0, 8)} onPress={(s) => go(s as AdminScreen)} />
+            <QuickAccessGrid actions={actions.slice(0, 8)} onPress={(s) => { if (isAdminScreen(s)) go(s); }} />
           </View>
         )}
 

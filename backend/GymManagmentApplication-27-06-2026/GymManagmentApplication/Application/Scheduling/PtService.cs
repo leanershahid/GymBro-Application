@@ -4,7 +4,6 @@ using GymManagmentApplication.Application.Billing.Services;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Training;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Scheduling;
@@ -14,8 +13,12 @@ namespace GymManagmentApplication.Application.Scheduling;
 /// staff book sessions without clashing with the trainer's other sessions/classes or time off;
 /// a priced session raises an invoice for the member; completed sessions feed trainer earnings.
 /// </summary>
-public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore billing, GymManagmentApplication.Application.Engagement.Notifier notifier)
+public class PtService(IAppDbContext db, ICurrentUser currentUser, BillingCore billing, GymManagmentApplication.Application.Engagement.Notifier notifier,
+    GymManagmentApplication.Application.Safety.SafetyGate? safety = null)
 {
+    /// <summary>Cancellation / no-show rules (feature 9): late-cancel cut-off, penalties, booking blocks.</summary>
+    private readonly BookingPenaltyEngine rules = new(db, notifier);
+
     // ── Session types ───────────────────────────────────────────────────────
 
     public async Task<List<PtTypeResponse>> GetTypesAsync(ulong? trainerId)
@@ -84,6 +87,10 @@ public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore bi
         if (r.StartsAt <= DateTime.UtcNow) throw new ArgumentException("Pick a time in the future.");
         if (await MembershipRules.BlockReasonAsync(db, clientId, DateOnly.FromDateTime(r.StartsAt)) is { } blocked)
             throw new ArgumentException(blocked);
+        // Booking block (repeated no-shows) and safety gate (waiver + health check): members booking
+        // themselves. Staff/trainer bookings are the override.
+        if (currentUser.IsClient()) await rules.EnsureCanSelfBookAsync(type.TenantId, clientId, DateTime.UtcNow);
+        if (safety is not null && currentUser.IsClient()) await safety.EnsureClearedAsync(clientId, "pt_booking");
 
         var start = r.StartsAt;
         var end = start.AddMinutes(type.DurationMin);
@@ -130,8 +137,18 @@ public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore bi
         return session;
     }
 
-    public async Task<PtSessionResponse> UpdateStatusAsync(ulong id, UpdatePtStatusRequest r)
+    /// <summary>
+    /// Status changes. A member cancelling inside the gym's PT cut-off gets 409 LATE_CANCEL_CONFIRM
+    /// unless <see cref="UpdatePtStatusRequest.ConfirmLate"/>, then the consequence is recorded; a
+    /// trainer / staff cancel never penalises the member. Staff marking a no-show records the
+    /// no-show consequence once per session; a later correction waives it.
+    /// </summary>
+    public Task<PtSessionResponse> UpdateStatusAsync(ulong id, UpdatePtStatusRequest r) =>
+        db.InTransactionAsync(() => UpdateStatusLockedAsync(id, r));
+
+    private async Task<PtSessionResponse> UpdateStatusLockedAsync(ulong id, UpdatePtStatusRequest r)
     {
+        await db.LockRowAsync<PtSession>(id); // a double tap can't record the no-show twice
         var s = await Query().FirstOrDefaultAsync(x => x.Id == id) ?? throw new KeyNotFoundException("Session not found.");
         var status = r.Status?.Trim().ToLowerInvariant() switch
         {
@@ -155,6 +172,19 @@ public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore bi
         if (status is PtSessionStatus.Completed or PtSessionStatus.NoShow && s.StartsAt > DateTime.UtcNow)
             throw new ArgumentException("A session can only be completed after it starts.");
 
+        var now = DateTime.UtcNow;
+        var was = s.Status;
+        var lateFee = false;
+        if (currentUser.IsClient() && status == PtSessionStatus.Cancelled)
+        {
+            var late = await rules.LateCancelAsync(s.TenantId, s.StartsAt, pt: true, now);
+            if (late.IsLate && late.Consequence != BookingRulesSettings.None)
+            {
+                if (!r.ConfirmLate) throw BookingPenaltyEngine.ConfirmRequired(late);
+                lateFee = true;
+            }
+        }
+
         s.Status = status;
         if (r.TrainerNotes is not null && !currentUser.IsClient()) s.TrainerNotes = r.TrainerNotes.Trim();
         var other = currentUser.IsClient() ? s.Trainer.UserId ?? 0 : s.ClientId;
@@ -173,6 +203,18 @@ public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore bi
             if (inv is not null) inv.Status = InvoiceStatus.Void;
         }
         await db.SaveChangesAsync();
+
+        if (lateFee)
+            await rules.ApplyAsync(new PenaltySubject(s.TenantId, s.ClientId, Domain.Entities.Scheduling.BookingPenaltyTypes.LateCancel, s.StartsAt,
+                s.SessionType.Name, PtSessionId: s.Id), now);
+        else if (status == PtSessionStatus.NoShow && !currentUser.IsClient())
+            await rules.ApplyAsync(new PenaltySubject(s.TenantId, s.ClientId, Domain.Entities.Scheduling.BookingPenaltyTypes.NoShow, s.StartsAt,
+                s.SessionType.Name, PtSessionId: s.Id, CreatedBy: currentUser.UserId), now);
+        else if (was == PtSessionStatus.NoShow && status != PtSessionStatus.NoShow)
+        {
+            await rules.UndoNoShowAsync(s.TenantId, null, s.Id, currentUser.UserId, now);
+            await db.SaveChangesAsync();
+        }
         return (await MapManyAsync([s]))[0];
     }
 
@@ -251,6 +293,7 @@ public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore bi
         var notes = rows.Select(r => $"PT session #{r.Id}").ToList();
         var invoices = await db.Invoices.Where(i => i.Notes != null && notes.Contains(i.Notes))
             .Select(i => new { i.Id, i.Notes }).ToListAsync();
+        var cutoff = rows.Count == 0 ? 0 : (await BookingPenaltyEngine.LoadSettingsAsync(db, rows[0].TenantId)).PtCancelCutoffHours;
         return rows.Select(s => new PtSessionResponse
         {
             Id = s.Id, SessionTypeId = s.SessionTypeId, SessionTypeName = s.SessionType.Name,
@@ -259,6 +302,7 @@ public class PtService(AppDbContext db, ICurrentUser currentUser, BillingCore bi
             StartsAt = s.StartsAt, EndsAt = s.EndsAt, Status = s.Status.ToString(),
             Price = s.Price, Currency = s.SessionType.Currency, Notes = s.Notes, TrainerNotes = s.TrainerNotes, Rating = s.Rating,
             InvoiceId = invoices.FirstOrDefault(i => i.Notes == $"PT session #{s.Id}")?.Id,
+            FreeCancelUntil = BookingPenaltyEngine.FreeCancelUntil(s.StartsAt, cutoff),
         }).ToList();
     }
 }

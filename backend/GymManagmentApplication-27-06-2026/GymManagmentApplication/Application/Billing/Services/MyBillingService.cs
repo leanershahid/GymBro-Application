@@ -3,13 +3,12 @@ using GymManagmentApplication.Application.Billing.Requests;
 using GymManagmentApplication.Application.Billing.Responses;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Billing;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Billing.Services;
 
 /// <summary>The signed-in member's memberships, invoices and payments — always scoped to themself.</summary>
-public class MyBillingService(AppDbContext db, ICurrentUser currentUser, PaymentService payments) : IMyBillingService
+public class MyBillingService(IAppDbContext db, ICurrentUser currentUser, PaymentService payments) : IMyBillingService
 {
     private ulong Me => currentUser.UserId ?? throw new UnauthorizedAccessException("Please sign in again.");
 

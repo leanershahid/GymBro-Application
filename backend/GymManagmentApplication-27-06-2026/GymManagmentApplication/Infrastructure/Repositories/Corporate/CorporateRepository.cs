@@ -4,6 +4,8 @@ using GymManagmentApplication.Domain.Enums;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
+using GymManagmentApplication.Application.Corporate.Interfaces;
+
 namespace GymManagmentApplication.Infrastructure.Repositories.Corporate;
 
 public class CorporateRepository(AppDbContext db) : ICorporateRepository

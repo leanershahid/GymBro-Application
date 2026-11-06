@@ -1,4 +1,4 @@
-using GymManagmentApplication.Infrastructure.Data;
+using GymManagmentApplication.Application.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Common;
@@ -13,7 +13,7 @@ public static class TenantCounters
     /// ends (or the statement commits on its own), so concurrent callers are serialised; a rolled
     /// back caller leaves no gap, a failed save after an auto-commit leaves one (harmless).
     /// </summary>
-    public static async Task<long> NextAsync(AppDbContext db, ulong tenantId, string key, long floor = 1, CancellationToken ct = default)
+    public static async Task<long> NextAsync(IAppDbContext db, ulong tenantId, string key, long floor = 1, CancellationToken ct = default)
     {
         var tenant = (decimal)tenantId;
         var rows = await db.Database.SqlQuery<long>($"""

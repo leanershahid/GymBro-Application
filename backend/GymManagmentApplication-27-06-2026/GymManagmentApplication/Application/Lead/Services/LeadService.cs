@@ -4,10 +4,8 @@ using GymManagmentApplication.Application.Lead.Requests;
 using GymManagmentApplication.Application.Lead.Responses;
 using GymManagmentApplication.Application.Member.Interfaces;
 using GymManagmentApplication.Application.Member.Requests;
-using GymManagmentApplication.Infrastructure.Data;
 using GymManagmentApplication.Domain.Entities.CRM;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Repositories.Lead;
 
 namespace GymManagmentApplication.Application.Lead.Services;
 
@@ -15,7 +13,7 @@ public class LeadService(
     ILeadRepository repository,
     ICurrentUser currentUser,
     IMemberService memberService,
-    AppDbContext db) : ILeadService
+    IAppDbContext db) : ILeadService
 {
     public async Task<PagedResponse<LeadResponse>> GetAllAsync(LeadListRequest request)
     {

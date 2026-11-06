@@ -6,6 +6,7 @@ import PrimaryButton from '../../common/components/PrimaryButton';
 import { useCheckIn, useCheckOut, useMyAttendanceStatus } from '../api/attendanceQueries';
 import { formatDistance, getCurrentCoords } from '../utils/location';
 import { apiErrorText } from '../../../api/apiError';
+import { handleSafetyGateError } from '../../safety/routes';
 
 const sinceLabel = (iso: string) => {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
@@ -57,6 +58,7 @@ export default function CheckInCard() {
       });
     } catch (e: unknown) {
       setLocating(false);
+      if (handleSafetyGateError(e)) return;
       setMessage({ tone: 'err', text: apiErrorText(e) });
     }
   };

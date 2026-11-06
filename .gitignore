@@ -23,3 +23,4 @@ node_modules/
 
 # One-off SQL helpers with hard-coded credentials (ARCH-054) — never commit; use the app's admin bootstrap.
 backend/GymManagmentApplication-27-06-2026/GymManagmentApplication/Scripts/
+GAPS.md

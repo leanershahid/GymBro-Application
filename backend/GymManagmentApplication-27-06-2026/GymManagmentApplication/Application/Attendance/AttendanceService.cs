@@ -2,7 +2,6 @@ using System.Text.Json;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Core;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using AttendanceEntity = GymManagmentApplication.Domain.Entities.Scheduling.Attendance;
 
@@ -17,8 +16,12 @@ public interface IAttendanceService
     Task<MyAttendanceStatusResponse> GetMyStatusAsync();
     Task<CheckInResultResponse> CheckInByLocationAsync(LocationCheckRequest request);
     Task<AttendanceRecordResponse?> CheckOutAsync(LocationCheckRequest? request);
-    /// <summary>Front desk: checks a member in by hand (no location needed), at their branch.</summary>
-    Task<CheckInResultResponse> CheckInMemberAsync(ulong userId);
+    /// <summary>
+    /// Front desk: checks a member in by hand (no location needed), at their branch. When the safety
+    /// gate finds a missing waiver / health check it returns CheckedIn = false with SafetyMissing,
+    /// unless <paramref name="overrideSafety"/> is set — then the override is recorded (who, why).
+    /// </summary>
+    Task<CheckInResultResponse> CheckInMemberAsync(ulong userId, bool overrideSafety = false, string? overrideReason = null);
     /// <summary>Front desk: closes a member's open visit; null when they aren't checked in.</summary>
     Task<AttendanceRecordResponse?> CheckOutMemberAsync(ulong userId);
     Task<List<AttendanceRecordResponse>> GetMyHistoryAsync(int days);
@@ -27,7 +30,8 @@ public interface IAttendanceService
     Task RecordBiometricAsync(ulong userId, ulong branchId, AttendanceMethod method, string? device);
 }
 
-public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAttendanceService
+public class AttendanceService(IAppDbContext db, ICurrentUser currentUser, GymManagmentApplication.Application.Safety.SafetyGate? safety = null,
+    GymManagmentApplication.Application.Operations.OpeningHoursService? hours = null) : IAttendanceService
 {
     private const string SettingKey = "attendance";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -164,6 +168,9 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
         if (await MembershipBlockReasonAsync(Me) is { } blocked)
             return new CheckInResultResponse { CheckedIn = false, Message = blocked };
 
+        // Safety gate: members need a current waiver + health check to check themselves in (422 SAFETY_REQUIRED).
+        if (safety is not null && currentUser.IsClient()) await safety.EnsureClearedAsync(Me, "self_checkin");
+
         var candidates = (await BranchesAsync(settings, onlyActive: true))
             .Where(b => request.BranchId is null || b.BranchId == request.BranchId)
             .Select(b => (Branch: b, Distance: DistanceM(request.Lat, request.Lng, (double)b.Lat!.Value, (double)b.Lng!.Value)))
@@ -182,6 +189,11 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
                 CheckedIn = false, DistanceM = distance, NearestBranch = nearest.Branch.Name,
                 Message = $"You're {FormatDistance(distance)} from {nearest.Branch.Name}. Check in when you're within {nearest.Branch.RadiusM} m.",
             };
+
+        // Opening hours: when the gym blocks self check-in outside hours (off by default). Desk check-in is never blocked.
+        if (hours is not null && currentUser.IsClient()
+            && await hours.SelfCheckInBlockedReasonAsync(tenantId, nearest.Branch.BranchId) is { } closed)
+            return new CheckInResultResponse { CheckedIn = false, DistanceM = distance, NearestBranch = nearest.Branch.Name, Message = closed };
 
         var visit = new AttendanceEntity
         {
@@ -214,7 +226,7 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
         return Map(open);
     }
 
-    public async Task<CheckInResultResponse> CheckInMemberAsync(ulong userId)
+    public async Task<CheckInResultResponse> CheckInMemberAsync(ulong userId, bool overrideSafety = false, string? overrideReason = null)
     {
         var tenantId = currentUser.ResolveTenantId();
         // Tenant-filtered, so staff can only check in people of their own gym.
@@ -228,6 +240,16 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
         if (await MembershipBlockReasonAsync(userId) is { } blocked)
             return new CheckInResultResponse { CheckedIn = false, Message = blocked };
 
+        // Safety gate: the desk sees a warning and may override it (recorded with who overrode).
+        var safetyMissing = safety is null ? [] : await safety.MissingForDeskAsync(userId);
+        if (safetyMissing.Count > 0 && !overrideSafety)
+            return new CheckInResultResponse
+            {
+                CheckedIn = false, SafetyBlocked = true, SafetyMissing = safetyMissing,
+                Message = GymManagmentApplication.Application.Safety.SafetyGate.Describe(safetyMissing, "desk_checkin")
+                    .Replace("Before continuing, please", "Before check-in, the member needs to") + " You can check them in anyway.",
+            };
+
         // The member's branch, else the desk's, else the gym's first branch.
         var branchId = user.BranchId ?? currentUser.BranchId
             ?? await db.Branches.OrderBy(b => b.Id).Select(b => (ulong?)b.Id).FirstOrDefaultAsync()
@@ -239,9 +261,15 @@ public class AttendanceService(AppDbContext db, ICurrentUser currentUser) : IAtt
             CheckInAt = DateTime.UtcNow, Method = AttendanceMethod.Manual, GateDevice = "front-desk",
         };
         db.Attendances.Add(visit);
+        if (safetyMissing.Count > 0 && safety is not null)
+            safety.RecordOverride(tenantId, userId, safetyMissing, "desk_checkin", overrideReason, visit.Id == 0 ? null : visit.Id);
         await db.SaveChangesAsync();
         await db.Entry(visit).Reference(v => v.Branch).LoadAsync();
-        return new CheckInResultResponse { CheckedIn = true, Message = $"Checked in at {visit.Branch.Name}.", Visit = Map(visit) };
+        return new CheckInResultResponse
+        {
+            CheckedIn = true, Visit = Map(visit), SafetyMissing = safetyMissing.Count > 0 ? safetyMissing : null,
+            Message = safetyMissing.Count > 0 ? $"Checked in at {visit.Branch.Name} (safety checks overridden)." : $"Checked in at {visit.Branch.Name}.",
+        };
     }
 
     public async Task<AttendanceRecordResponse?> CheckOutMemberAsync(ulong userId)

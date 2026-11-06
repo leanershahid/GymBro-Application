@@ -9,8 +9,6 @@ using GymManagmentApplication.Application.Auth.Requests;
 using GymManagmentApplication.Application.Auth.Responses;
 using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
-using GymManagmentApplication.Infrastructure.Email;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
@@ -20,10 +18,11 @@ namespace GymManagmentApplication.Application.Auth.Services;
 
 public class AuthService(
     IOptions<JwtSettings> jwtOptions,
-    AppDbContext db,
+    IAppDbContext db,
     IEmailSender email,
     Microsoft.Extensions.Caching.Memory.IMemoryCache cache,
-    Microsoft.Extensions.Logging.ILogger<AuthService> logger) : IAuthService
+    Microsoft.Extensions.Logging.ILogger<AuthService> logger,
+    TwoFactor.TwoFactorService twoFactor) : IAuthService
 {
     private readonly JwtSettings _jwt = jwtOptions.Value;
 
@@ -145,12 +144,21 @@ public class AuthService(
             await db.SaveChangesAsync();
             return null;
         }
-        cache.Remove(clientKey);
 
         await EnsureCanSignInAsync(user);
 
         // Upgrade legacy unsalted hashes transparently.
         if (needsRehash) user.PasswordHash = PasswordHasher.Hash(request.Password);
+
+        // Two-step sign-in (feature 10): right password, 2FA on and no remembered device → no tokens
+        // yet, just a challenge for POST 2fa/verify. The failure counters are NOT cleared here: they
+        // are cleared only when the second step succeeds, and wrong codes keep adding to them.
+        if (await twoFactor.IsEnabledAsync(user.Id) && !await twoFactor.IsTrustedDeviceAsync(user.Id, request.DeviceToken))
+        {
+            await db.SaveChangesAsync(); // rehash
+            return await StartTwoFactorAsync(user, session);
+        }
+        cache.Remove(clientKey);
 
         // Load role separately so a missing/0 RoleId doesn't block login
         var roleSlug = await ResolveRoleSlugAsync(user);
@@ -163,6 +171,109 @@ public class AuthService(
         var tokens = await IssueTokensAsync(user, roleSlug, session);
         await db.SaveChangesAsync();
         return tokens;
+    }
+
+    // ── Two-step sign-in (feature 10) ───────────────────────────────────────
+    private static string ClientKey(string? email, string? ip) =>
+        $"login-fail:{(email ?? string.Empty).Trim().ToLowerInvariant()}|{ip ?? "unknown"}";
+
+    /// <summary>The login answer when a second step is needed: a challenge, the methods, and no tokens.</summary>
+    private async Task<AuthResponse> StartTwoFactorAsync(User user, SessionInfo? session)
+    {
+        var (token, expires) = await twoFactor.CreateChallengeAsync(user.Id, session?.IpAddress);
+        return new AuthResponse
+        {
+            RequiresTwoFactor  = true,
+            ChallengeToken     = token,
+            ChallengeExpiresAt = expires,
+            Methods            = await twoFactor.MethodsAsync(user.Id, !string.IsNullOrEmpty(user.Email)),
+            Email              = user.Email ?? string.Empty,
+            // No AccessToken / RefreshToken / Role / ids until the second step succeeds.
+            AccessToken = null!, RefreshToken = null!, Role = null!,
+        };
+    }
+
+    /// <summary>
+    /// Second step of a sign-in. A wrong code counts against the challenge (5, then it is burnt) and
+    /// against the same email+IP and per-account counters as a wrong password; the right code consumes
+    /// the challenge (single use) and issues the tokens, plus a device token when asked to remember it.
+    /// </summary>
+    public async Task<TwoFactor.TwoFactorVerifyResult> VerifyTwoFactorAsync(TwoFactor.TwoFactorVerifyRequest request, SessionInfo? session = null)
+    {
+        const string Expired = "This sign-in has expired. Please sign in again.";
+        var now = DateTime.UtcNow;
+        var challenge = await twoFactor.FindOpenChallengeAsync(request.ChallengeToken, now);
+        if (challenge is null) return new(null, Expired, ChallengeEnded: true);
+
+        var user = await db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == challenge.UserId && u.DeletedAt == null);
+        if (user is null) return new(null, Expired, ChallengeEnded: true);
+
+        var clientKey = ClientKey(user.Email, session?.IpAddress);
+        if (cache.TryGetValue(clientKey, out int clientFailures) && clientFailures >= MaxFailedPerClient)
+            throw new UnauthorizedAccessException(ThrottledMessage);
+        if (user.LockedUntil is { } until && until > now)
+            throw new UnauthorizedAccessException(ThrottledMessage);
+
+        var method = (request.Method ?? TwoFactor.TwoFactorMethods.Totp).Trim().ToLowerInvariant();
+        var ok = method switch
+        {
+            TwoFactor.TwoFactorMethods.Totp     => await twoFactor.VerifyTotpAsync(user.Id, request.Code, now),
+            TwoFactor.TwoFactorMethods.Recovery => await twoFactor.ConsumeRecoveryCodeAsync(user.Id, request.Code, now),
+            TwoFactor.TwoFactorMethods.Email    => await ConsumeCodeAsync(user.Id, AuthCodePurpose.TwoFactorLogin, request.Code),
+            _ => throw new ArgumentException("Unknown verification method. Use totp, email or recovery."),
+        };
+
+        if (!ok)
+        {
+            challenge.Attempts++;
+            CountClientFailure(clientKey, clientFailures);
+            user.FailedLoginCount++;
+            if (user.FailedLoginCount >= MaxFailedLogins)
+            {
+                user.LockedUntil = now.Add(LockoutFor);
+                user.FailedLoginCount = 0;
+                logger.LogWarning("Account {UserId} locked after repeated failed two-step codes.", user.Id);
+            }
+            var remaining = Math.Max(0, Domain.Entities.Identity.TwoFactorChallenge.MaxAttempts - challenge.Attempts);
+            if (remaining == 0) challenge.ConsumedAt = now; // invalidated: start again from the password
+            await db.SaveChangesAsync();
+            return remaining == 0
+                ? new(null, "Too many incorrect codes. Please sign in again.", ChallengeEnded: true)
+                : new(null, method == TwoFactor.TwoFactorMethods.Recovery
+                    ? "That recovery code is incorrect or has already been used."
+                    : "That code is incorrect or has expired.", AttemptsRemaining: remaining);
+        }
+
+        // Single use, even under concurrent verifications of the same challenge.
+        if (!await twoFactor.ConsumeChallengeAsync(challenge, now)) return new(null, Expired, ChallengeEnded: true);
+
+        await EnsureCanSignInAsync(user);
+        cache.Remove(clientKey);
+        var roleSlug = await ResolveRoleSlugAsync(user);
+        user.FailedLoginCount = 0;
+        user.LockedUntil = null;
+        user.LastLoginAt = now;
+        user.LoginCount++;
+        user.UpdatedAt = now;
+        var tokens = await IssueTokensAsync(user, roleSlug, session);
+        if (request.RememberDevice) tokens.DeviceToken = await twoFactor.RememberDeviceAsync(user.Id, session, now);
+        await db.SaveChangesAsync();
+        return new(tokens);
+    }
+
+    /// <summary>Emails a sign-in code for an open challenge (the "Email me a code" fallback); at most 3 per challenge.</summary>
+    public async Task<bool> SendTwoFactorEmailCodeAsync(string challengeToken)
+    {
+        var challenge = await twoFactor.FindOpenChallengeAsync(challengeToken);
+        if (challenge is null) return false;
+        if (challenge.EmailSends >= Domain.Entities.Identity.TwoFactorChallenge.MaxEmailSends)
+            throw new ArgumentException("We've already sent you several codes. Check your inbox (and spam), or sign in again.");
+        var user = await db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == challenge.UserId && u.DeletedAt == null);
+        if (user is null || string.IsNullOrEmpty(user.Email)) return false;
+        challenge.EmailSends++;
+        await SendCodeAsync(user, AuthCodePurpose.TwoFactorLogin); // saves the counter too
+        return true;
     }
 
     /// <summary>Ends one device's session (its refresh token). The short-lived access token simply expires.</summary>
@@ -333,9 +444,12 @@ public class AuthService(
         await db.SaveChangesAsync();
 
         if (string.IsNullOrEmpty(user.Email)) return;
-        var (subject, heading, intro) = purpose == AuthCodePurpose.PasswordReset
-            ? ("Your GymBro password reset code", "Reset your password", "Use this code in the app to set a new password:")
-            : ("Verify your GymBro email", "Verify your email", "Use this code in the app to verify your email address:");
+        var (subject, heading, intro) = purpose switch
+        {
+            AuthCodePurpose.PasswordReset => ("Your GymBro password reset code", "Reset your password", "Use this code in the app to set a new password:"),
+            AuthCodePurpose.TwoFactorLogin => ("Your GymBro sign-in code", "Finish signing in", "Someone (hopefully you) entered your password. Use this code to finish signing in:"),
+            _ => ("Verify your GymBro email", "Verify your email", "Use this code in the app to verify your email address:"),
+        };
         await email.SendAsync(user.Email, subject, EmailTemplates.Code(heading, intro, code, CodeValidMinutes));
     }
 
@@ -391,7 +505,10 @@ public class AuthService(
     private async Task<AuthResponse> IssueTokensAsync(User user, string roleSlug, SessionInfo? session)
     {
         var expiry = DateTime.UtcNow.AddMinutes(_jwt.AccessTokenExpiryMinutes);
-        var accessToken = CreateJwt(user, roleSlug, expiry);
+        // 2FA policy (feature 10): required but not set up → grace banner; grace over → the token is
+        // marked so TwoFactorSetupGate only lets it reach /api/auth/* until setup is done.
+        var tfa = await twoFactor.EvaluateAsync(user, roleSlug);
+        var accessToken = CreateJwt(user, roleSlug, expiry, tfa.SetupRequiredNow);
         var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
         // Refresh tokens live in the database (hashed), so they survive restarts and work across instances.
@@ -415,7 +532,10 @@ public class AuthService(
             UserId       = user.Id,
             TenantId     = user.TenantId,
             BranchId     = user.BranchId,
-            Email        = user.Email ?? string.Empty
+            Email        = user.Email ?? string.Empty,
+            TwoFactorSetupRequired = tfa.Required && !tfa.Enabled,
+            TwoFactorSetupBlocking = tfa.SetupRequiredNow,
+            TwoFactorGraceEndsAt   = tfa.GraceEndsAt,
         };
     }
 
@@ -423,7 +543,7 @@ public class AuthService(
 
     private static string Sha256(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
-    private string CreateJwt(User user, string roleSlug, DateTime expiry)
+    private string CreateJwt(User user, string roleSlug, DateTime expiry, bool twoFactorSetupRequired = false)
     {
         var key   = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -438,6 +558,8 @@ public class AuthService(
         };
         if (user.BranchId is { } branchId)
             claims.Add(new Claim(CustomClaims.BranchId, branchId.ToString()));
+        if (twoFactorSetupRequired)
+            claims.Add(new Claim(TwoFactor.TwoFactorClaims.SetupRequired, TwoFactor.TwoFactorClaims.SetupRequiredValue));
         var token = new JwtSecurityToken(
             issuer:            _jwt.Issuer,
             audience:          _jwt.Audience,

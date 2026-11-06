@@ -2,7 +2,6 @@ using System.Globalization;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Shop.Common;
 using GymManagmentApplication.Domain.Entities.Shop;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Shop.Catalog;
@@ -18,7 +17,7 @@ public interface IShopReviewService
     Task DeleteAsync(ulong reviewId);
 }
 
-public sealed class ShopReviewService(AppDbContext db, ICurrentUser currentUser) : IShopReviewService
+public sealed class ShopReviewService(IAppDbContext db, ICurrentUser currentUser) : IShopReviewService
 {
     private const string AlreadyReviewed = "You have already reviewed this product";
 

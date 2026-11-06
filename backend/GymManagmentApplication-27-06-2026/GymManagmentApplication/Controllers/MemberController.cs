@@ -81,7 +81,7 @@ public class MemberController(IMemberService service, IValidator<CreateMemberReq
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
     public async Task<ActionResult<ApiResponse<object>>> UploadPhoto(ulong id, IFormFile photo)
     {
-        var url = await service.UploadPhotoAsync(id, photo);
+        var url = await service.UploadPhotoAsync(id, photo.ToUpload());
         return Ok(ApiResponse<object>.Ok(new { url }));
     }
 
@@ -103,7 +103,7 @@ public class MemberController(IMemberService service, IValidator<CreateMemberReq
     [HttpPost("{id:long}/documents")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
     public async Task<ActionResult<ApiResponse<object>>> UploadDocument(ulong id, IFormFile file, [FromQuery] string? documentType)
-        => Ok(ApiResponse<object>.Ok(await service.UploadDocumentAsync(id, file, documentType)));
+        => Ok(ApiResponse<object>.Ok(await service.UploadDocumentAsync(id, file.ToUpload(), documentType)));
 
     [HttpGet("search")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer)]

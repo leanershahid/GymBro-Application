@@ -1,3 +1,5 @@
+using GymManagmentApplication.Application.Common;
+
 namespace GymManagmentApplication.Application.Shop.Catalog;
 
 // Shop catalog DTOs, ported from the Unique Lights store (Dtos/Catalog, Dtos/Reviews, Dtos/Admin,
@@ -277,10 +279,13 @@ public sealed class UpsertShopVariantRequest
     public int? LowStockThreshold { get; init; }
 }
 
-/// <summary>multipart/form-data: file, altText, isPrimary.</summary>
+/// <summary>
+/// An image upload (the controller binds multipart/form-data — file, altText, isPrimary — and
+/// passes the file as a <see cref="FileUpload"/>, ARCH-097).
+/// </summary>
 public sealed class UploadShopImageRequest
 {
-    public IFormFile? File { get; init; }
+    public FileUpload? File { get; init; }
     public string? AltText { get; init; }
     public bool IsPrimary { get; init; }
 }

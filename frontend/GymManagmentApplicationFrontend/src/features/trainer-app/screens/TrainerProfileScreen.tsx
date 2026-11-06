@@ -23,9 +23,13 @@ import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-interface Props { trainerId: number; onLogout: () => void; }
+interface Props {
+  trainerId: number; onLogout: () => void;
+  /** Facilities: report broken or unsafe equipment. */
+  onReportProblem?: () => void;
+}
 
-export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
+export default function TrainerProfileScreen({ trainerId, onLogout, onReportProblem }: Props) {
   const { data: profile, isLoading }    = useTrainerProfile(trainerId);
   const { data: schedule = [] }         = useTrainerSchedule(trainerId);
   const { data: perf }                  = useTrainerPerformance(trainerId);
@@ -185,6 +189,10 @@ export default function TrainerProfileScreen({ trainerId, onLogout }: Props) {
               onPress={() => setPwOpen(true)}
             />
             <ChangePasswordSheet visible={pwOpen} onClose={() => setPwOpen(false)} onChanged={onLogout} />
+            {onReportProblem && (
+              <PrimaryButton label="Report a problem" icon="tool" variant="secondary" style={{ marginTop: 12 }}
+                accessibilityHint="Report broken or unsafe equipment" onPress={onReportProblem} />
+            )}
 
             {/* Logout */}
             <PrimaryButton

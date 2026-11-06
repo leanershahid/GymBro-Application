@@ -1,17 +1,21 @@
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Scheduling;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Scheduling;
 
 /// <summary>
 /// Group classes: class types, a schedule (with weekly series), member booking with a waitlist
-/// that is promoted automatically when someone cancels, and roster / attendance for staff.
+/// that is promoted automatically when someone cancels — or, with the gym's "offer" waitlist
+/// mode, offered with a claim window (<see cref="WaitlistOfferService"/>) — and roster / attendance for staff.
 /// </summary>
-public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmentApplication.Application.Engagement.Notifier notifier)
+public class ClassService(IAppDbContext db, ICurrentUser currentUser, GymManagmentApplication.Application.Engagement.Notifier notifier,
+    GymManagmentApplication.Application.Safety.SafetyGate? safety = null)
 {
+    private readonly WaitlistOfferService waitlist = new(db, notifier);
+    /// <summary>Cancellation / no-show rules (feature 9): late-cancel cut-off, penalties, booking blocks.</summary>
+    private readonly BookingPenaltyEngine rules = new(db, notifier);
     private const int MaxRepeatWeeks = 26;
     /// <summary>Upper bound on one schedule read (the window is already capped at 62 days).</summary>
     public const int MaxScheduleRows = 1000;
@@ -120,7 +124,7 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
             c.MaxCapacity = cap;
         }
         if (c.TrainerId is { } tid) await EnsureTrainerFreeAsync(tid, c.StartsAt, c.EndsAt, c.Id);
-        PromoteWaitlist(c);
+        await waitlist.FillFreedSeatsAsync(c, DateTime.UtcNow);
         await db.SaveChangesAsync();
         return (await MapManyAsync([c]))[0];
     }
@@ -132,8 +136,10 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
         var targets = r.WholeSeries && c.RecurrenceId is { } series
             ? await db.GymClasses.Include(x => x.Bookings).Where(x => x.RecurrenceId == series && x.StartsAt >= c.StartsAt && x.Status != ClassStatus.Cancelled).ToListAsync()
             : await db.GymClasses.Include(x => x.Bookings).Where(x => x.Id == id).ToListAsync();
+        var now = DateTime.UtcNow;
         foreach (var t in targets)
         {
+            await waitlist.WithdrawForClassAsync(t.Id, now);
             t.Status = ClassStatus.Cancelled;
             if (!string.IsNullOrWhiteSpace(r.Reason)) t.Notes = $"Cancelled: {r.Reason.Trim()}";
             foreach (var b in t.Bookings.Where(b => b.Status is BookingStatus.Booked or BookingStatus.Waitlisted))
@@ -141,9 +147,10 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
                 b.Status = BookingStatus.Cancelled;
                 b.CancelledAt = DateTime.UtcNow;
                 notifier.Add(t.TenantId, b.ClientId, "Class cancelled",
-                    $"{t.Title ?? "Your class"} on {t.StartsAt:dd MMM HH:mm} UTC was cancelled.{(string.IsNullOrWhiteSpace(r.Reason) ? "" : " " + r.Reason.Trim())}", "booking", t.Id);
+                    $"{t.Title ?? "Your class"} on {t.StartsAt:dd MMM HH:mm} UTC was cancelled.{(string.IsNullOrWhiteSpace(r.Reason) ? "" : " " + r.Reason.Trim())}", "booking", t.Id,
+                    urgent: t.StartsAt - now < TimeSpan.FromHours(24) && t.StartsAt > now); // service alert: skips quiet hours
             }
-            Recount(t);
+            t.RecountBookings();
         }
         await db.SaveChangesAsync();
         return targets.Count;
@@ -156,8 +163,14 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
     /// (SELECT … FOR UPDATE) for the whole check-and-insert, so two members can't both take the
     /// last spot — the second one sees the class full and is waitlisted.
     /// </summary>
-    public Task<ClassResponse> BookAsync(ulong classId, BookClassRequest r) =>
-        db.InTransactionAsync(() => BookLockedAsync(classId, r));
+    public async Task<ClassResponse> BookAsync(ulong classId, BookClassRequest r)
+    {
+        // Booking block (repeated no-shows) and safety gate (waiver + health check): members booking
+        // themselves. Staff booking for a member are the override.
+        if (currentUser.IsClient()) await rules.EnsureCanSelfBookAsync(currentUser.ResolveTenantId(), Me, DateTime.UtcNow);
+        if (safety is not null && currentUser.IsClient()) await safety.EnsureClearedAsync(Me, "class_booking");
+        return await db.InTransactionAsync(() => BookLockedAsync(classId, r));
+    }
 
     private async Task<ClassResponse> BookLockedAsync(ulong classId, BookClassRequest r)
     {
@@ -175,34 +188,84 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
         if (existing is not null)
             throw RuleException.Conflict(existing.Status == BookingStatus.Booked ? "Already booked for this class." : "Already on the waitlist.");
 
-        var full = c.MaxCapacity is { } cap && c.Bookings.Count(b => b.Status == BookingStatus.Booked) >= cap;
+        var full = await waitlist.IsFullAsync(c, DateTime.UtcNow); // seats held by waitlist offers count
         c.Bookings.Add(new ClassBooking
         {
             TenantId = c.TenantId, ClassId = c.Id, ClientId = clientId,
             Status = full ? BookingStatus.Waitlisted : BookingStatus.Booked,
         });
-        Recount(c);
+        c.RecountBookings();
         await db.SaveChangesAsync();
         return (await MapManyAsync([c], clientId))[0];
     }
 
-    public Task<ClassResponse> CancelBookingAsync(ulong classId, ulong? clientIdForStaff) =>
-        db.InTransactionAsync(() => CancelBookingLockedAsync(classId, clientIdForStaff));
+    /// <summary>
+    /// Cancels a booking / leaves the waitlist. A member cancelling a booked spot inside the gym's
+    /// cut-off gets 409 LATE_CANCEL_CONFIRM (with the consequence) unless <paramref name="confirmLate"/>;
+    /// the spot still goes to the waitlist and the consequence is recorded. Staff cancels are free.
+    /// </summary>
+    public Task<ClassResponse> CancelBookingAsync(ulong classId, ulong? clientIdForStaff, bool confirmLate = false) =>
+        db.InTransactionAsync(() => CancelBookingLockedAsync(classId, clientIdForStaff, confirmLate));
 
-    private async Task<ClassResponse> CancelBookingLockedAsync(ulong classId, ulong? clientIdForStaff)
+    private async Task<ClassResponse> CancelBookingLockedAsync(ulong classId, ulong? clientIdForStaff, bool confirmLate)
     {
         var clientId = currentUser.IsClient() ? Me : clientIdForStaff ?? throw new ArgumentException("Choose the member.");
         await db.LockRowAsync<GymClass>(classId); // waitlist promotion must not overfill the class
         var c = await Query().FirstOrDefaultAsync(x => x.Id == classId) ?? throw new KeyNotFoundException("Class not found.");
         var booking = c.Bookings.FirstOrDefault(b => b.ClientId == clientId && b.Status is BookingStatus.Booked or BookingStatus.Waitlisted)
                       ?? throw new ArgumentException("No booking to cancel.");
-        if (currentUser.IsClient() && c.StartsAt <= DateTime.UtcNow) throw new ArgumentException("This class has already started.");
+        var now = DateTime.UtcNow;
+        if (currentUser.IsClient() && c.StartsAt <= now) throw new ArgumentException("This class has already started.");
+        var wasWaitlisted = booking.Status == BookingStatus.Waitlisted;
+        var lateFee = false;
+        if (currentUser.IsClient() && !wasWaitlisted && c.Status != ClassStatus.Cancelled)
+        {
+            var late = await rules.LateCancelAsync(c.TenantId, c.StartsAt, pt: false, now);
+            if (late.IsLate && late.Consequence != BookingRulesSettings.None)
+            {
+                if (!confirmLate) throw BookingPenaltyEngine.ConfirmRequired(late);
+                lateFee = true;
+            }
+        }
         booking.Status = BookingStatus.Cancelled;
-        booking.CancelledAt = DateTime.UtcNow;
-        PromoteWaitlist(c);
+        booking.CancelledAt = now;
+        if (wasWaitlisted) await waitlist.WithdrawForBookingAsync(booking.Id, now);
+        await waitlist.FillFreedSeatsAsync(c, now); // a late cancel still frees the spot
         await db.SaveChangesAsync();
+        if (lateFee)
+            await rules.ApplyAsync(new PenaltySubject(c.TenantId, clientId, BookingPenaltyTypes.LateCancel, c.StartsAt,
+                c.Title ?? c.ClassType.Name, BookingId: booking.Id, ClassId: c.Id), now);
         return (await MapManyAsync([c], clientId))[0];
     }
+
+    // ── Waitlist offers ("offer" waitlist mode) ─────────────────────────────
+
+    /// <summary>
+    /// The member takes the spot held for them. Claimed = false when the window had already
+    /// passed: the offer is then expired and rolled to the next person (committed), and the
+    /// caller reports a 409.
+    /// </summary>
+    public Task<(ClassResponse Class, bool Claimed)> ClaimOfferAsync(ulong classId) =>
+        db.InTransactionAsync(async () =>
+        {
+            await db.LockRowAsync<GymClass>(classId);
+            var c = await Query().FirstOrDefaultAsync(x => x.Id == classId) ?? throw new KeyNotFoundException("Class not found.");
+            if (c.Status == ClassStatus.Cancelled) throw new ArgumentException("This class was cancelled.");
+            var claimed = await waitlist.ClaimAsync(c, Me, DateTime.UtcNow);
+            await db.SaveChangesAsync();
+            return ((await MapManyAsync([c], Me))[0], claimed);
+        });
+
+    /// <summary>The member passes on the held spot; it is offered to the next person.</summary>
+    public Task<ClassResponse> DeclineOfferAsync(ulong classId) =>
+        db.InTransactionAsync(async () =>
+        {
+            await db.LockRowAsync<GymClass>(classId);
+            var c = await Query().FirstOrDefaultAsync(x => x.Id == classId) ?? throw new KeyNotFoundException("Class not found.");
+            await waitlist.DeclineAsync(c, Me, DateTime.UtcNow);
+            await db.SaveChangesAsync();
+            return (await MapManyAsync([c], Me))[0];
+        });
 
     public async Task<List<ClassResponse>> GetMyBookingsAsync()
     {
@@ -228,15 +291,31 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
             }).ToListAsync();
     }
 
-    public async Task MarkAttendanceAsync(ulong classId, MarkAttendanceRequest r)
-    {
-        var c = await Query().FirstOrDefaultAsync(x => x.Id == classId) ?? throw new KeyNotFoundException("Class not found.");
-        EnsureCanManage(c);
-        var b = c.Bookings.FirstOrDefault(x => x.ClientId == r.ClientId && x.Status != BookingStatus.Cancelled && x.Status != BookingStatus.Waitlisted)
-                ?? throw new ArgumentException("That member isn't booked for this class.");
-        b.Status = r.Attended ? BookingStatus.Attended : BookingStatus.NoShow;
-        await db.SaveChangesAsync();
-    }
+    /// <summary>
+    /// Marks attended / no-show. A no-show records the gym's no-show consequence once per booking
+    /// (marking again is a no-op); correcting a no-show to attended waives its penalty.
+    /// </summary>
+    public Task MarkAttendanceAsync(ulong classId, MarkAttendanceRequest r) =>
+        db.InTransactionAsync(async () =>
+        {
+            await db.LockRowAsync<GymClass>(classId); // two staff marking at once can't both record the penalty
+            var c = await Query().FirstOrDefaultAsync(x => x.Id == classId) ?? throw new KeyNotFoundException("Class not found.");
+            EnsureCanManage(c);
+            var b = c.Bookings.FirstOrDefault(x => x.ClientId == r.ClientId && x.Status != BookingStatus.Cancelled && x.Status != BookingStatus.Waitlisted)
+                    ?? throw new ArgumentException("That member isn't booked for this class.");
+            var was = b.Status;
+            b.Status = r.Attended ? BookingStatus.Attended : BookingStatus.NoShow;
+            await db.SaveChangesAsync();
+            var now = DateTime.UtcNow;
+            if (b.Status == BookingStatus.NoShow)
+                await rules.ApplyAsync(new PenaltySubject(c.TenantId, b.ClientId, BookingPenaltyTypes.NoShow, c.StartsAt,
+                    c.Title ?? c.ClassType.Name, BookingId: b.Id, ClassId: c.Id, CreatedBy: currentUser.UserId), now);
+            else if (was == BookingStatus.NoShow)
+            {
+                await rules.UndoNoShowAsync(c.TenantId, b.Id, null, currentUser.UserId, now);
+                await db.SaveChangesAsync();
+            }
+        });
 
     // ── helpers ─────────────────────────────────────────────────────────────
 
@@ -244,25 +323,6 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
 
     private IQueryable<GymClass> Query() =>
         db.GymClasses.Include(c => c.ClassType).Include(c => c.Branch).Include(c => c.Trainer).Include(c => c.Bookings);
-
-    /// <summary>Moves people off the waitlist (first come, first served) while there's room.</summary>
-    private void PromoteWaitlist(GymClass c)
-    {
-        foreach (var w in c.Bookings.Where(b => b.Status == BookingStatus.Waitlisted).OrderBy(b => b.BookedAt))
-        {
-            if (c.MaxCapacity is { } cap && c.Bookings.Count(b => b.Status == BookingStatus.Booked) >= cap) break;
-            w.Status = BookingStatus.Booked;
-            notifier.Add(c.TenantId, w.ClientId, "You're in!",
-                $"A spot opened up in {c.Title ?? c.ClassType?.Name ?? "your class"} on {c.StartsAt:dd MMM HH:mm} UTC.", "booking", c.Id);
-        }
-        Recount(c);
-    }
-
-    private static void Recount(GymClass c)
-    {
-        c.EnrolledCount = (short)c.Bookings.Count(b => b.Status is BookingStatus.Booked or BookingStatus.Attended);
-        c.WaitlistCount = (short)c.Bookings.Count(b => b.Status == BookingStatus.Waitlisted);
-    }
 
     /// <summary>Trainers may only change classes they teach; admins/staff any.</summary>
     private void EnsureCanManage(GymClass c)
@@ -298,10 +358,16 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
         MaxCapacity = t.MaxCapacity, Color = t.Color, IsActive = t.IsActive,
     };
 
-    private Task<List<ClassResponse>> MapManyAsync(List<GymClass> classes, ulong? forClient = null)
+    private async Task<List<ClassResponse>> MapManyAsync(List<GymClass> classes, ulong? forClient = null)
     {
         var client = forClient ?? (currentUser.IsClient() ? currentUser.UserId : null);
-        return Task.FromResult(classes.Select(c => new ClassResponse
+        var ids = classes.Select(c => c.Id).ToList();
+        var now = DateTime.UtcNow;
+        var cutoff = classes.Count == 0 ? 0 : (await BookingPenaltyEngine.LoadSettingsAsync(db, classes[0].TenantId)).ClassCancelCutoffHours;
+        List<OfferExpiry> offers = client is null ? [] : await db.WaitlistOffers.AsNoTracking()
+            .Where(o => o.ClientId == client && ids.Contains(o.ClassId) && o.Status == WaitlistOfferStatuses.Pending && o.ExpiresAt > now)
+            .Select(o => new OfferExpiry(o.ClassId, o.ExpiresAt)).ToListAsync();
+        return classes.Select(c => new ClassResponse
         {
             Id = c.Id, ClassTypeId = c.ClassTypeId, ClassTypeName = c.ClassType.Name,
             Title = c.Title ?? c.ClassType.Name, Color = c.ClassType.Color,
@@ -313,6 +379,10 @@ public class ClassService(AppDbContext db, ICurrentUser currentUser, GymManagmen
             Status = c.Status.ToString(), SeriesId = c.RecurrenceId, Notes = c.Notes,
             MyBooking = client is null ? null
                 : c.Bookings.Where(b => b.ClientId == client && b.Status != BookingStatus.Cancelled).Select(b => b.Status.ToString()).FirstOrDefault(),
-        }).ToList());
+            MyOfferExpiresAt = offers.Where(o => o.ClassId == c.Id).Select(o => (DateTime?)o.ExpiresAt).FirstOrDefault(),
+            FreeCancelUntil = BookingPenaltyEngine.FreeCancelUntil(c.StartsAt, cutoff),
+        }).ToList();
     }
+
+    private sealed record OfferExpiry(ulong ClassId, DateTime ExpiresAt);
 }

@@ -76,8 +76,8 @@ public class ClassesController(ClassService service) : ControllerBase
 
     [HttpDelete("{id:long}/book")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
-    public async Task<ActionResult<ApiResponse<object>>> CancelBooking(ulong id, [FromQuery] ulong? clientId)
-        => Ok(ApiResponse<object>.Ok(await service.CancelBookingAsync(id, clientId), "Booking cancelled."));
+    public async Task<ActionResult<ApiResponse<object>>> CancelBooking(ulong id, [FromQuery] ulong? clientId, [FromQuery] bool confirmLate = false)
+        => Ok(ApiResponse<object>.Ok(await service.CancelBookingAsync(id, clientId, confirmLate), "Booking cancelled."));
 
     [HttpGet("me")]
     [AuthorizeRoles(RoleNames.Client)]

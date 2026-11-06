@@ -4,6 +4,8 @@ public enum AuthCodePurpose
 {
     PasswordReset = 1,
     EmailVerification = 2,
+    /// <summary>Second step of a sign-in, emailed as the fallback when the authenticator app isn't at hand.</summary>
+    TwoFactorLogin = 3,
 }
 
 /// <summary>

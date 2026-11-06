@@ -14,6 +14,11 @@ public class MembershipPlanResponse
     public bool IsPublic { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
+    public bool IsPopular { get; set; }
+    public decimal JoiningFee { get; set; }
+    public int? ClassCredits { get; set; }
+    public int? PtSessions { get; set; }
+    public string? AccessHours { get; set; }
 }
 
 public class SubscriptionResponse

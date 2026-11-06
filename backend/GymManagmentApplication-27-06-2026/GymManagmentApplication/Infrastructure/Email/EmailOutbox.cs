@@ -1,24 +1,10 @@
 using GymManagmentApplication.Domain.Entities.Communication;
 using GymManagmentApplication.Domain.Enums;
+using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Infrastructure.Email;
-
-/// <summary>
-/// Transactional outbox for email (ARCH-046). <see cref="Enqueue"/> adds a Queued
-/// <see cref="CommunicationLog"/> row to the caller's unit of work, so the email exists only if the
-/// caller's SaveChanges commits; <see cref="EmailOutboxProcessor"/> then delivers it in the
-/// background with retries, off the request path.
-/// </summary>
-public interface IEmailOutbox
-{
-    /// <param name="dedupeKey">Optional key (kept in ProviderRef): <see cref="AlreadyQueuedAsync"/> finds it later.</param>
-    void Enqueue(ulong tenantId, ulong? userId, string to, string subject, string htmlBody, string? dedupeKey = null);
-
-    /// <summary>The subset of <paramref name="dedupeKeys"/> already queued or sent for this gym.</summary>
-    Task<HashSet<string>> AlreadyQueuedAsync(ulong tenantId, IReadOnlyCollection<string> dedupeKeys, CancellationToken ct = default);
-}
 
 public class EmailOutbox(AppDbContext db) : IEmailOutbox
 {

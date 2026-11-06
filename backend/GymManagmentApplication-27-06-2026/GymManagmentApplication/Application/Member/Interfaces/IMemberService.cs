@@ -15,11 +15,11 @@ public interface IMemberService
     Task<bool> SetStatusAsync(ulong id, bool isActive);
     Task<List<MemberResponse>> BulkImportAsync(BulkImportMemberRequest request);
     Task<List<MemberTimelineResponse>> GetTimelineAsync(ulong id);
-    Task<string> UploadPhotoAsync(ulong id, IFormFile photo);
+    Task<string> UploadPhotoAsync(ulong id, FileUpload photo);
     Task<List<MemberNoteResponse>> GetNotesAsync(ulong id);
     Task<MemberNoteResponse> AddNoteAsync(ulong id, AddMemberNoteRequest request);
     Task<List<MemberDocumentResponse>> GetDocumentsAsync(ulong id);
-    Task<MemberDocumentResponse> UploadDocumentAsync(ulong id, IFormFile file, string? documentType);
+    Task<MemberDocumentResponse> UploadDocumentAsync(ulong id, FileUpload file, string? documentType);
     Task<PagedResponse<MemberResponse>> SearchAsync(MemberSearchRequest request);
     Task<List<string>> GetTagsAsync(ulong id);
     Task<bool> AssignTagsAsync(ulong id, AssignTagsRequest request);

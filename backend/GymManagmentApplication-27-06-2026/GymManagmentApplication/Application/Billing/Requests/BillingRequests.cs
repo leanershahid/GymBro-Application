@@ -14,6 +14,12 @@ public class CreateMembershipPlanRequest
     public int DurationDays { get; set; }
     public List<string>? Features { get; set; }
     public bool IsPublic { get; set; } = true;
+    // Online plan browser (feature 4)
+    public bool IsPopular { get; set; }
+    public decimal JoiningFee { get; set; }
+    public int? ClassCredits { get; set; }
+    public int? PtSessions { get; set; }
+    public string? AccessHours { get; set; }
 }
 
 public class UpdateMembershipPlanRequest
@@ -24,6 +30,12 @@ public class UpdateMembershipPlanRequest
     public string? BillingCycle { get; set; }
     public int? DurationDays { get; set; }
     public bool? IsPublic { get; set; }
+    // Online plan browser (feature 4). ClassCredits / PtSessions: 0 clears; AccessHours: "" clears.
+    public bool? IsPopular { get; set; }
+    public decimal? JoiningFee { get; set; }
+    public int? ClassCredits { get; set; }
+    public int? PtSessions { get; set; }
+    public string? AccessHours { get; set; }
     public bool? IsActive { get; set; }
 }
 

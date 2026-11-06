@@ -5,6 +5,8 @@ using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Plan = GymManagmentApplication.Domain.Entities.Training.WorkoutPlan;
 
+using GymManagmentApplication.Application.WorkoutPlan.Interfaces;
+
 namespace GymManagmentApplication.Infrastructure.Repositories.WorkoutPlan;
 
 public class WorkoutPlanRepository(AppDbContext db) : IWorkoutPlanRepository

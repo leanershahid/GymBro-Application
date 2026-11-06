@@ -11,7 +11,13 @@ import { openWebCheckout } from '../payments/razorpay';
  * modal on native) → verify the signed result on the server → toast + refetch.
  * Render `<RazorpayNativeModal {...nativeModalProps} />` once on the screen for native.
  */
-export function useInvoiceCheckout(userId: number) {
+export interface InvoiceCheckoutOptions {
+  /** Called once the payment is verified (e.g. the join flow's success screen). */
+  onPaid?: (order: OnlineOrder) => void;
+}
+
+export function useInvoiceCheckout(userId: number, options: InvoiceCheckoutOptions = {}) {
+  const { onPaid } = options;
   const toast = useToast();
   const start = useStartInvoicePayment();
   const verify = useVerifyInvoicePayment(userId);
@@ -33,7 +39,10 @@ export function useInvoiceCheckout(userId: number) {
         signature: r.razorpay_signature,
       },
       {
-        onSuccess: () => toast.show({ type: 'success', message: `Payment received for ${order.invoiceNo}. Thank you!` }),
+        onSuccess: () => {
+          toast.show({ type: 'success', message: `Payment received for ${order.invoiceNo}. Thank you!` });
+          onPaid?.(order);
+        },
         onError: e => toast.show({
           type: 'error',
           message: `We couldn't confirm your payment yet: ${apiErrorText(e)} If money was debited, it will reflect shortly.`,
@@ -42,24 +51,15 @@ export function useInvoiceCheckout(userId: number) {
         onSettled: () => setPayingId(null),
       },
     );
-  }, [verify, toast]);
+  }, [verify, toast, onPaid]);
 
   const onFailed = useCallback((reason: string) => {
     toast.show({ type: 'error', message: `Payment failed: ${reason}` });
   }, [toast]);
 
-  const pay = useCallback(async (invoice: MyInvoice) => {
-    if (payingId !== null) return;
-    setPayingId(invoice.id);
-    let order: OnlineOrder;
-    try {
-      order = await start.mutateAsync(invoice.id);
-    } catch (e) {
-      toast.show({ type: 'error', message: apiErrorText(e) });
-      setPayingId(null);
-      return;
-    }
-
+  /** Opens Checkout for an order the server already created (e.g. membership checkout). */
+  const payOrder = useCallback(async (order: OnlineOrder) => {
+    setPayingId(order.invoiceId);
     if (Platform.OS === 'web') {
       try {
         await openWebCheckout(order, {
@@ -74,7 +74,21 @@ export function useInvoiceCheckout(userId: number) {
     } else {
       setNativeOrder(order);
     }
-  }, [payingId, start, toast, onSuccess, onFailed]);
+  }, [toast, onSuccess, onFailed]);
+
+  const pay = useCallback(async (invoice: MyInvoice) => {
+    if (payingId !== null) return;
+    setPayingId(invoice.id);
+    let order: OnlineOrder;
+    try {
+      order = await start.mutateAsync(invoice.id);
+    } catch (e) {
+      toast.show({ type: 'error', message: apiErrorText(e) });
+      setPayingId(null);
+      return;
+    }
+    await payOrder(order);
+  }, [payingId, start, toast, payOrder]);
 
   const nativeModalProps = {
     order: nativeOrder,
@@ -84,5 +98,5 @@ export function useInvoiceCheckout(userId: number) {
     onError: (reason: string) => { toast.show({ type: 'error', message: reason }); finish(); },
   };
 
-  return { pay, payingId, verifying: verify.isPending, nativeModalProps };
+  return { pay, payOrder, payingId, verifying: verify.isPending, nativeModalProps };
 }

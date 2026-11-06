@@ -13,7 +13,7 @@ public interface IExerciseService
     Task<ExerciseResponse?> UpdateAsync(ulong id, UpdateExerciseRequest request);
     Task<bool> DeleteAsync(ulong id);
     Task<List<ExerciseResponse>> GetAlternativesAsync(ulong id);
-    Task<string> UploadVideoAsync(ulong id, IFormFile video);
+    Task<string> UploadVideoAsync(ulong id, FileUpload video);
     Task<VideoAnnotationResponse> AnnotateVideoAsync(ulong id, AnnotateVideoRequest request);
     Task<List<ExerciseTagResponse>> GetTagsAsync();
     Task<List<MuscleGroupResponse>> GetMusclesAsync();

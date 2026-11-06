@@ -2,33 +2,27 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using GymManagmentApplication.Application.Billing.Payments;
 
 namespace GymManagmentApplication.Infrastructure.Payments;
 
-/// <summary>A gym's Razorpay API keys (stored encrypted in PaymentGateways).</summary>
-public record RazorpayKeys(string KeyId, string KeySecret);
-
 /// <summary>Minimal Razorpay REST client: orders, payment lookup, refunds, signature check.</summary>
-public class RazorpayClient(IHttpClientFactory httpFactory, ILogger<RazorpayClient> logger)
+public class RazorpayClient(IHttpClientFactory httpFactory, ILogger<RazorpayClient> logger) : IRazorpayClient
 {
     private const string Api = "https://api.razorpay.com/v1";
 
-    public record Order(string Id, long AmountMinor, string Currency);
-    public record PaymentInfo(string Id, string Status, string Method, long AmountMinor, string? OrderId);
+    public static long ToMinor(decimal amount) => RazorpayApi.ToMinor(amount);
 
-    /// <summary>Amount in the currency's minor unit (paise for INR).</summary>
-    public static long ToMinor(decimal amount) => (long)Math.Round(amount * 100m, MidpointRounding.AwayFromZero);
-
-    public async Task<Order> CreateOrderAsync(RazorpayKeys keys, decimal amount, string currency, string receipt, IDictionary<string, string> notes)
+    public async Task<RazorpayOrder> CreateOrderAsync(RazorpayKeys keys, decimal amount, string currency, string receipt, IDictionary<string, string> notes)
     {
         var body = await SendAsync(keys, HttpMethod.Post, "/orders", new
         {
             amount = ToMinor(amount), currency, receipt, notes,
         });
-        return new Order(body.GetProperty("id").GetString()!, body.GetProperty("amount").GetInt64(), body.GetProperty("currency").GetString()!);
+        return new RazorpayOrder(body.GetProperty("id").GetString()!, body.GetProperty("amount").GetInt64(), body.GetProperty("currency").GetString()!);
     }
 
-    public async Task<PaymentInfo> GetPaymentAsync(RazorpayKeys keys, string paymentId)
+    public async Task<RazorpayPaymentInfo> GetPaymentAsync(RazorpayKeys keys, string paymentId)
     {
         var body = await SendAsync(keys, HttpMethod.Get, $"/payments/{Uri.EscapeDataString(paymentId)}", null);
         return ReadPayment(body);
@@ -43,7 +37,7 @@ public class RazorpayClient(IHttpClientFactory httpFactory, ILogger<RazorpayClie
     }
 
     /// <summary>Captures an "authorized" payment (amount must equal the authorised amount).</summary>
-    public async Task<PaymentInfo> CaptureAsync(RazorpayKeys keys, string paymentId, long amountMinor, string currency)
+    public async Task<RazorpayPaymentInfo> CaptureAsync(RazorpayKeys keys, string paymentId, long amountMinor, string currency)
     {
         var body = await SendAsync(keys, HttpMethod.Post, $"/payments/{Uri.EscapeDataString(paymentId)}/capture",
             new { amount = amountMinor, currency });
@@ -57,39 +51,12 @@ public class RazorpayClient(IHttpClientFactory httpFactory, ILogger<RazorpayClie
         return ReadNotes(body);
     }
 
-    public static PaymentInfo ReadPayment(JsonElement body) => new(
-        body.GetProperty("id").GetString()!,
-        body.GetProperty("status").GetString() ?? "",
-        body.TryGetProperty("method", out var m) ? m.GetString() ?? "" : "",
-        body.GetProperty("amount").GetInt64(),
-        body.TryGetProperty("order_id", out var o) && o.ValueKind == JsonValueKind.String ? o.GetString() : null);
-
-    public static IReadOnlyDictionary<string, string> ReadNotes(JsonElement entity)
-    {
-        var notes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (entity.TryGetProperty("notes", out var n) && n.ValueKind == JsonValueKind.Object)
-            foreach (var p in n.EnumerateObject())
-                notes[p.Name] = p.Value.ValueKind == JsonValueKind.String ? p.Value.GetString() ?? "" : p.Value.ToString();
-        return notes;
-    }
-
-    /// <summary>Checks a webhook: X-Razorpay-Signature = hex HMAC-SHA256(raw body, webhook secret).</summary>
-    public static bool VerifyWebhookSignature(string webhookSecret, string rawBody, string? signature)
-    {
-        if (string.IsNullOrEmpty(webhookSecret) || string.IsNullOrEmpty(signature)) return false;
-        var expected = HMACSHA256.HashData(Encoding.UTF8.GetBytes(webhookSecret), Encoding.UTF8.GetBytes(rawBody));
-        var expectedHex = Encoding.UTF8.GetBytes(Convert.ToHexString(expected).ToLowerInvariant());
-        return CryptographicOperations.FixedTimeEquals(expectedHex, Encoding.UTF8.GetBytes(signature.Trim().ToLowerInvariant()));
-    }
-
-    /// <summary>Checks the signature Razorpay Checkout returns: HMAC-SHA256(order_id|payment_id, key_secret).</summary>
-    public static bool VerifySignature(RazorpayKeys keys, string orderId, string paymentId, string signature)
-    {
-        var expected = HMACSHA256.HashData(Encoding.UTF8.GetBytes(keys.KeySecret), Encoding.UTF8.GetBytes($"{orderId}|{paymentId}"));
-        var actual = Encoding.UTF8.GetBytes(signature ?? "");
-        var expectedHex = Encoding.UTF8.GetBytes(Convert.ToHexString(expected).ToLowerInvariant());
-        return CryptographicOperations.FixedTimeEquals(expectedHex, actual);
-    }
+    public static RazorpayPaymentInfo ReadPayment(JsonElement body) => RazorpayApi.ReadPayment(body);
+    public static IReadOnlyDictionary<string, string> ReadNotes(JsonElement entity) => RazorpayApi.ReadNotes(entity);
+    public static bool VerifyWebhookSignature(string webhookSecret, string rawBody, string? signature) =>
+        RazorpayApi.VerifyWebhookSignature(webhookSecret, rawBody, signature);
+    public static bool VerifySignature(RazorpayKeys keys, string orderId, string paymentId, string signature) =>
+        RazorpayApi.VerifySignature(keys, orderId, paymentId, signature);
 
     /// <summary>Validates keys by listing one order (cheap, read-only).</summary>
     public async Task<bool> TestKeysAsync(RazorpayKeys keys)

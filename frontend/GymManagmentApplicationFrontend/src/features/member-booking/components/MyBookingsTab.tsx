@@ -9,13 +9,15 @@ import Skeleton from '../../common/components/Skeleton';
 import EmptyState from '../../common/components/EmptyState';
 import { useToast } from '../../common/components/Toast';
 import {
-  useMyClasses, useMyPtSessions, useCancelClassBooking, useCancelPtSession, useRatePtSession,
+  useMyClasses, useMyPtSessions, useRatePtSession,
 } from '../api/bookingQueries';
 import { PtSession, UpcomingItem } from '../types/booking.types';
 import {
   upcomingItems, pastPtSessions, whenLabel, formatTimeRange, parseUtc, classColor, dayLabel, formatMoney,
 } from '../utils/bookingFormat';
 import { Card, SectionTitle, InlineError, ActionButton, StarRating } from './BookingUi';
+import { BookingPolicy, BookingStandingCard, cancelRuleText } from '../../booking-rules/routes';
+import { useCancelFlow } from '../hooks/useCancelFlow';
 
 function ptTone(status: string): PillTone {
   switch (status.toLowerCase()) {
@@ -29,8 +31,8 @@ function ptTone(status: string): PillTone {
 }
 const ptLabel = (status: string) => (status.toLowerCase() === 'booked' ? 'Requested' : status === 'NoShow' ? 'Missed' : status);
 
-function UpcomingRow({ item, pending, busy, onCancel }: {
-  item: UpcomingItem; pending: boolean; busy: boolean; onCancel: (i: UpcomingItem) => void;
+function UpcomingRow({ item, pending, busy, policy, onCancel }: {
+  item: UpcomingItem; pending: boolean; busy: boolean; policy?: BookingPolicy; onCancel: (i: UpcomingItem) => void;
 }) {
   const isClass = item.kind === 'class';
   const accent = isClass ? classColor(item.cls) : T.violet;
@@ -40,6 +42,8 @@ function UpcomingRow({ item, pending, busy, onCancel }: {
     ? (item.cls.myBooking === 'Waitlisted' ? { label: 'Waitlisted', tone: 'warn' as PillTone } : { label: 'Booked', tone: 'ok' as PillTone })
     : { label: ptLabel(item.session.status), tone: ptTone(item.session.status) };
   const started = item.startsAt.getTime() <= Date.now();
+  const waitlisted = isClass && item.cls.myBooking === 'Waitlisted';
+  const rule = !started && !waitlisted ? cancelRuleText(isClass ? item.cls.freeCancelUntil : item.session.freeCancelUntil, policy) : null;
 
   return (
     <Card accent={accent} style={{ marginBottom: SP.md }}>
@@ -60,7 +64,8 @@ function UpcomingRow({ item, pending, busy, onCancel }: {
         <StatusPill label={pill.label} tone={pill.tone} dot />
       </View>
       {!started && (
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: SP.md }}>
+        <View style={{ flexDirection: 'row', justifyContent: rule ? 'space-between' : 'flex-end', alignItems: 'center', gap: SP.md, marginTop: SP.md }}>
+          {!!rule && <Text style={{ color: T.textFaint, fontSize: 12, flexShrink: 1 }}>{rule}</Text>}
           <ActionButton
             label={isClass && item.cls.myBooking === 'Waitlisted' ? 'Leave waitlist' : 'Cancel'}
             icon="x"
@@ -108,43 +113,30 @@ function PastPtRow({ s, first, rating, onRate }: {
   );
 }
 
-export default function MyBookingsTab({ userId }: { userId: number }) {
+export default function MyBookingsTab({ userId, onContactGym }: { userId: number; onContactGym?: () => void }) {
   const toast = useToast();
   const classesQ = useMyClasses(userId);
   const ptQ = useMyPtSessions(userId);
-  const cancelClassM = useCancelClassBooking(userId);
-  const cancelPtM = useCancelPtSession(userId);
+  const cancelFlow = useCancelFlow(userId);
   const rateM = useRatePtSession(userId);
-  const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [ratingId, setRatingId] = useState<number | null>(null);
 
   const upcoming = useMemo(() => upcomingItems(classesQ.data ?? [], ptQ.data ?? []), [classesQ.data, ptQ.data]);
   const past = useMemo(() => pastPtSessions(ptQ.data ?? []).slice(0, 20), [ptQ.data]);
 
-  const doCancel = async (item: UpcomingItem) => {
-    setPendingKey(item.key);
-    try {
-      if (item.kind === 'class') await cancelClassM.mutateAsync(item.cls.id);
-      else await cancelPtM.mutateAsync(item.session.id);
-      toast.show({ type: 'success', message: item.kind === 'pt' ? 'Session cancelled.' : 'Booking cancelled.' });
-    } catch (e) {
-      showAlert("Couldn't cancel", apiErrorText(e));
-    } finally {
-      setPendingKey(null);
-    }
-  };
-
   const cancel = (item: UpcomingItem) => {
-    const title = item.kind === 'class' ? item.cls.title : item.session.sessionTypeName;
-    const extra = item.kind === 'pt' && item.session.invoiceId ? '\n\nAn unpaid invoice for this session will be voided.' : '';
-    showAlert(
-      item.kind === 'pt' ? 'Cancel this session?' : 'Cancel this booking?',
-      `${title} · ${whenLabel(item.startsAt)}${extra}`,
-      [
-        { text: 'Keep', style: 'cancel' },
-        { text: 'Cancel it', style: 'destructive', onPress: () => { void doCancel(item); } },
-      ],
-    );
+    const title = `${item.kind === 'class' ? item.cls.title : item.session.sessionTypeName} · ${whenLabel(item.startsAt)}`;
+    if (item.kind === 'class') {
+      cancelFlow.request({
+        kind: 'class', id: item.cls.id, title, startsAt: item.cls.startsAt,
+        freeCancelUntil: item.cls.freeCancelUntil, waitlisted: item.cls.myBooking === 'Waitlisted',
+      });
+    } else {
+      cancelFlow.request({
+        kind: 'pt', id: item.session.id, title, startsAt: item.session.startsAt, freeCancelUntil: item.session.freeCancelUntil,
+        extra: item.session.invoiceId ? 'An unpaid invoice for this session will be voided.' : undefined,
+      });
+    }
   };
 
   const rate = async (s: PtSession, n: number) => {
@@ -167,6 +159,7 @@ export default function MyBookingsTab({ userId }: { userId: number }) {
 
   return (
     <View>
+      <BookingStandingCard userId={userId} onContactGym={onContactGym} />
       <SectionTitle title="Upcoming" right={upcoming.length ? <Text style={{ color: T.textSub, fontSize: 13, fontWeight: '700' }}>{upcoming.length}</Text> : undefined} />
       {(classesQ.isError || ptQ.isError) && (
         <InlineError error={classesQ.error ?? ptQ.error} onRetry={() => { classesQ.refetch(); ptQ.refetch(); }} />
@@ -176,7 +169,8 @@ export default function MyBookingsTab({ userId }: { userId: number }) {
           <EmptyState icon="calendar" title="Nothing booked yet" subtitle="Book a class or a personal training session to see it here." />
         </Card>
       ) : upcoming.map(item => (
-        <UpcomingRow key={item.key} item={item} pending={pendingKey === item.key} busy={pendingKey !== null} onCancel={cancel} />
+        <UpcomingRow key={item.key} item={item} pending={cancelFlow.pendingKey === item.key} busy={cancelFlow.pendingKey !== null}
+          policy={cancelFlow.policy} onCancel={cancel} />
       ))}
 
       {past.length > 0 && (
@@ -189,6 +183,7 @@ export default function MyBookingsTab({ userId }: { userId: number }) {
           </Card>
         </View>
       )}
+      {cancelFlow.sheet}
     </View>
   );
 }

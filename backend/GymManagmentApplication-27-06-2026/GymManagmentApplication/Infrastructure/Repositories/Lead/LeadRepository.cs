@@ -5,6 +5,8 @@ using GymManagmentApplication.Domain.Enums;
 using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
+using GymManagmentApplication.Application.Lead.Interfaces;
+
 namespace GymManagmentApplication.Infrastructure.Repositories.Lead;
 
 public class LeadRepository(AppDbContext db) : ILeadRepository

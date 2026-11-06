@@ -6,6 +6,8 @@ import { useLayout } from '../../../utils/useLayout';
 import Screen from '../../common/components/Screen';
 import ScreenHeader from '../../common/components/ScreenHeader';
 import { useVisibleAdminActions } from '../adminActions';
+import { useMembershipRequestBadge } from '../../self-service/routes';
+import { useSupportBadge } from '../../support/routes';
 
 interface Props {
   onBack?: () => void;
@@ -20,6 +22,9 @@ interface Props {
  */
 export default function MoreActionsPage({ onBack, onNavigate, onLogout }: Props) {
   const actions = useVisibleAdminActions();
+  const pendingRequests = useMembershipRequestBadge();
+  // Tile badges: pending membership requests, unassigned + overdue help requests.
+  const badges: Record<string, number> = { 'membership-requests': pendingRequests, support: useSupportBadge() };
   const { tileW, tileCols } = useLayout();
   const tileWidth = tileW(tileCols, 12);
   return (
@@ -33,7 +38,7 @@ export default function MoreActionsPage({ onBack, onNavigate, onLogout }: Props)
               key={a.screen}
               onPress={() => onNavigate(a.screen)}
               accessibilityRole="button"
-              accessibilityLabel={a.label}
+              accessibilityLabel={(badges[a.screen] ?? 0) > 0 ? `${a.label}, ${badges[a.screen]} need attention` : a.label}
               style={({ pressed }) => ({
                 width: tileWidth, paddingHorizontal: 8, alignItems: 'center', gap: 8, paddingVertical: 16,
                 backgroundColor: pressed ? T.brandDim : T.bgInput,
@@ -44,6 +49,11 @@ export default function MoreActionsPage({ onBack, onNavigate, onLogout }: Props)
               <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: T.brandDim, borderWidth: 1, borderColor: T.brandBorder, alignItems: 'center', justifyContent: 'center' }}>
                 <Feather name={a.icon} size={18} color={T.brand} />
               </View>
+              {(badges[a.screen] ?? 0) > 0 && (
+                <View style={{ position: 'absolute', top: 8, right: 8, minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, backgroundColor: T.brandGold, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: T.onBrand, fontSize: 11, fontWeight: '800' }}>{badges[a.screen]}</Text>
+                </View>
+              )}
               <Text numberOfLines={2} style={{ color: T.textSub, fontSize: 11, fontWeight: '600', textAlign: 'center' }}>{a.label}</Text>
             </Pressable>
           ))}

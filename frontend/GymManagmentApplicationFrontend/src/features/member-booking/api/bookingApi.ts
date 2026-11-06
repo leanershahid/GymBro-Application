@@ -23,8 +23,9 @@ export const bookClass = async (classId: number): Promise<ClassBookResult> => {
   return { cls: unwrap(data), message: data.message };
 };
 
-export const cancelClassBooking = async (classId: number): Promise<GymClass> => {
-  const { data } = await axiosInstance.delete<ApiResponse<GymClass>>(`/classes/${classId}/book`);
+/** `confirmLate`: "Cancel anyway" after a 409 LATE_CANCEL_CONFIRM (inside the gym's cut-off). */
+export const cancelClassBooking = async (classId: number, confirmLate = false): Promise<GymClass> => {
+  const { data } = await axiosInstance.delete<ApiResponse<GymClass>>(`/classes/${classId}/book`, { params: confirmLate ? { confirmLate } : undefined });
   return unwrap(data);
 };
 
@@ -45,8 +46,8 @@ export const bookPtSession = async (payload: BookPtPayload): Promise<PtSession> 
   return unwrap(data);
 };
 
-export const cancelPtSession = async (sessionId: number): Promise<PtSession> => {
-  const { data } = await axiosInstance.put<ApiResponse<PtSession>>(`/pt/sessions/${sessionId}/status`, { status: 'cancelled' });
+export const cancelPtSession = async (sessionId: number, confirmLate = false): Promise<PtSession> => {
+  const { data } = await axiosInstance.put<ApiResponse<PtSession>>(`/pt/sessions/${sessionId}/status`, { status: 'cancelled', confirmLate });
   return unwrap(data);
 };
 

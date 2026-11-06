@@ -1,15 +1,13 @@
-using GymManagmentApplication.Infrastructure.Data;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.WorkoutPlan.Interfaces;
 using GymManagmentApplication.Application.WorkoutPlan.Requests;
 using GymManagmentApplication.Application.WorkoutPlan.Responses;
 using GymManagmentApplication.Domain.Entities.Training;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Repositories.WorkoutPlan;
 
 namespace GymManagmentApplication.Application.WorkoutPlan.Services;
 
-public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser currentUser, AppDbContext db, GymManagmentApplication.Application.Engagement.Notifier notifier) : IWorkoutPlanService
+public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser currentUser, IAppDbContext db, GymManagmentApplication.Application.Engagement.Notifier notifier) : IWorkoutPlanService
 {
     public async Task<PagedResponse<PlanResponse>> GetAllAsync(PlanListRequest request)
     {

@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { T, withAlpha } from '../../../theme';
 import BottomTabBar from '../../common/components/BottomTabBar';
@@ -10,10 +10,16 @@ import AdminDashboard from '../../dashboard/pages/AdminDashboard';
 import TrainerApp from '../../trainer-app/TrainerApp';
 import MemberApp from '../../member-app/MemberApp';
 import { AppScope, moduleIcon, normalizeRoute, useAccess } from '../context/AccessContext';
-import { AccessApp, AccessModule, OpenRequest } from '../types/access.types';
+import { AccessApp, AccessModule, AreaLocation, OpenRequest } from '../types/access.types';
 import { MENU_CONTAINER_ROUTES } from '../../common/constants/menuRoutes';
+import { MORE, Place, ShellArea } from '../../../navigation/paths';
+import { initialPlace, useShellHistory } from '../../../navigation/useShellHistory';
+import NoAccessScreen from './NoAccessScreen';
+import TwoFactorGraceBanner from '../../auth/components/twoFactor/TwoFactorGraceBanner';
+import { onNotificationOpen, parseNotificationRoute } from '../../notifications';
+import type { NotificationTarget } from '../../notifications';
+import { openBookOn } from '../../member-booking/screens/BookScreen';
 
-const MORE = 'more';
 /** Each area's profile screen, always reachable from More. */
 const PROFILE_ROUTE: Record<AccessApp, string> = { admin: 'profile-details', trainer: 'profile', member: 'profile' };
 const AREAS: AccessApp[] = ['admin', 'trainer', 'member'];
@@ -44,16 +50,9 @@ function useShellItems(): Item[] {
   }, [allModules, homeApp]);
 }
 
-/** Sub-screens report their own route; this maps them to the menu module they belong to. */
-const OWNER_ROUTE: Record<AccessApp, Record<string, string>> = {
-  admin: {},                                  // AdminDashboard already reports the owning module
-  trainer: { client: 'clients' },
-  member: { workout: 'train', plans: 'progress' },
-};
-
 /** Every module that isn't on the bar — searchable, grouped by area — then Profile and Sign out. */
-function MoreScreen({ items, onOpen, onProfile, onLogout }: {
-  items: Item[]; onOpen: (item: Item) => void; onProfile: () => void; onLogout: () => void;
+function MoreScreen({ items, onOpen, onProfile, onHelp, onLogout }: {
+  items: Item[]; onOpen: (item: Item) => void; onProfile: () => void; onHelp?: () => void; onLogout: () => void;
 }) {
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
@@ -97,6 +96,7 @@ function MoreScreen({ items, onOpen, onProfile, onLogout }: {
         {q && shown.length === 0 && <Text style={{ color: T.textSub, fontSize: 14, paddingVertical: 12 }}>Nothing matches "{query}".</Text>}
         {heading('Account')}
         {row('profile', 'Profile', 'user', onProfile)}
+        {onHelp && row('help', 'Help & feedback', 'life-buoy', onHelp)}
         {row('sign-out', 'Sign out', 'log-out', onLogout, T.err)}
       </ScrollView>
     </Screen>
@@ -104,7 +104,6 @@ function MoreScreen({ items, onOpen, onProfile, onLogout }: {
 }
 
 const BAR_SLOTS = 4;
-type Place = { app: AccessApp; route: string };
 
 /**
  * The one app every role uses. Its bottom bar and More screen are built from the modules the
@@ -112,71 +111,60 @@ type Place = { app: AccessApp; route: string };
  * Each module opens the existing screens of its area (admin, trainer or member), hosted here.
  *
  * Navigation rules: the tab of the module a screen belongs to stays lit; tapping the lit tab again
- * returns to that module's first screen; the Android back button steps back through the screens
- * visited, and leaves the app only from the first one.
+ * returns to that module's first screen. Every screen an area reports (route + ids) is a history
+ * entry (src/navigation): on web it is the URL (`/member/workout/12`), so reload, deep links and
+ * browser Back/Forward work; on phones the Android back button steps back through them and leaves
+ * the app only from the first one. A URL for an area the person has no modules in shows "Not
+ * available"; each area gates its own unassigned routes the same way.
  */
 export default function AppShell({ userId, onLogout }: { userId: number; onLogout: () => void }) {
-  const { homeApp } = useAccess();
+  const { homeApp, allModules } = useAccess();
   const items = useShellItems();
   const bar = items.slice(0, BAR_SLOTS);
   const more = items.slice(BAR_SLOTS);
 
-  type Current = { app: AccessApp; open: OpenRequest } | { app: typeof MORE };
-  const firstPlace: Place = bar[0] ? { app: bar[0].app, route: bar[0].route } : { app: homeApp, route: PROFILE_ROUTE[homeApp] };
-  const [current, setCurrent] = useState<Current>({ app: firstPlace.app, open: { route: firstPlace.route, at: 0 } });
-  // The screen the hosted area reports, to light the matching tab.
-  const [shown, setShown] = useState<Place | null>(firstPlace);
+  const firstPlace: Place = bar[0] ? { area: bar[0].app, path: [bar[0].route] } : { area: homeApp, path: [PROFILE_ROUTE[homeApp]] };
+  const hasArea = (a: ShellArea) => a !== MORE && (a === homeApp || allModules.some(m => m.app === a));
+
+  const [start] = useState(() => initialPlace(firstPlace));
+  const [current, setCurrent] = useState<{ place: Place; open: OpenRequest }>(() => ({ place: start, open: { path: start.path, at: 0 } }));
+  // The module of the screen showing (as the area reports it), to light the matching tab.
+  const [shown, setShown] = useState<{ app: ShellArea; module: string | undefined }>({ app: start.area, module: start.path[0] });
   // Remounts the hosted area — a second tap on the lit tab starts the module fresh.
   const [resetCount, setResetCount] = useState(0);
 
-  // Places visited, for the Android back button. MORE is recorded as its own place.
-  const history = useRef<(Place | typeof MORE)[]>([firstPlace]);
-  const goingBack = useRef(false);
-  const push = (p: Place | typeof MORE) => {
-    if (goingBack.current) { goingBack.current = false; return; }
-    const top = history.current[history.current.length - 1];
-    const same = top === p || (top !== MORE && p !== MORE && top.app === p.app && top.route === p.route);
-    if (!same) history.current = [...history.current.slice(-30), p];
-  };
+  const history = useShellHistory(start, {
+    show: p => {
+      setShown({ app: p.area, module: p.path[0] });
+      setCurrent({ place: p, open: { path: p.path, at: Date.now() } });
+    },
+    expectsReport: p => hasArea(p.area),
+  });
 
-  const openItem = useCallback((app: AccessApp, route: string) => {
-    setShown({ app, route });
-    setCurrent({ app, open: { route, at: Date.now() } });
-  }, []);
-
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (history.current.length <= 1) return false;            // first screen: let the OS leave the app
-      history.current = history.current.slice(0, -1);
-      const prev = history.current[history.current.length - 1];
-      goingBack.current = true;
-      if (prev === MORE) { goingBack.current = false; setCurrent({ app: MORE }); }
-      else openItem(prev.app, prev.route);
-      return true;
-    });
-    return () => sub.remove();
-  }, [openItem]);
-
-  const ownerOf = (p: Place | null) => p && { app: p.app, route: OWNER_ROUTE[p.app][p.route] ?? p.route };
-  const owner = ownerOf(shown);
-  const activeKey = current.app === MORE
+  const area = current.place.area;
+  const activeKey = area === MORE
     ? MORE
-    : bar.find(b => b.app === owner?.app && b.route === owner?.route)?.key ?? MORE;
+    : bar.find(b => b.app === shown.app && b.route === shown.module)?.key ?? MORE;
 
   const tabs = [
     ...bar.map(b => ({ key: b.key, label: b.name, icon: moduleIcon(b.icon) })),
     { key: MORE, label: 'More', icon: 'menu' as const },
   ];
+  const openModule = (app: AccessApp, route: string) => history.go({ area: app, path: [route] });
   const onTab = (key: string) => {
-    if (key === MORE) { push(MORE); setCurrent({ app: MORE }); return; }
+    if (key === MORE) { history.go({ area: MORE, path: [] }); return; }
     const b = bar.find(x => x.key === key);
     if (!b) return;
     if (key === activeKey) setResetCount(n => n + 1);           // second tap: back to the module's start
-    openItem(b.app, b.route);
+    openModule(b.app, b.route);
   };
 
   const hosted = (app: AccessApp, open: OpenRequest) => {
-    const onRouteChange = (route: string) => { setShown({ app, route }); push({ app, route }); };
+    const onRouteChange = (loc: AreaLocation) => {
+      setShown({ app, module: loc.module });
+      history.report({ area: app, path: loc.path }, loc.replace);
+    };
+    if (!hasArea(app)) return <NoAccessScreen onBack={() => history.go(firstPlace)} />;
     return (
       // Keyed by area (and resets), so moving between areas starts that area's screens fresh.
       <AppScope key={`${app}-${resetCount}`} app={app}>
@@ -187,19 +175,66 @@ export default function AppShell({ userId, onLogout }: { userId: number; onLogou
     );
   };
 
+  // A tapped push (or a cold-start tap) opens the matching screen in the user's main area.
+  const goRef = useRef(history.go);
+  goRef.current = history.go;
+  useEffect(() => onNotificationOpen(payload => {
+    const place = notificationPlace(homeApp, parseNotificationRoute(payload));
+    if (place) goRef.current(place);
+  }), [homeApp]);
+
   return (
     <View style={{ flex: 1, backgroundColor: T.bg }}>
+      {/* Shown only while the gym requires two-step sign-in and it isn't set up yet. */}
+      <TwoFactorGraceBanner onPress={() => history.go({ area: homeApp, path: ['security'] })} />
       <View style={{ flex: 1 }}>
-        {current.app === MORE ? (
+        {area === MORE ? (
           <MoreScreen
             items={more}
-            onOpen={i => openItem(i.app, i.route)}
-            onProfile={() => openItem(homeApp, PROFILE_ROUTE[homeApp])}
+            onOpen={i => openModule(i.app, i.route)}
+            onProfile={() => openModule(homeApp, PROFILE_ROUTE[homeApp])}
+            onHelp={homeApp === 'member' ? () => openModule('member', 'help') : undefined}
             onLogout={onLogout}
           />
-        ) : hosted(current.app, current.open)}
+        ) : hosted(area, current.open)}
       </View>
       <BottomTabBar tabs={tabs} active={activeKey} onChange={onTab} />
     </View>
   );
+}
+
+/** Where a tapped notification goes in each area (unknown targets open the alerts list / home). */
+function notificationPlace(app: AccessApp, t: NotificationTarget): Place | null {
+  if (app === 'member') {
+    switch (t.screen) {
+      case 'class': openBookOn('mine'); return { area: app, path: ['book'] };
+      case 'my-bookings': openBookOn('mine'); return { area: app, path: ['book'] };
+      case 'pt': openBookOn('pt'); return { area: app, path: ['book'] };
+      case 'billing': return { area: app, path: ['billing'] };
+      case 'training': return { area: app, path: ['train'] };
+      case 'announcement': return { area: app, path: t.announcementId ? ['announcements', String(t.announcementId)] : ['announcements'] };
+      case 'membership-request': return { area: app, path: t.requestId ? ['membership-request', String(t.requestId)] : ['my-membership'] };
+      case 'help-request': return { area: app, path: t.requestId ? ['help-request', String(t.requestId)] : ['help'] };
+      case 'my-report': return { area: app, path: t.reportId ? ['my-report', String(t.reportId)] : ['my-reports'] };
+      case 'message-thread': return { area: app, path: t.conversationId ? ['message-thread', String(t.conversationId)] : ['messages'] };
+      default: return { area: app, path: ['notifications'] };
+    }
+  }
+  if (app === 'trainer') {
+    if (t.screen === 'class') return { area: app, path: ['classes'] };
+    if (t.screen === 'pt') return { area: app, path: ['sessions'] };
+    if (t.screen === 'support-request') return { area: app, path: t.requestId ? ['support-request', String(t.requestId)] : ['support'] };
+    if (t.screen === 'message-thread') return { area: app, path: t.conversationId ? ['message-thread', String(t.conversationId)] : ['messages'] };
+    return { area: app, path: ['home'] };
+  }
+  switch (t.screen) {
+    case 'member': return { area: app, path: ['member-detail', String(t.memberId)] };
+    case 'class': return { area: app, path: ['classes'] };
+    case 'pt': return { area: app, path: ['pt-sessions'] };
+    case 'billing': return { area: app, path: ['billing'] };
+    case 'membership-request': return { area: app, path: ['membership-requests'] };
+    case 'support-request': return { area: app, path: t.requestId ? ['support-request', String(t.requestId)] : ['support'] };
+    case 'facility-report': return { area: app, path: t.reportId ? ['facility-report', String(t.reportId)] : ['facility-reports'] };
+    default: return { area: app, path: ['home'] };
+  }
 }

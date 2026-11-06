@@ -1,7 +1,6 @@
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Shop.Common;
 using GymManagmentApplication.Domain.Entities.Shop;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -20,7 +19,7 @@ public interface IShopOrderService
 
 /// <summary>Checkout and the member's own orders. Ported from the store's OrderService (customer half).</summary>
 public sealed class ShopOrderService(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUser currentUser,
     IShopCartService carts,
     IShopCouponService coupons,
@@ -335,7 +334,7 @@ public sealed class ShopOrderService(
 /// Order loading, mapping, cancelling and the transaction/retry wrapper shared by the member and
 /// admin order services (the store's OrderRepository + the shared parts of OrderService/Mappers).
 /// </summary>
-public sealed class ShopOrderCore(AppDbContext db, IShopPaymentGateway paymentGateway, ILogger<ShopOrderCore> logger)
+public sealed class ShopOrderCore(IAppDbContext db, IShopPaymentGateway paymentGateway, ILogger<ShopOrderCore> logger)
 {
     private const int MaxConcurrencyAttempts = 3;
 

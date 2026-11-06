@@ -1,15 +1,14 @@
+using GymManagmentApplication.Application.Access;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Application.Tenant.Interfaces;
 using GymManagmentApplication.Application.Tenant.Requests;
 using GymManagmentApplication.Application.Tenant.Responses;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
-using GymManagmentApplication.Infrastructure.Repositories.Tenant;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Tenant.Services;
 
-public class TenantService(ITenantRepository repository, ICurrentUser currentUser, AppDbContext db) : ITenantService
+public class TenantService(ITenantRepository repository, ICurrentUser currentUser, IAppDbContext db) : ITenantService
 {
     // Super admins see every gym; a tenant admin sees only their own.
     public async Task<List<TenantResponse>> GetAllAsync()
@@ -46,7 +45,7 @@ public class TenantService(ITenantRepository repository, ICurrentUser currentUse
 
         var created = await repository.CreateAsync(tenant);
         // A gym is unusable until it has its own admin/trainer/client/staff roles.
-        await DbSeeder.EnsureSystemRolesAsync(db, created.Id, includeSuperAdmin: false);
+        await SystemRoles.EnsureAsync(db, created.Id, includeSuperAdmin: false);
         return Map(created);
     }
 

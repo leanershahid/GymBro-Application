@@ -38,7 +38,20 @@ import SocialApp         from '../../social/SocialApp';
 import MoreActionsPage   from '../pages/MoreActionsPage';
 import AdminProfileDetailsPage from '../pages/AdminProfileDetailsPage';
 import NoModuleAccess    from './NoModuleAccess';
-import { AdminScreen } from './adminRoutes';
+import { WaiverSettingsPage } from '../../safety/routes';
+import { BookingRulesPage } from '../../booking-rules/routes';
+import SecuritySettingsScreen from '../../auth/screens/SecuritySettingsScreen';
+import { PrivacyRequestsPage } from '../../privacy/routes';
+import { MembershipRequestsPage } from '../../self-service/routes';
+import { SupportQueuePage, SupportRequestPage } from '../../support/routes';
+import { MessagesReviewPage, MessagesReviewThreadPage } from '../../messaging/routes';
+import {
+  FacilitiesPage, FacilityAssetPage, FacilityReportPage, FacilityReportsPage, IncidentFormPage, IncidentPage, IncidentsPage,
+} from '../../facilities/routes';
+import { AnnouncementsAdminPage, AnnouncementEditorPage, ServiceStatusAdminPage, BranchHoursPage } from '../../operations/routes';
+import type { OpenRequest } from '../../access/types/access.types';
+import type { PathChange } from '../../../navigation/useAreaRoute';
+import { AdminScreen, isAdminScreen } from './adminRoutes';
 import { AdminAccess } from './useAdminAccess';
 import { FrontDesk } from './useFrontDesk';
 
@@ -52,6 +65,8 @@ export interface AdminRouteContext {
   goHome: () => void;
   roleLabel: string;
   confirmLogout?: () => void;
+  /** The shop's nested path: what the shell asks it to show, and where it reports moving. */
+  shop: { open?: OpenRequest; onPathChange: PathChange };
 }
 
 /** The page when `allowed`, otherwise the "No access" screen whose Back goes to `back`. */
@@ -70,12 +85,13 @@ const ROUTES: Record<AdminScreen, Render> = {
   // Members
   'members': ({ access: a, go, open, goHome }) => gated(a.members.canView,
     <ViewMembersPage onBack={goHome} onAddMember={a.members.canCreate ? () => go('add-member') : undefined} onOpenMember={(id) => open('member-detail', id)} />, goHome),
-  'member-detail': ({ access: a, desk, selectedId, go }) => gated(a.members.canView,
+  'member-detail': ({ access: a, desk, selectedId, go, open }) => gated(a.members.canView,
     <MemberDetailPage memberId={selectedId} onBack={() => go('members')} canEdit={a.members.canEdit}
       onEdit={a.members.canEdit ? () => go('edit-member') : undefined}
       onNewMembership={a.billing.canCreate ? () => { desk.setSellName(undefined); go('new-membership'); } : undefined}
       onNewInvoice={a.billing.canCreate ? () => { desk.setInvoiceFor(selectedId); go('new-invoice'); } : undefined}
       onCheckIn={a.attendance.canCreate ? () => desk.checkInMember(selectedId) : undefined}
+      onOpenMembershipRequests={a.membershipRequests.canView ? () => open('membership-requests', selectedId) : undefined}
       checkingIn={desk.checkIn.isPending} />, () => go('members')),
   'edit-member': ({ access: a, selectedId, go }) => gated(a.members.canEdit,
     <EditMemberPage memberId={selectedId} onBack={() => go('member-detail')} onSaved={() => go('member-detail')} />, () => go('member-detail')),
@@ -122,11 +138,14 @@ const ROUTES: Record<AdminScreen, Render> = {
   'add-plan': ({ access: a, go }) => gated(a.plans.canCreate, <AddPlanPage onBack={() => go('plans')} />, () => go('plans')),
 
   // Shop / social
-  'shop': ({ goHome }) => <ShopAdminApp onBack={goHome} />,
+  'shop': ({ goHome, shop }) => <ShopAdminApp onBack={goHome} open={shop.open} onPathChange={shop.onPathChange} />,
   'social': ({ goHome }) => <SocialApp onBack={goHome} />,
 
   // Classes / PT
-  'classes': ({ access: a, goHome }) => gated(a.classes.canView, <ClassSchedulePage mode="admin" onBack={goHome} />, goHome),
+  'classes': ({ access: a, go, goHome }) => gated(a.classes.canView, <ClassSchedulePage mode="admin" onBack={goHome}
+    onOpenBookingRules={a.classes.canEdit ? () => go('booking-rules') : undefined} />, goHome),
+  // Cancellation & no-show rules (feature 9): settings are editable, so classes edit rights.
+  'booking-rules': ({ access: a, go }) => gated(a.classes.canEdit, <BookingRulesPage onBack={() => go('classes')} />, () => go('classes')),
   'pt-sessions': ({ access: a, goHome }) => gated(a.pt.canView, <PtSessionsPage mode="admin" onBack={goHome} />, goHome),
 
   // Billing
@@ -163,9 +182,47 @@ const ROUTES: Record<AdminScreen, Render> = {
   'attendance-settings': ({ access: a, go }) => gated(a.attendance.canEdit,
     <AttendanceSettingsPage onBack={() => go('attendance')} onOpenLog={() => go('attendance')} />, () => go('attendance')),
 
+  // Safety: waiver versions + gating settings (module admin.waivers)
+  'waivers': ({ goHome }) => <WaiverSettingsPage onBack={goHome} />,
+  // Privacy: deletion requests, data exports, privacy settings (module admin.privacy)
+  // Self-service: members' pause / cancel / plan-change requests + membership rules (module admin.membership-requests).
+  // The id, when set, is a member (opened from member detail).
+  'membership-requests': ({ access: a, open, selectedId, goHome }) =>
+    <MembershipRequestsPage onBack={goHome} memberId={selectedId || undefined}
+      onOpenMember={a.members.canView ? (id) => open('member-detail', id) : undefined} />,
+  'privacy-requests': ({ access: a, open, goHome }) =>
+    <PrivacyRequestsPage onBack={goHome} onOpenMember={a.members.canView ? (id) => open('member-detail', id) : undefined} />,
+  // Help & feedback: members' support requests, FAQ, saved replies, class feedback (module admin.support).
+  'support': ({ open, goHome }) => <SupportQueuePage onBack={goHome} onOpen={(id) => open('support-request', id)} />,
+  'support-request': ({ access: a, open, go, selectedId }) => <SupportRequestPage requestId={selectedId} onBack={() => go('support')}
+    onOpenMember={a.members.canView ? (id) => open('member-detail', id) : undefined} />,
+  // Messaging: read-only safeguarding review of trainer ↔ member threads + messaging policy (module admin.messages).
+  'messages-review': ({ open, goHome }) => <MessagesReviewPage onBack={goHome} onOpen={(id) => open('messages-review-thread', id)} />,
+  'messages-review-thread': ({ selectedId, go }) => <MessagesReviewThreadPage conversationId={selectedId} onBack={() => go('messages-review')} />,
+
+  // Facilities: equipment register (admin.facilities), problem-report queue (admin.facility-reports),
+  // restricted incident log (admin.incidents). incident-new's optional id = edit that open incident.
+  'facilities': ({ open, go, goHome }) => <FacilitiesPage onBack={goHome} onOpenAsset={(id) => open('facility-asset', id)} onOpenReports={() => go('facility-reports')} />,
+  'facility-asset': ({ selectedId, open, go }) => <FacilityAssetPage assetId={selectedId} onBack={() => go('facilities')} onOpenReport={(id) => open('facility-report', id)} />,
+  'facility-reports': ({ open, goHome }) => <FacilityReportsPage onBack={goHome} onOpen={(id) => open('facility-report', id)} />,
+  'facility-report': ({ selectedId, open, go }) => <FacilityReportPage reportId={selectedId} onBack={() => go('facility-reports')} onOpenAsset={(id) => open('facility-asset', id)} />,
+  'incidents': ({ open, goHome }) => <IncidentsPage onBack={goHome} onOpen={(id) => open('incident', id)} onNew={() => open('incident-new', 0)} />,
+  'incident': ({ selectedId, open, go }) => <IncidentPage incidentId={selectedId} onBack={() => go('incidents')} onEdit={(id) => open('incident-new', id)} />,
+  'incident-new': ({ selectedId, open, go }) => <IncidentFormPage key={selectedId} incidentId={selectedId || undefined}
+    onBack={() => (selectedId ? open('incident', selectedId) : go('incidents'))} onSaved={(id) => open('incident', id)} />,
+
+  // Operations: announcements, service notices, opening hours
+  'announcements': ({ open, goHome }) => <AnnouncementsAdminPage onBack={goHome}
+    onCompose={() => open('announcement-editor', 0)} onEdit={(id) => open('announcement-editor', id)} />,
+  'announcement-editor': ({ selectedId, go }) => <AnnouncementEditorPage announcementId={selectedId || undefined}
+    onBack={() => go('announcements')} onSaved={() => go('announcements')} />,
+  'service-status': ({ goHome }) => <ServiceStatusAdminPage onBack={goHome} />,
+  'branch-hours': ({ selectedId, goHome }) => <BranchHoursPage branchId={selectedId || undefined} onBack={goHome} />,
+
   // Always open
-  'more-actions': ({ go, goHome, confirmLogout }) => <MoreActionsPage onBack={goHome} onNavigate={(k) => go(k as AdminScreen)} onLogout={confirmLogout} />,
+  'more-actions': ({ go, goHome, confirmLogout }) => <MoreActionsPage onBack={goHome} onNavigate={(k) => { if (isAdminScreen(k)) go(k); }} onLogout={confirmLogout} />,
   'profile-details': ({ goHome, roleLabel }) => <AdminProfileDetailsPage onBack={goHome} roleLabel={roleLabel} />,
+  'security': ({ goHome }) => <SecuritySettingsScreen onBack={goHome} />,
 };
 
 /** The page for `screen`, or null for home (and unknown routes). */

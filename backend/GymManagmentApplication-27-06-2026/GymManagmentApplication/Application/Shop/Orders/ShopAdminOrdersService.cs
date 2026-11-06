@@ -3,7 +3,6 @@ using GymManagmentApplication.Application.Shop.Common;
 using GymManagmentApplication.Domain.Entities.Identity;
 using GymManagmentApplication.Domain.Entities.Shop;
 using GymManagmentApplication.Domain.Enums;
-using GymManagmentApplication.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Shop.Orders;
@@ -20,7 +19,7 @@ public interface IShopAdminOrdersService
 
 /// <summary>The gym's side of shop orders and buyers (the store's admin OrderService half + AdminCustomerService).</summary>
 public sealed class ShopAdminOrdersService(
-    AppDbContext db,
+    IAppDbContext db,
     ICurrentUser currentUser,
     ShopOrderCore core,
     ILogger<ShopAdminOrdersService> logger) : IShopAdminOrdersService

@@ -24,6 +24,13 @@ import ChallengeCard from '../components/ChallengeCard';
 import CoachCard from '../components/CoachCard';
 import { useHasModule, useMenu } from '../../access/context/AccessContext';
 import { openBookOn } from '../../member-booking/screens/BookScreen';
+import PushPermissionCard from '../../notifications/components/PushPermissionCard';
+import { GetStartedCard } from '../../safety/routes';
+import { ChooseMembershipCard } from '../../self-service/routes';
+import { ServiceStatusBanner, LatestAnnouncementCard } from '../../operations/routes';
+import { ClassFeedbackCard } from '../../support/routes';
+import { MessagesEntryCard } from '../../messaging/routes';
+import type { SafetyStep } from '../../safety/api/safety.types';
 
 const WORKOUT_IMAGES = [
   require('../../../assets/dashboard/workout-1.jpg'),
@@ -39,9 +46,13 @@ const SECTION_GAP = SP.xxl; // 28
 interface Props {
   userId: number;
   onNavigate: (screen: string) => void;
+  /** Opens the waiver / health / emergency-contact step (the card opens a modal without it). */
+  onOpenSafety?: (step: SafetyStep) => void;
+  onOpenAlerts?: () => void;
+  unread?: number;
 }
 
-export default function HomeScreen({ userId, onNavigate }: Props) {
+export default function HomeScreen({ userId, onNavigate, onOpenSafety, onOpenAlerts, unread }: Props) {
   const { hPad, contentW } = useLayout();
 
   const canWorkouts     = useApiAccess('workouts').canView;
@@ -138,12 +149,32 @@ export default function HomeScreen({ userId, onNavigate }: Props) {
           avatarUrl={profile?.avatarUrl}
           streakDays={canStats && health ? health.streakDays : null}
           onOpenProfile={() => onNavigate('profile')}
+          onOpenAlerts={onOpenAlerts}
+          unread={unread}
         />
+
+        {/* Get started: waiver · health check · emergency contact (hides when complete) */}
+        <GetStartedCard onOpenStep={onOpenSafety} />
+
+        {/* No membership yet (e.g. just signed up): pick a plan and join. Hides once a membership is live. */}
+        {canOpenBilling && <ChooseMembershipCard onPress={() => onNavigate('plans-browse')} onOpenMyMembership={() => onNavigate('my-membership')} />}
+
+        {/* Service notices (pool closed...) and the latest unread announcement; each hides when empty. */}
+        <View style={{ marginTop: SP.lg, gap: SP.md }}>
+          <ServiceStatusBanner onPress={() => onNavigate('branch-info')} />
+          <LatestAnnouncementCard onOpen={id => onNavigate('announcements/' + id)} onSeeAll={() => onNavigate('announcements')} />
+          {/* "How was {class}?" after an attended class (once per booking; gym setting). */}
+          <ClassFeedbackCard />
+          {/* "Message your coach" / new messages (hidden with no coach and nothing unread). */}
+          <MessagesEntryCard side="member" onPress={() => onNavigate('messages')} />
+        </View>
 
         {/* 2 · Today: next booking · today's workout · check-in · membership.
             Cards render directly in the gap column so one that returns null leaves no hole. */}
         <View style={{ marginTop: SP.xl, gap: SP.xl }}>
           {canOpenBook && <NextBookingCard userId={userId} onPress={openBookings} />}
+          {/* Pre-permission explainer: only on phones, only until answered (or snoozed for 14 days) */}
+          {canOpenBook && <PushPermissionCard flush />}
           {canOpenWorkout && <TodayWorkoutCard userId={userId} onOpenWorkout={openWorkout} />}
           {/* Renders nothing unless the gym has location check-in switched on */}
           <CheckInCard />

@@ -25,4 +25,16 @@ public class GymClass
     public ClassType ClassType { get; set; } = default!;
     public Training.TrainerProfile? Trainer { get; set; }
     public ICollection<ClassBooking> Bookings { get; set; } = [];
+
+    // ── Invariants (ARCH-084). Methods, not properties, so the EF model is unchanged. ──
+
+    /// <summary>True when a capacity is set and the booked (not waitlisted) seats have reached it.</summary>
+    public bool IsFull() => MaxCapacity is { } cap && Bookings.Count(b => b.Status == BookingStatus.Booked) >= cap;
+
+    /// <summary>Keeps the denormalised counters in step with the loaded <see cref="Bookings"/>.</summary>
+    public void RecountBookings()
+    {
+        EnrolledCount = (short)Bookings.Count(b => b.Status is BookingStatus.Booked or BookingStatus.Attended);
+        WaitlistCount = (short)Bookings.Count(b => b.Status == BookingStatus.Waitlisted);
+    }
 }

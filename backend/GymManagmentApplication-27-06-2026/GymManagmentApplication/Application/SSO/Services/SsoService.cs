@@ -5,14 +5,13 @@ using GymManagmentApplication.Application.SSO.Interfaces;
 using GymManagmentApplication.Application.SSO.Requests;
 using GymManagmentApplication.Application.SSO.Responses;
 using GymManagmentApplication.Domain.Entities.Identity;
-using GymManagmentApplication.Infrastructure.Data;
+using GymManagmentApplication.Application.Common;
 using Microsoft.EntityFrameworkCore;
 
-using GymManagmentApplication.Application.Common;
 
 namespace GymManagmentApplication.Application.SSO.Services;
 
-public class SsoService(AppDbContext db, IAuthService authService, ICurrentUser currentUser, GymManagmentApplication.Infrastructure.Security.ISecretProtector secrets) : ISsoService
+public class SsoService(IAppDbContext db, IAuthService authService, ICurrentUser currentUser, ISecretProtector secrets) : ISsoService
 {
     public Task<SsoInitResponse> InitAsync(SsoInitRequest request)
     {
