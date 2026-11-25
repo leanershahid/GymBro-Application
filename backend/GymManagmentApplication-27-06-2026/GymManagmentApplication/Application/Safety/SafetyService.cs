@@ -436,8 +436,18 @@ public class SafetyService(IAppDbContext db, ICurrentUser currentUser, SafetyGat
     private static string? Truncate(string? s, int max) => s is null ? null : s.Length > max ? s[..max] : s;
 }
 
+/// <summary>
+/// Runs when a member withdraws a consent of <see cref="Type"/> (e.g. face check-in deletes the
+/// reference photo and kept selfies when "biometric_face" is withdrawn).
+/// </summary>
+public interface IConsentWithdrawalHandler
+{
+    string Type { get; }
+    Task OnWithdrawnAsync(ulong tenantId, ulong userId);
+}
+
 /// <summary>Consent records: append-only grants and withdrawals.</summary>
-public class ConsentService(IAppDbContext db, ICurrentUser currentUser)
+public class ConsentService(IAppDbContext db, ICurrentUser currentUser, IEnumerable<IConsentWithdrawalHandler>? withdrawalHandlers = null)
 {
     public async Task<ConsentsResponse> GetMineAsync() => await GetForAsync(currentUser.UserId ?? throw new UnauthorizedAccessException("Sign in again."));
 
@@ -482,6 +492,10 @@ public class ConsentService(IAppDbContext db, ICurrentUser currentUser)
             });
             await db.SaveChangesAsync();
         }
+        // A withdrawal removes the data the consent covered (also when re-sent: the data may have come back).
+        if (!r.Granted)
+            foreach (var handler in (withdrawalHandlers ?? []).Where(h => h.Type == type))
+                await handler.OnWithdrawnAsync(tenantId, me);
         return await GetForAsync(me);
     }
 }

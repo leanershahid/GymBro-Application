@@ -1,8 +1,11 @@
 using GymManagmentApplication.Application.Attendance;
+using GymManagmentApplication.Application.Attendance.Face;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Constants;
 using GymManagmentApplication.Filters;
+using GymManagmentApplication.Infrastructure.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace GymManagmentApplication.Controllers;
 
@@ -68,6 +71,23 @@ public class AttendanceController(IAttendanceService service) : ControllerBase
         return Ok(new ApiResponse<object> { Success = result.CheckedIn, Message = result.Message, Data = result });
     }
 
+    /// <summary>
+    /// Self check-in with face verification (gyms with face check-in on): the location fields plus a live
+    /// selfie, as multipart/form-data. 422 FACE_ENROLL_REQUIRED / FACE_MISMATCH / FACE_NOT_CLEAR / FACE_LOCKED,
+    /// 503 FACE_UNAVAILABLE (fail closed). Out of range is still 200 with CheckedIn = false.
+    /// </summary>
+    [HttpPost("check-in/face")]
+    [AuthorizeRoles(RoleNames.Client, RoleNames.Trainer)]
+    [EnableRateLimiting(RateLimits.Uploads)]
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 6 * 1024 * 1024)]
+    public async Task<ActionResult<ApiResponse<object>>> CheckInWithFace([FromForm] FaceCheckInForm form)
+    {
+        var request = new LocationCheckRequest { Lat = form.Lat, Lng = form.Lng, AccuracyM = form.AccuracyM, BranchId = form.BranchId };
+        var result = await service.CheckInByLocationAsync(request, new FaceSelfie(form.Selfie.ToUpload(), form.CapturedAt));
+        return Ok(new ApiResponse<object> { Success = result.CheckedIn, Message = result.Message, Data = result });
+    }
+
     [HttpPost("check-out")]
     [AuthorizeRoles(RoleNames.Client, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> CheckOut([FromBody] LocationCheckRequest? request)
@@ -107,4 +127,17 @@ public class AttendanceController(IAttendanceService service) : ControllerBase
     [AuthorizeRoles(RoleNames.Client, RoleNames.Trainer)]
     public async Task<ActionResult<ApiResponse<object>>> MyHistory([FromQuery] int days = 30)
         => Ok(ApiResponse<object>.Ok(await service.GetMyHistoryAsync(days)));
+}
+
+/// <summary>Multipart body of POST api/attendance/check-in/face.</summary>
+public class FaceCheckInForm
+{
+    public double Lat { get; set; }
+    public double Lng { get; set; }
+    public double? AccuracyM { get; set; }
+    public ulong? BranchId { get; set; }
+    /// <summary>When the app captured the selfie (ISO 8601, UTC).</summary>
+    public DateTime? CapturedAt { get; set; }
+    /// <summary>Live front-camera selfie, JPEG or PNG, at most 5 MB.</summary>
+    public IFormFile? Selfie { get; set; }
 }

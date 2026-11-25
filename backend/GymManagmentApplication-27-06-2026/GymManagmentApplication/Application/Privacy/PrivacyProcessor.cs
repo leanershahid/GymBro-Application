@@ -237,6 +237,10 @@ public class PrivacyProcessor(IAppDbContext db, IFileStorage storage, IEmailOutb
         }
         Count("ClientProfiles", profiles.Count);
 
+        // Face check-in: the reference photo and kept check-in selfies are deleted (files after commit), with
+        // the attempt log. Visits keep their face score as anonymous history.
+        Count("FaceCheckIn", await Attendance.Face.FaceData.EraseAsync(db, t, u, files, deleteAttempts: true));
+
         Count("MemberEmergencyContacts", await db.MemberEmergencyContacts.AcrossTenants().Where(c => c.TenantId == t && c.UserId == u).ExecuteDeleteAsync());
         Count("HealthScreenings", await db.HealthScreenings.AcrossTenants().Where(h => h.TenantId == t && h.UserId == u).ExecuteDeleteAsync());
         Count("HealthMetrics", await db.HealthMetrics.AcrossTenants().Where(h => h.ClientId == u && (h.TenantId == t || h.TenantId == null)).ExecuteDeleteAsync());
@@ -322,6 +326,9 @@ public class PrivacyProcessor(IAppDbContext db, IFileStorage storage, IEmailOutb
 
         // Help & feedback: what the member wrote is redacted; request rows stay for the gym's stats.
         foreach (var (table, n) in await Support.SupportPrivacy.AnonymiseAsync(db, t, u, files, now)) Count(table, n);
+
+        // Training: workout logs, logged sets (WorkoutSetLogs), personal records and the member's plan copies
+        // stay as anonymous history tied to the anonymised user row, like the gym's other statistics.
 
         // Messaging: the member's message bodies and photos are redacted; threads and the trainer's messages stay.
         foreach (var (table, n) in await Messaging.MessagingPrivacy.AnonymiseAsync(db, t, u, files, now)) Count(table, n);
@@ -450,9 +457,9 @@ public class PrivacyProcessor(IAppDbContext db, IFileStorage storage, IEmailOutb
     public static readonly string[] ExportSections =
     [
         "profile", "memberships", "invoices", "payments", "attendance", "classBookings", "ptSessions",
-        "workoutAssignments", "workoutPlanAssignments", "workoutLogs", "progress", "journal", "healthScreenings",
+        "workoutAssignments", "workoutPlanAssignments", "workoutLogs", "workoutSetLogs", "personalRecords", "progress", "journal", "healthScreenings",
         "emergencyContact", "consents", "waiverSignatures", "shopOrders", "shopAddresses", "socialPosts", "socialComments",
-        "supportRequests", "classFeedback",
+        "supportRequests", "classFeedback", "faceCheckIn",
         "facilityReports", "incidents",
         "messages",
     ];
@@ -495,6 +502,14 @@ public class PrivacyProcessor(IAppDbContext db, IFileStorage storage, IEmailOutb
             ["workoutAssignments"] = await db.WorkoutAssignments.AcrossTenants().AsNoTracking().Where(w => w.TenantId == t && w.ClientId == u).ToListAsync(),
             ["workoutPlanAssignments"] = await db.WorkoutPlanAssignments.AcrossTenants().AsNoTracking().Where(w => w.TenantId == t && w.ClientId == u).ToListAsync(),
             ["workoutLogs"] = await db.WorkoutLogs.AcrossTenants().AsNoTracking().Where(w => w.TenantId == t && w.ClientId == u).ToListAsync(),
+            // Logged sets and personal records (weekly plan builder).
+            ["workoutSetLogs"] = await db.WorkoutSetLogs.AcrossTenants().AsNoTracking().Where(s => s.TenantId == t && s.ClientId == u)
+                .OrderBy(s => s.PerformedAt).ThenBy(s => s.SetNo)
+                .Select(s => new { s.Id, s.WorkoutLogId, s.ExerciseId, exercise = s.Exercise.Name, s.SetNo, s.SetType, s.Reps, s.WeightKg, s.Rpe, s.DurationSec, s.DistanceM, s.Completed, s.PerformedAt })
+                .ToListAsync(),
+            ["personalRecords"] = await db.PersonalRecords.AcrossTenants().AsNoTracking().Where(r => r.TenantId == t && r.ClientId == u)
+                .Select(r => new { r.ExerciseId, exercise = r.Exercise.Name, r.Type, r.Value, r.Reps, r.WeightKg, r.AchievedAt, r.WorkoutLogId })
+                .ToListAsync(),
             ["progress"] = await db.HealthMetrics.AcrossTenants().AsNoTracking().Where(h => h.ClientId == u && (h.TenantId == t || h.TenantId == null)).ToListAsync(),
             ["journal"] = await db.TransformationJournals.AcrossTenants().AsNoTracking().Where(j => j.ClientId == u && (j.TenantId == t || j.TenantId == null)).ToListAsync(),
             ["healthScreenings"] = await db.HealthScreenings.AcrossTenants().AsNoTracking().Where(h => h.TenantId == t && h.UserId == u).ToListAsync(),
@@ -519,6 +534,15 @@ public class PrivacyProcessor(IAppDbContext db, IFileStorage storage, IEmailOutb
                 .Select(c => new { c.Id, c.PostId, c.CommentText, c.CreatedAt }).ToListAsync(),
             ["supportRequests"] = await Support.SupportPrivacy.ExportRequestsAsync(db, t, u),
             ["classFeedback"] = await Support.SupportPrivacy.ExportClassFeedbackAsync(db, t, u),
+            // Face check-in: enrolment status and dates and the face checks, never the images themselves.
+            ["faceCheckIn"] = new
+            {
+                enrollment = await db.FaceEnrollments.AcrossTenants().AsNoTracking().Where(e => e.TenantId == t && e.UserId == u)
+                    .Select(e => new { e.Status, e.EnrolledAt, e.Source, hasPhoto = e.PhotoUrl != null, e.UpdatedAt }).FirstOrDefaultAsync(),
+                checks = await db.FaceCheckInAttempts.AcrossTenants().AsNoTracking().Where(a => a.TenantId == t && a.UserId == u)
+                    .OrderBy(a => a.At).Select(a => new { a.At, a.Outcome, a.Similarity, a.Threshold, a.BranchId, a.AttendanceId, selfieKept = a.SelfieUrl != null })
+                    .ToListAsync(),
+            },
             // Facilities: own problem reports; incidents only as a summary, and only where the member was injured.
             ["facilityReports"] = await Facilities.FacilitiesPrivacy.ExportReportsAsync(db, t, u),
             ["incidents"] = await Facilities.FacilitiesPrivacy.ExportIncidentSummariesAsync(db, t, u),
@@ -556,6 +580,7 @@ public class PrivacyProcessor(IAppDbContext db, IFileStorage storage, IEmailOutb
             ["profile"] = "Your profile", ["memberships"] = "Memberships", ["invoices"] = "Invoices", ["payments"] = "Payments",
             ["attendance"] = "Check-ins", ["classBookings"] = "Class bookings", ["ptSessions"] = "Personal training sessions",
             ["workoutAssignments"] = "Workouts assigned to you", ["workoutPlanAssignments"] = "Training plans", ["workoutLogs"] = "Workout logs",
+            ["workoutSetLogs"] = "Logged sets", ["personalRecords"] = "Personal records",
             ["progress"] = "Progress measurements", ["journal"] = "Journal entries", ["healthScreenings"] = "Health check answers",
             ["emergencyContact"] = "Emergency contact", ["consents"] = "Consent history", ["waiverSignatures"] = "Signed waivers",
             ["shopOrders"] = "Shop orders", ["shopAddresses"] = "Saved addresses", ["socialPosts"] = "Social posts", ["socialComments"] = "Comments",

@@ -9,13 +9,15 @@ interface SummaryRingProps {
   strokeWidth?: number;
   label?: string;
   sublabel?: string;
+  /** Centre label size (default 30 / 20 by ring size). */
+  labelSize?: number;
 }
 
 /**
  * Same svg-geometry exception as DonutRing/AreaChart — dimensions are
  * computed from props, so this uses inline style/props instead of NativeWind.
  */
-export default function SummaryRing({ pct, size = 120, strokeWidth = 12, label, sublabel }: SummaryRingProps) {
+export default function SummaryRing({ pct, size = 120, strokeWidth = 12, label, sublabel, labelSize }: SummaryRingProps) {
   const clamped = Math.max(0, Math.min(100, pct));
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -45,7 +47,7 @@ export default function SummaryRing({ pct, size = 120, strokeWidth = 12, label, 
           origin={`${size / 2}, ${size / 2}`}
         />
       </Svg>
-      <Text style={{ color: T.text, fontSize: size >= 100 ? 30 : 20, fontWeight: '800', letterSpacing: -0.5 }}>
+      <Text style={{ color: T.text, fontSize: labelSize ?? (size >= 100 ? 30 : 20), fontWeight: '800', letterSpacing: -0.5 }}>
         {label ?? `${Math.round(clamped)}%`}
       </Text>
       {sublabel && (

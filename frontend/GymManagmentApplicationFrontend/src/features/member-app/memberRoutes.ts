@@ -14,6 +14,14 @@ const SIMPLE = ['home', 'community', 'stats', 'progress', 'profile', 'train', 'b
   'privacy'] as const;
 type SimpleId = typeof SIMPLE[number];
 
+/**
+ * Where a workout was opened from, sent with /complete: a plan day (assignment + week/day, and the
+ * calendar date) or a direct workout assignment. Kept in the path so a reload logs to the same day.
+ */
+export type WorkoutContext =
+  | { kind: 'plan'; planAssignmentId: number; week: number; day: number; date?: string }
+  | { kind: 'assignment'; assignmentId: number };
+
 /** Every screen the member area can show (ARCH-114: typed, no `as any`). */
 export type MemberRoute =
   | { id: SimpleId }
@@ -21,7 +29,13 @@ export type MemberRoute =
   /** `sub` is the shop's own path (tab / product / order); `open` asks the shop to show it. */
   | { id: 'shop'; sub?: string[]; open?: OpenRequest }
   // `from` is the screen Back returns to (defaults to Train, or the landing screen without it)
-  | { id: 'workout'; workoutId: number; from?: MemberRoute }
+  | { id: 'workout'; workoutId: number; ctx?: WorkoutContext; from?: MemberRoute }
+  /** A plan's week view (calendar, skip / move); `week` = plan week shown first. */
+  | { id: 'plan-week'; assignmentId: number; week?: number }
+  /** Workout history, one logged session, personal records. */
+  | { id: 'history' }
+  | { id: 'history-log'; logId: number }
+  | { id: 'records' }
   /** Waiver · health check · emergency contact (always open: it gates booking). */
   | SafetyMemberRoute
   /** Announcements feed / one announcement, and the gym's hours, status and amenities page. */
@@ -46,8 +60,20 @@ export function memberRouteFromPath([id, ...rest]: readonly string[]): MemberRou
   if (!id) return null;
   if (id === 'workout') {
     const workoutId = idSegment(rest[0]);
-    return workoutId ? { id, workoutId } : null;
+    if (!workoutId) return null;
+    const ctx = workoutContextFromPath(rest.slice(1));
+    return ctx ? { id, workoutId, ctx } : { id, workoutId };
   }
+  if (id === 'plan-week') {
+    const assignmentId = idSegment(rest[0]);
+    const week = idSegment(rest[1]);
+    return assignmentId ? (week ? { id, assignmentId, week } : { id, assignmentId }) : null;
+  }
+  if (id === 'history') {
+    const logId = idSegment(rest[0]);
+    return logId ? { id: 'history-log', logId } : { id };
+  }
+  if (id === 'records') return { id };
   if (id === 'plans') {
     const planId = idSegment(rest[0]);
     return planId ? { id, planId } : { id };
@@ -71,7 +97,11 @@ export function memberRouteFromPath([id, ...rest]: readonly string[]): MemberRou
 
 export function memberRouteToPath(r: MemberRoute): string[] {
   switch (r.id) {
-    case 'workout': return ['workout', String(r.workoutId)];
+    case 'workout': return ['workout', String(r.workoutId), ...workoutContextToPath(r.ctx)];
+    case 'plan-week': return r.week ? ['plan-week', String(r.assignmentId), String(r.week)] : ['plan-week', String(r.assignmentId)];
+    case 'history': return ['history'];
+    case 'history-log': return ['history', String(r.logId)];
+    case 'records': return ['records'];
     case 'plans': return r.planId ? ['plans', String(r.planId)] : ['plans'];
     case 'shop': return ['shop', ...(r.sub ?? [])];
     case 'safety': return safetyRouteToPath(r);
@@ -88,7 +118,32 @@ export function memberRouteToPath(r: MemberRoute): string[] {
 
 /** The menu module whose tab stays lit for a route. */
 export function memberModuleOf(r: MemberRoute): string {
+  if (r.id === 'plan-week') return 'train';
+  if (r.id === 'history' || r.id === 'history-log' || r.id === 'records') return 'progress';
   return r.id === 'workout' ? 'train' : r.id === 'plans' ? 'progress' : r.id === 'safety' || r.id === 'notifications' || r.id === 'announcements' || r.id === 'announcement' || r.id === 'branch-info' || isMessagingRouteId(r.id) ? 'home'
     : r.id === 'notification-settings' || r.id === 'security' || r.id === 'privacy' || isSupportRouteId(r.id) || isFacilitiesRouteId(r.id) ? 'profile'
     : r.id === 'plans-browse' || r.id === 'join' || r.id === 'my-membership' || r.id === 'membership-request' ? 'billing' : r.id;
+}
+
+/** `plan/{aid}/{week}/{day}[/{yyyy-MM-dd}]` or `assignment/{id}` after `workout/{id}`; null otherwise. */
+export function workoutContextFromPath(seg: readonly string[]): WorkoutContext | null {
+  if (seg[0] === 'plan') {
+    const planAssignmentId = idSegment(seg[1]);
+    const week = idSegment(seg[2]);
+    const day = idSegment(seg[3]);
+    if (!planAssignmentId || !week || !day || day > 7) return null;
+    const date = seg[4] && /^\d{4}-\d{2}-\d{2}$/.test(seg[4]) ? seg[4] : undefined;
+    return date ? { kind: 'plan', planAssignmentId, week, day, date } : { kind: 'plan', planAssignmentId, week, day };
+  }
+  if (seg[0] === 'assignment') {
+    const assignmentId = idSegment(seg[1]);
+    return assignmentId ? { kind: 'assignment', assignmentId } : null;
+  }
+  return null;
+}
+
+export function workoutContextToPath(ctx: WorkoutContext | undefined): string[] {
+  if (!ctx) return [];
+  if (ctx.kind === 'assignment') return ['assignment', String(ctx.assignmentId)];
+  return ['plan', String(ctx.planAssignmentId), String(ctx.week), String(ctx.day), ...(ctx.date ? [ctx.date] : [])];
 }

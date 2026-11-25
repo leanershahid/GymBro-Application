@@ -10,21 +10,12 @@ public class PlanResponse
     public string Goal { get; set; } = default!;
     public string Difficulty { get; set; } = default!;
     public bool IsActive { get; set; }
+    public bool IsTemplate { get; set; }
+    public ulong? SourcePlanId { get; set; }
+    public ulong? OwnerClientId { get; set; }
+    public byte? DaysPerWeekHint { get; set; }
+    public ulong CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
-}
-
-public class PlanTreeResponse
-{
-    public ulong PlanId { get; set; }
-    public List<PlanTreeNode> Nodes { get; set; } = [];
-}
-
-public class PlanTreeNode
-{
-    public ulong Id { get; set; }
-    public string Name { get; set; } = default!;
-    public string Type { get; set; } = default!;
-    public List<PlanTreeNode> Children { get; set; } = [];
 }
 
 public class PlanMemberResponse

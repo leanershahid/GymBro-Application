@@ -14,8 +14,7 @@ public interface IWorkoutService
     Task<WorkoutResponse?> CloneAsync(ulong id, ulong userId);
     Task<List<WorkoutLogResponse>> AssignAsync(AssignWorkoutRequest request);
     Task<WorkoutProgressResponse?> GetProgressAsync(ulong id, ulong clientId);
-    Task<WorkoutLogResponse> CompleteAsync(ulong id, CompleteWorkoutRequest request);
+    Task<CompleteWorkoutResponse> CompleteAsync(ulong id, CompleteWorkoutRequest request);
     Task<WorkoutScoreResponse?> GetScoreAsync(ulong id, ulong clientId);
-    Task<bool> ShareAsync(ulong id, ulong userId);
     Task<bool> BookmarkAsync(ulong id, ulong userId);
 }

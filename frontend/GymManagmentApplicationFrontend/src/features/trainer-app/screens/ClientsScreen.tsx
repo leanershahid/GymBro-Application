@@ -25,10 +25,14 @@ import EmptyState from '../../common/components/EmptyState';
 import SmallButton from '../../common/components/SmallButton';
 import { apiErrorText } from '../../../api/apiError';
 import { useOpenConversation } from '../../messaging/routes';
+import { useClientActivePlan } from '../../training/builder';
 
 // ─── Client detail ─────────────────────────────────────────────────
-function ClientDetail({ trainerId, clientId, onBack, onOpenThread }: { trainerId: number; clientId: number; onBack: () => void; onOpenThread?: (conversationId: number) => void }) {
+function ClientDetail({ trainerId, clientId, onBack, onOpenThread, onOpenClientPlan }: {
+  trainerId: number; clientId: number; onBack: () => void; onOpenThread?: (conversationId: number) => void; onOpenClientPlan?: (assignmentId: number, clientId: number) => void;
+}) {
   const openThread = useOpenConversation();
+  const activePlan = useClientActivePlan(onOpenClientPlan ? clientId : 0);
   const { data: profile, isLoading } = useClientProfile(clientId);
   const { data: assignedTrainer }    = useTrainerProfile(profile?.trainerId ?? 0);
   const { data: timeline = [] }      = useClientTimeline(clientId);
@@ -70,12 +74,15 @@ function ClientDetail({ trainerId, clientId, onBack, onOpenThread }: { trainerId
             <StatusPill label={profile.status} tone="brand" />
           </View>
         )}
-        {onOpenThread && (
-          <View style={{ marginTop: 12 }}>
+        <View style={{ marginTop: 12, flexDirection: 'row', gap: 8 }}>
+          {onOpenThread && (
             <SmallButton label="Message" icon="message-circle" busy={openThread.isPending}
               onPress={() => openThread.mutate(clientId, { onSuccess: d => onOpenThread(d.id), onError: e => showAlert("Can't message this client", apiErrorText(e)) })} />
-          </View>
-        )}
+          )}
+          {onOpenClientPlan && !!activePlan.data && (
+            <SmallButton label="Plan" icon="calendar" tone={T.sky} onPress={() => activePlan.data && onOpenClientPlan(activePlan.data.assignmentId, clientId)} />
+          )}
+        </View>
       </View>
 
       {/* Tab switcher */}
@@ -179,9 +186,11 @@ interface Props {
   onBack?: () => void;
   /** "Message" on a client's page opens (or starts) the thread. */
   onOpenThread?: (conversationId: number) => void;
+  /** "Plan" on a client's page opens their copy of their active plan. */
+  onOpenClientPlan?: (assignmentId: number, clientId: number) => void;
 }
 
-export default function ClientsScreen({ trainerId, initialClientId, onBack, onOpenThread }: Props) {
+export default function ClientsScreen({ trainerId, initialClientId, onBack, onOpenThread, onOpenClientPlan }: Props) {
   const [selectedClient, setSelectedClient] = useState<number | null>(initialClientId ?? null);
   const [search, setSearch] = useState('');
   const { data: clients = [], isLoading, isError, refetch } = useMyClients(trainerId);
@@ -209,7 +218,7 @@ export default function ClientsScreen({ trainerId, initialClientId, onBack, onOp
   ), []);
 
   if (selectedClient !== null) {
-    return <ClientDetail trainerId={trainerId} clientId={selectedClient} onBack={() => setSelectedClient(null)} onOpenThread={onOpenThread} />;
+    return <ClientDetail trainerId={trainerId} clientId={selectedClient} onBack={() => setSelectedClient(null)} onOpenThread={onOpenThread} onOpenClientPlan={onOpenClientPlan} />;
   }
 
   return (

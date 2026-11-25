@@ -27,6 +27,7 @@ import { T, SP, R, withAlpha, Shadow } from '../../../theme';
 import SmallButton from '../../common/components/SmallButton';
 import DetailRow from '../../common/components/DetailRow';
 import { MemberSafetySection } from '../../safety/routes';
+import MemberFaceSection from '../../attendance/components/MemberFaceSection';
 import { MemberRequestsLink } from '../../self-service/routes';
 import { MemberPrivacySection } from '../../privacy/routes';
 import { MemberBookingsSection } from '../../booking-rules/routes';
@@ -136,6 +137,7 @@ function OverviewTab({ m, canEdit, onAssign, onRemoveTrainer, onManageAccess }: 
       </Section>
 
       <MemberSafetySection memberId={m.id} memberName={`${m.firstName} ${m.lastName}`.trim()} />
+      <MemberFaceSection memberId={m.id} memberName={`${m.firstName} ${m.lastName}`.trim()} />
       <MemberPrivacySection memberId={m.id} memberName={`${m.firstName} ${m.lastName}`.trim()} />
       {/* Strikes, booking block (Lift block) and late-cancel / no-show penalties (Waive). */}
       <MemberBookingsSection memberId={m.id} />

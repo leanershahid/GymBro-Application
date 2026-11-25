@@ -1,4 +1,5 @@
 using System.Text.Json;
+using GymManagmentApplication.Application.Attendance.Face;
 using GymManagmentApplication.Application.Common;
 using GymManagmentApplication.Domain.Entities.Core;
 using GymManagmentApplication.Domain.Enums;
@@ -14,7 +15,12 @@ public interface IAttendanceService
     Task<BranchGeofenceResponse?> SetBranchGeofenceAsync(ulong branchId, SetBranchGeofenceRequest request);
     Task<bool> ClearBranchGeofenceAsync(ulong branchId);
     Task<MyAttendanceStatusResponse> GetMyStatusAsync();
-    Task<CheckInResultResponse> CheckInByLocationAsync(LocationCheckRequest request);
+    /// <summary>
+    /// Member / trainer self check-in by location. When the gym has face check-in on, a member also
+    /// needs a live <paramref name="selfie"/> matching their reference photo: without one, a passing
+    /// location answers FaceRequired (or 422 FACE_ENROLL_REQUIRED when not enrolled).
+    /// </summary>
+    Task<CheckInResultResponse> CheckInByLocationAsync(LocationCheckRequest request, FaceSelfie? selfie = null);
     Task<AttendanceRecordResponse?> CheckOutAsync(LocationCheckRequest? request);
     /// <summary>
     /// Front desk: checks a member in by hand (no location needed), at their branch. When the safety
@@ -31,25 +37,34 @@ public interface IAttendanceService
 }
 
 public class AttendanceService(IAppDbContext db, ICurrentUser currentUser, GymManagmentApplication.Application.Safety.SafetyGate? safety = null,
-    GymManagmentApplication.Application.Operations.OpeningHoursService? hours = null) : IAttendanceService
+    GymManagmentApplication.Application.Operations.OpeningHoursService? hours = null, FaceCheckInService? face = null) : IAttendanceService
 {
-    private const string SettingKey = "attendance";
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    public const string SettingKey = "attendance";
+    public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     // ── Settings ─────────────────────────────────────────────────────────────
 
-    private async Task<AttendanceSettings> LoadSettingsAsync(ulong tenantId)
+    /// <summary>The gym's attendance settings (defaults when never saved). Tenant-filtered for signed-in callers.</summary>
+    public static async Task<AttendanceSettings> LoadSettingsAsync(IAppDbContext db, ulong tenantId)
     {
         var row = await db.TenantSettings.FirstOrDefaultAsync(s => s.TenantId == tenantId && s.Key == SettingKey);
         return row?.Value is null ? new AttendanceSettings()
             : row.Value.Deserialize<AttendanceSettings>(Json) ?? new AttendanceSettings();
     }
 
+    private Task<AttendanceSettings> LoadSettingsAsync(ulong tenantId) => LoadSettingsAsync(db, tenantId);
+
     public async Task<AttendanceSettingsResponse> GetSettingsAsync()
     {
         var tenantId = currentUser.ResolveTenantId();
         var settings = await LoadSettingsAsync(tenantId);
-        return new AttendanceSettingsResponse { Settings = settings, Branches = await BranchesAsync(settings, onlyActive: false) };
+        return new AttendanceSettingsResponse
+        {
+            Settings = settings, Branches = await BranchesAsync(settings, onlyActive: false),
+            FaceServiceConfigured = face?.FaceServiceConfigured ?? false,
+            FaceProvider = face?.FaceProvider ?? "none",
+            PrivateStorageConfigured = face?.PrivateStorageReady ?? false,
+        };
     }
 
     public async Task<AttendanceSettingsResponse> UpdateSettingsAsync(AttendanceSettings settings)
@@ -58,6 +73,17 @@ public class AttendanceService(IAppDbContext db, ICurrentUser currentUser, GymMa
             throw new ArgumentException("Default radius must be between 20 m and 5,000 m.");
         if (settings.MaxAccuracyM is < 10 or > 1000)
             throw new ArgumentException("Maximum GPS accuracy must be between 10 m and 1,000 m.");
+        if (settings.FaceMatchThreshold is < 80 or > 99)
+            throw new ArgumentException("Face match threshold must be between 80 and 99.");
+        if (settings.KeepCheckInSelfiesDays is < 0 or > 90)
+            throw new ArgumentException("Keep check-in selfies for 0 to 90 days.");
+        if (settings.FaceCheckEnabled)
+        {
+            if (face is not { FaceServiceConfigured: true })
+                throw new ArgumentException("Face check-in can't be turned on: no face matching service is configured on the server (FaceMatching:Provider).");
+            if (!face.PrivateStorageReady)
+                throw new ArgumentException("Face check-in can't be turned on: face photos need private file storage (Cloudinary or Supabase), which isn't configured on the server.");
+        }
 
         var tenantId = currentUser.ResolveTenantId();
         var row = await db.TenantSettings.FirstOrDefaultAsync(s => s.TenantId == tenantId && s.Key == SettingKey);
@@ -145,16 +171,19 @@ public class AttendanceService(IAppDbContext db, ICurrentUser currentUser, GymMa
         var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var open = await OpenVisitAsync(Me);
         var branches = await BranchesAsync(settings, onlyActive: true);
+        var faceRequired = settings.FaceCheckEnabled && currentUser.IsClient();
         return new MyAttendanceStatusResponse
         {
             LocationEnabled = branches.Count > 0,
             OpenVisit = open is null ? null : Map(open),
             Branches = branches,
             VisitsThisMonth = await db.Attendances.CountAsync(a => a.UserId == Me && a.CheckInAt >= monthStart),
+            FaceCheckRequired = faceRequired,
+            FaceEnrolled = faceRequired && face is not null && await face.IsEnrolledAsync(currentUser.ResolveTenantId(), Me),
         };
     }
 
-    public async Task<CheckInResultResponse> CheckInByLocationAsync(LocationCheckRequest request)
+    public async Task<CheckInResultResponse> CheckInByLocationAsync(LocationCheckRequest request, FaceSelfie? selfie = null)
     {
         var tenantId = currentUser.ResolveTenantId();
         var settings = await LoadSettingsAsync(tenantId);
@@ -195,6 +224,26 @@ public class AttendanceService(IAppDbContext db, ICurrentUser currentUser, GymMa
             && await hours.SelfCheckInBlockedReasonAsync(tenantId, nearest.Branch.BranchId) is { } closed)
             return new CheckInResultResponse { CheckedIn = false, DistanceM = distance, NearestBranch = nearest.Branch.Name, Message = closed };
 
+        // Face check (members only, when the gym turned it on): location passed, now the selfie must match.
+        FaceVerification? verified = null;
+        if (settings.FaceCheckEnabled && currentUser.IsClient())
+        {
+            if (face is null)
+                throw new RuleException(FaceCheckInService.UnavailableMessage, 503) { Code = FaceCheckCodes.Unavailable };
+            if (selfie is null)
+            {
+                if (!await face.IsEnrolledAsync(tenantId, Me))
+                    throw new RuleException("Set up face check-in first: take a reference selfie.", RuleException.UnprocessableStatus)
+                        { Code = FaceCheckCodes.EnrollRequired };
+                return new CheckInResultResponse
+                {
+                    CheckedIn = false, FaceRequired = true, DistanceM = distance, NearestBranch = nearest.Branch.Name,
+                    Message = $"You're at {nearest.Branch.Name}. Take a selfie to finish checking in.",
+                };
+            }
+            verified = await face.VerifyAsync(tenantId, Me, nearest.Branch.BranchId, selfie, settings);
+        }
+
         var visit = new AttendanceEntity
         {
             TenantId = tenantId,
@@ -205,14 +254,18 @@ public class AttendanceService(IAppDbContext db, ICurrentUser currentUser, GymMa
             CheckInLat = Math.Round((decimal)request.Lat, 7),
             CheckInLng = Math.Round((decimal)request.Lng, 7),
             CheckInDistanceM = distance,
+            FaceVerified = verified is null ? null : true,
+            FaceScore = verified?.Score,
         };
         db.Attendances.Add(visit);
+        if (verified is not null) verified.Attempt.AttendanceId = visit.Id;
         await db.SaveChangesAsync();
         await db.Entry(visit).Reference(v => v.Branch).LoadAsync();
         return new CheckInResultResponse
         {
             CheckedIn = true, DistanceM = distance, NearestBranch = nearest.Branch.Name,
-            Message = $"Checked in at {nearest.Branch.Name}.", Visit = Map(visit),
+            Message = verified is null ? $"Checked in at {nearest.Branch.Name}." : $"Face verified. Checked in at {nearest.Branch.Name}.",
+            Visit = Map(visit),
         };
     }
 
@@ -308,9 +361,24 @@ public class AttendanceService(IAppDbContext db, ICurrentUser currentUser, GymMa
 
         var total = await q.CountAsync();
         var rows = await q.OrderByDescending(a => a.CheckInAt).Page(page, size).ToListAsync();
+        var items = rows.Select(Map).ToList();
+
+        // Face-checked visits: link the attempt so staff can open its kept selfie.
+        var faceIds = rows.Where(r => r.FaceVerified != null).Select(r => (ulong?)r.Id).ToList();
+        if (faceIds.Count > 0)
+        {
+            var attempts = await db.FaceCheckInAttempts.AsNoTracking().Where(a => faceIds.Contains(a.AttendanceId))
+                .Select(a => new { a.Id, a.AttendanceId, HasSelfie = a.SelfieUrl != null }).ToListAsync();
+            foreach (var item in items)
+                if (attempts.FirstOrDefault(a => a.AttendanceId == item.Id) is { } a)
+                {
+                    item.FaceAttemptId = a.Id;
+                    item.HasFaceSelfie = a.HasSelfie;
+                }
+        }
         return new PagedResponse<AttendanceRecordResponse>
         {
-            Items = rows.Select(Map), PageNumber = page, PageSize = size, TotalRecords = total,
+            Items = items, PageNumber = page, PageSize = size, TotalRecords = total,
         };
     }
 
@@ -368,5 +436,6 @@ public class AttendanceService(IAppDbContext db, ICurrentUser currentUser, GymMa
         BranchId = a.BranchId, BranchName = a.Branch?.Name,
         Method = a.Method.ToString(), CheckInAt = a.CheckInAt, CheckOutAt = a.CheckOutAt,
         DurationMin = a.DurationMin, DistanceM = a.CheckInDistanceM,
+        FaceVerified = a.FaceVerified, FaceScore = a.FaceScore,
     };
 }

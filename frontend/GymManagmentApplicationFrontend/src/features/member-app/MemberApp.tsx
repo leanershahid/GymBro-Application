@@ -6,7 +6,7 @@ import NoAccessScreen      from '../access/components/NoAccessScreen';
 import { OpenRequest, ShellHosted } from '../access/types/access.types';
 import { pathKey } from '../../navigation/paths';
 import { PathChange, useOpenRequest, useReportLocation } from '../../navigation/useAreaRoute';
-import { MemberRoute, memberModuleOf, memberRouteFromPath, memberRouteToPath } from './memberRoutes';
+import { MemberRoute, WorkoutContext, memberModuleOf, memberRouteFromPath, memberRouteToPath } from './memberRoutes';
 import HomeScreen          from './screens/HomeScreen';
 import TrainScreen         from './screens/TrainScreen';
 import PlansScreen         from './screens/PlansScreen';
@@ -15,6 +15,10 @@ import WorkoutDetailScreen from './screens/WorkoutDetailScreen';
 import CommunityScreen     from './screens/CommunityScreen';
 import StatsScreen         from './screens/StatsScreen';
 import ProgressScreen      from './screens/ProgressScreen';
+import PlanWeekScreen      from './screens/PlanWeekScreen';
+import HistoryScreen       from './screens/HistoryScreen';
+import HistoryLogScreen    from './screens/HistoryLogScreen';
+import RecordsScreen       from './screens/RecordsScreen';
 import MyBillingScreen     from '../member-billing/screens/MyBillingScreen';
 import BookScreen          from '../member-booking/screens/BookScreen';
 import ShopStoreApp        from '../shop/store/ShopStoreApp';
@@ -68,11 +72,17 @@ export default function MemberApp({ userId, onLogout, open, onRouteChange }: Pro
   const canOpen = (id: Screen['id']) =>
     id === 'profile' || ALWAYS_OPEN.has(id) || routes.has(id) ||
     (id === 'workout' && (routes.has('train') || routes.has('plans'))) ||
+    // Plan week view, history and records come with Train / Plans / Progress.
+    (id === 'plan-week' && (routes.has('train') || routes.has('plans') || routes.has('progress'))) ||
+    ((id === 'history' || id === 'history-log' || id === 'records') && (routes.has('train') || routes.has('progress'))) ||
     (id === 'announcement' && routes.has('announcements')) ||
     // Self-service screens come with the Membership (billing) module.
     (isSelfServiceRouteId(id) && routes.has('billing'));
 
   const goLanding = () => setScreen(landing);
+  const openWorkout = (workoutId: number, ctx?: WorkoutContext) =>
+    setScreen(s => ({ id: 'workout', workoutId, ...(ctx ? { ctx } : {}), from: s }));
+  const trainHome: Screen = routes.has('train') ? { id: 'train' } : landing;
   const unread = useNotifications(userId).data?.unread ?? 0;
   const openBilling = canOpen('billing') ? () => setScreen({ id: 'billing' }) : undefined;
 
@@ -111,21 +121,50 @@ export default function MemberApp({ userId, onLogout, open, onRouteChange }: Pro
         {canOpen(screen.id) && (<>
           {screen.id === 'workout' && (
             <WorkoutDetailScreen
+              key={screen.workoutId}
               workoutId={screen.workoutId}
               userId={userId}
-              onBack={() => setScreen(screen.from ?? (routes.has('train') ? { id: 'train' } : landing))}
+              ctx={screen.ctx}
+              onBack={() => setScreen(screen.from ?? trainHome)}
+              // After a logged session: back to where it was opened (Train shows the strip with ✓).
+              onFinished={() => setScreen(screen.from && screen.from.id !== 'workout' ? screen.from : trainHome)}
             />
           )}
           {screen.id === 'train' && (
-            <TrainScreen userId={userId} onOpenWorkout={(id) => setScreen({ id: 'workout', workoutId: id })} />
+            <TrainScreen userId={userId} onOpenWorkout={openWorkout}
+              onOpenPlanWeek={(assignmentId) => setScreen({ id: 'plan-week', assignmentId })}
+              onOpenHistory={canOpen('history') ? () => setScreen({ id: 'history' }) : undefined}
+              onOpenRecords={canOpen('records') ? () => setScreen({ id: 'records' }) : undefined} />
           )}
           {screen.id === 'plans' && (
             <PlansScreen
               userId={userId}
               initialPlanId={screen.planId}
               onBack={goLanding}
-              onOpenWorkout={(id, planId) => setScreen({ id: 'workout', workoutId: id, from: { id: 'plans', planId } })}
+              onOpenWorkout={openWorkout}
+              onOpenPlan={(assignmentId) => setScreen({ id: 'plan-week', assignmentId })}
             />
+          )}
+          {screen.id === 'plan-week' && (
+            <PlanWeekScreen key={screen.assignmentId} assignmentId={screen.assignmentId} userId={userId} initialWeek={screen.week}
+              onBack={() => setScreen(trainHome)}
+              // Back from the workout returns to the week it was opened from.
+              onOpenWorkout={(workoutId, ctx) => setScreen({
+                id: 'workout', workoutId, ctx,
+                from: { id: 'plan-week', assignmentId: screen.assignmentId, ...(ctx.kind === 'plan' ? { week: ctx.week } : {}) },
+              })} />
+          )}
+          {screen.id === 'history' && (
+            <HistoryScreen onBack={() => setScreen(routes.has('progress') ? { id: 'progress' } : trainHome)}
+              onOpenLog={(logId) => setScreen({ id: 'history-log', logId })}
+              onOpenRecords={() => setScreen({ id: 'records' })} />
+          )}
+          {screen.id === 'history-log' && (
+            <HistoryLogScreen key={screen.logId} logId={screen.logId} onBack={() => setScreen({ id: 'history' })} />
+          )}
+          {screen.id === 'records' && (
+            <RecordsScreen onBack={() => setScreen(routes.has('progress') ? { id: 'progress' } : trainHome)}
+              onOpenLog={(logId) => setScreen({ id: 'history-log', logId })} />
           )}
           {screen.id === 'book' && (
             <BookScreen userId={userId} onOpenBilling={openBilling} onContactGym={() => setScreen({ id: 'help' })} />
@@ -188,7 +227,9 @@ export default function MemberApp({ userId, onLogout, open, onRouteChange }: Pro
             <StatsScreen userId={userId} />
           )}
           {screen.id === 'progress' && (
-            <ProgressScreen userId={userId} onOpenPlans={canOpen('plans') ? () => setScreen({ id: 'plans' }) : undefined} />
+            <ProgressScreen userId={userId} onOpenPlans={canOpen('plans') ? () => setScreen({ id: 'plans' }) : undefined}
+              onOpenHistory={canOpen('history') ? () => setScreen({ id: 'history' }) : undefined}
+              onOpenRecords={canOpen('records') ? () => setScreen({ id: 'records' }) : undefined} />
           )}
           {screen.id === 'profile' && (
             <ProfileScreen userId={userId} onLogout={onLogout} onOpenBilling={openBilling}

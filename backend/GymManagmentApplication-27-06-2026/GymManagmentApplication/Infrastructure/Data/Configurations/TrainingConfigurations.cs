@@ -44,6 +44,8 @@ public sealed class WorkoutTemplateConfiguration : IEntityTypeConfiguration<Work
     {
         b.HasOne(w => w.Creator).WithMany().HasForeignKey(w => w.CreatedBy).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(w => w.Tenant).WithMany().HasForeignKey(w => w.TenantId).OnDelete(DeleteBehavior.Restrict);
+        // Plan day's own workout. No FK (WorkoutPlanDays.TemplateId already points the other way).
+        b.HasIndex(w => w.OwnerPlanDayId);
     }
 }
 
@@ -65,6 +67,8 @@ public sealed class WorkoutLogConfiguration : IEntityTypeConfiguration<WorkoutLo
         b.HasOne(l => l.Client).WithMany().HasForeignKey(l => l.ClientId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(l => l.Tenant).WithMany().HasForeignKey(l => l.TenantId).OnDelete(DeleteBehavior.Restrict);
         b.Property(e => e.Score).HasPrecision(10, 4);
+        b.HasOne(l => l.PlanAssignment).WithMany().HasForeignKey(l => l.PlanAssignmentId).OnDelete(DeleteBehavior.SetNull);
+        b.HasIndex(l => new { l.PlanAssignmentId, l.WeekNumber, l.DayNumber });
     }
 }
 
@@ -74,6 +78,9 @@ public sealed class WorkoutPlanConfiguration : IEntityTypeConfiguration<WorkoutP
     {
         b.HasOne(w => w.Creator).WithMany().HasForeignKey(w => w.CreatedBy).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(w => w.Tenant).WithMany().HasForeignKey(w => w.TenantId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<WorkoutPlan>().WithMany().HasForeignKey(w => w.SourcePlanId).OnDelete(DeleteBehavior.SetNull);
+        b.HasOne<Domain.Entities.Identity.User>().WithMany().HasForeignKey(w => w.OwnerClientId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(w => new { w.TenantId, w.IsTemplate });
     }
 }
 

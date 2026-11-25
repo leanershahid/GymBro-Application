@@ -24,6 +24,13 @@ export const queryKeys = {
     myHistory: (days: number) => ['attendance-me', days] as const,
     logAll:   ['attendance-log'] as const,
     log:      (date?: string, branchId?: number) => ['attendance-log', date, branchId] as const,
+    // Face check-in
+    faceMine:      ['attendance-face-me'] as const,
+    faceMemberAll: ['attendance-face-member'] as const,
+    faceMember:    (memberId: number) => ['attendance-face-member', memberId] as const,
+    faceAttemptsAll: ['attendance-face-attempts'] as const,
+    faceAttempts:  (date?: string) => ['attendance-face-attempts', date] as const,
+    facePhotos:    (attemptId: number) => ['attendance-face-photos', attemptId] as const,
   },
   trainers:   { all: ['trainers']   as const },
   branches:   { all: ['branches']   as const },
@@ -33,7 +40,6 @@ export const queryKeys = {
   exercises:  { all: ['exercises']  as const },
   workouts:   { all: ['workouts']   as const },
   plans:      { all: ['plans']      as const },
-  automation:    { all: ['automation']    as const },
   moduleAccess:  {
     byRole:   (tenantId: number, roleId: number) => ['module-access', tenantId, roleId] as const,
     matrix:   (tenantId: number)                 => ['module-access-matrix', tenantId]  as const,

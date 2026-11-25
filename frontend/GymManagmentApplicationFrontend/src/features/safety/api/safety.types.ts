@@ -7,7 +7,7 @@ export type WaiverStatus = 'signed' | 'resign_required' | 'unsigned';
 export type SafetyMissing = 'waiver' | 'health' | 'health_expired' | 'clearance' | 'emergency_contact';
 export type SafetyStep = 'waiver' | 'health' | 'emergency';
 
-export type ConsentType = 'health_data' | 'marketing_email' | 'marketing_push' | 'photo_media' | 'terms' | 'privacy';
+export type ConsentType = 'health_data' | 'marketing_email' | 'marketing_push' | 'photo_media' | 'terms' | 'privacy' | 'biometric_face';
 
 export interface EmergencyContact {
   name: string;

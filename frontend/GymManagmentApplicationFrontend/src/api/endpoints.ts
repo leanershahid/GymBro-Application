@@ -66,7 +66,4 @@ export const ENDPOINTS = {
 
   // Workout Plans
   PLANS:           '/plans',
-
-  // Workout Automation
-  AUTOMATION_RULES:  '/workout-automation/rules',
 };

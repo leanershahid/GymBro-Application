@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import { useMyTrainerProfileId } from './api/trainerAppQueries';
 import { useLanding, useMenu } from '../access/context/AccessContext';
@@ -15,6 +15,7 @@ import { SupportQueuePage, SupportRequestPage } from '../support/routes';
 import { ReportProblemScreen } from '../facilities/routes';
 import { MessagesScreen, MessageThreadScreen, isMessagingRouteId } from '../messaging/routes';
 import ClassSchedulePage    from '../classes/pages/ClassSchedulePage';
+import { PlanBuilderScreen } from '../training/builder';
 import PtSessionsPage       from '../classes/pages/PtSessionsPage';
 import { T } from '../../theme';
 import LoadingState from '../common/components/LoadingState';
@@ -71,7 +72,13 @@ function TrainerAppContent({ trainerId, onLogout, open, onRouteChange }: Props) 
 
   // One client's page belongs to Clients; profile is always there.
   const canOpen = (id: Route['id']) =>
-    id === 'profile' || id === 'security' || id === 'support' || id === 'support-request' || id === 'report-problem' || isMessagingRouteId(id) || routes.has(id) || (id === 'client' && routes.has('clients'));
+    id === 'profile' || id === 'security' || id === 'support' || id === 'support-request' || id === 'report-problem' || isMessagingRouteId(id) || routes.has(id) || (id === 'client' && routes.has('clients'))
+    || (id === 'plan-builder' && routes.has('builder')) || (id === 'client-plan' && (routes.has('builder') || routes.has('clients')));
+
+  // Where Back goes from the plan screens (the screen they were opened from; a direct URL falls back).
+  const planBack = useRef<Route | null>(null);
+  const openPlanScreen = (r: Route) => { planBack.current = screen; setScreen(r); };
+  const leavePlanScreen = (fallback: Route) => { const b = planBack.current; planBack.current = null; setScreen(b && b.id !== screen.id ? b : fallback); };
 
   const navigateFrom = (target: string) => {
     if (target.startsWith('client-')) {
@@ -92,18 +99,39 @@ function TrainerAppContent({ trainerId, onLogout, open, onRouteChange }: Props) 
             <TrainerHomeScreen trainerId={trainerId} onNavigate={navigateFrom} />
           )}
           {screen.id === 'clients' && (
-            <ClientsScreen trainerId={trainerId} onOpenThread={(conversationId) => setScreen({ id: 'message-thread', conversationId })} />
+            <ClientsScreen trainerId={trainerId} onOpenThread={(conversationId) => setScreen({ id: 'message-thread', conversationId })}
+              onOpenClientPlan={(assignmentId, clientId) => { setScreen({ id: 'client-plan', assignmentId }); planBack.current = { id: 'client', clientId }; }} />
           )}
           {screen.id === 'client' && (
             <ClientsScreen
               trainerId={trainerId}
               initialClientId={screen.clientId}
               onOpenThread={(conversationId) => setScreen({ id: 'message-thread', conversationId })}
+              onOpenClientPlan={(assignmentId, clientId) => { setScreen({ id: 'client-plan', assignmentId }); planBack.current = { id: 'client', clientId }; }}
               onBack={() => setScreen({ id: 'clients' })}
             />
           )}
           {screen.id === 'builder' && (
-            <ProgramBuilderScreen trainerId={trainerId} />
+            <ProgramBuilderScreen trainerId={trainerId} onOpenPlan={(planId) => openPlanScreen({ id: 'plan-builder', planId })} />
+          )}
+          {screen.id === 'plan-builder' && (
+            <PlanBuilderScreen
+              key={screen.planId}
+              planId={screen.planId}
+              assigner={{ kind: 'trainer', trainerId }}
+              onBack={() => leavePlanScreen({ id: 'builder' })}
+              onOpenClientCopy={(assignmentId) => openPlanScreen({ id: 'client-plan', assignmentId })}
+              onOpenPlan={(planId) => setScreen({ id: 'plan-builder', planId })}
+            />
+          )}
+          {screen.id === 'client-plan' && (
+            <PlanBuilderScreen
+              key={screen.assignmentId}
+              assignmentId={screen.assignmentId}
+              canAssign={false}
+              onBack={() => leavePlanScreen({ id: 'clients' })}
+              onOpenPlan={(planId) => setScreen({ id: 'plan-builder', planId })}
+            />
           )}
           {screen.id === 'classes' && <ClassSchedulePage mode="trainer" />}
           {screen.id === 'sessions' && <PtSessionsPage mode="trainer" />}

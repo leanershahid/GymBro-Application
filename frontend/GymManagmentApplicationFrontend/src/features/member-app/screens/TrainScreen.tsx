@@ -6,6 +6,8 @@ import { useIsBookmarked } from '../api/bookmarkStore';
 import { apiErrorText } from '../../../api/apiError';
 import { useToast } from '../../common/components/Toast';
 import { PlanTodayCard, AssignedWorkoutCard } from '../components/TrainingCards';
+import TrainingHub from '../components/TrainingHub';
+import type { WorkoutContext } from '../memberRoutes';
 import { activeTodayPlans, sortOpenWorkouts, isOpen } from '../components/trainingUtils';
 import { getDifficultyColor } from '../../common/constants/statusColors';
 import { T, R, withAlpha } from '../../../theme';
@@ -28,9 +30,16 @@ const CAT_ICON: Record<string, FeatherIconName> = {
 // used here yet — if the API exposes one, build these chips from it instead.
 const EX_FILTERS = ['All', 'Strength', 'Cardio', 'Flexibility', 'Balance'];
 
-interface Props { userId: number; onOpenWorkout: (id: number) => void; }
+interface Props {
+  userId: number;
+  /** `ctx` = the plan day / assignment the workout is logged to. */
+  onOpenWorkout: (id: number, ctx?: WorkoutContext) => void;
+  onOpenPlanWeek: (assignmentId: number) => void;
+  onOpenHistory?: () => void;
+  onOpenRecords?: () => void;
+}
 
-export default function TrainScreen({ userId, onOpenWorkout }: Props) {
+export default function TrainScreen({ userId, onOpenWorkout, onOpenPlanWeek, onOpenHistory, onOpenRecords }: Props) {
   // Tabs come from the access list (member.train.*); each one's data loads only when granted.
   const { items: tabs, tab, setTab, has } = usePageTabs('member.train');
   const [exPage, setExPage]     = useState(1);
@@ -66,7 +75,8 @@ export default function TrainScreen({ userId, onOpenWorkout }: Props) {
       {/* ── Workouts tab ── */}
       {tab === 'workouts' && (
         <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
-          <AssignedSection userId={userId} onOpenWorkout={onOpenWorkout} />
+          <AssignedSection userId={userId} onOpenWorkout={onOpenWorkout} onOpenPlanWeek={onOpenPlanWeek}
+            onOpenHistory={onOpenHistory} onOpenRecords={onOpenRecords} />
 
           <Text style={{ color: T.text, fontSize: 17, fontWeight: '700', marginBottom: 12 }}>Workout library</Text>
           {wLoad && <Skeleton rows={4} />}
@@ -194,8 +204,11 @@ function BookmarkButton({ workoutId, name }: { workoutId: number; name: string }
 
 const ASSIGNED_PREVIEW = 3;
 
-/** "Assigned to you": today's plan cards, then open assigned workouts (soonest due first). */
-function AssignedSection({ userId, onOpenWorkout }: { userId: number; onOpenWorkout: (id: number) => void }) {
+/**
+ * The active plan's hub (week strip, today, adherence), then "Assigned to you": other plans' today
+ * cards and open assigned workouts (soonest due first).
+ */
+function AssignedSection({ userId, onOpenWorkout, onOpenPlanWeek, onOpenHistory, onOpenRecords }: Omit<Props, 'userId'> & { userId: number }) {
   const { data, isLoading, isError, refetch } = useMyTraining(userId);
   const [showAll, setShowAll] = useState(false);
 
@@ -206,18 +219,33 @@ function AssignedSection({ userId, onOpenWorkout }: { userId: number; onOpenWork
     </View>
   );
 
-  const todays = activeTodayPlans(data?.plans ?? []);
+  const active = data?.plans.find(p => p.assignmentId === data.activePlanAssignmentId && p.currentWeek != null)
+    ?? data?.plans.find(p => p.weekStrip?.length > 0 && isOpen(p.status));
+  const todays = activeTodayPlans(data?.plans ?? []).filter(p => p.assignmentId !== active?.assignmentId);
   const open = sortOpenWorkouts(data?.workouts ?? []);
   const done = (data?.workouts ?? []).filter(w => !isOpen(w.status));
   const list = showAll ? [...open, ...done] : open.slice(0, ASSIGNED_PREVIEW);
   const hidden = open.length + done.length - list.length;
-  if (todays.length === 0 && open.length === 0 && done.length === 0) return null;
+  const hub = active ? (
+    <TrainingHub plan={active} onOpenWorkout={onOpenWorkout} onOpenWeek={onOpenPlanWeek}
+      onOpenHistory={onOpenHistory} onOpenRecords={onOpenRecords} />
+  ) : (onOpenHistory || onOpenRecords) ? (
+    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+      {onOpenHistory && <QuickLink icon="clock" label="History" onPress={onOpenHistory} />}
+      {onOpenRecords && <QuickLink icon="award" label="Records" onPress={onOpenRecords} />}
+    </View>
+  ) : null;
+  if (todays.length === 0 && open.length === 0 && done.length === 0) return hub;
 
   return (
     <View style={{ marginBottom: 20 }}>
+      {hub}
       <Text style={{ color: T.text, fontSize: 17, fontWeight: '700', marginBottom: 12 }}>Assigned to you</Text>
       {todays.map(p => <PlanTodayCard key={p.assignmentId} plan={p} onOpenWorkout={onOpenWorkout} />)}
-      {list.map(w => <AssignedWorkoutCard key={w.assignmentId} item={w} onOpenWorkout={onOpenWorkout} />)}
+      {list.map(w => (
+        <AssignedWorkoutCard key={w.assignmentId} item={w}
+          onOpenWorkout={id => onOpenWorkout(id, isOpen(w.status) ? { kind: 'assignment', assignmentId: w.assignmentId } : undefined)} />
+      ))}
       {open.length === 0 && !showAll && done.length > 0 && (
         <Text style={{ color: T.textSub, fontSize: 13, marginBottom: 8 }}>You're all caught up on assigned workouts.</Text>
       )}
@@ -230,5 +258,18 @@ function AssignedSection({ userId, onOpenWorkout }: { userId: number; onOpenWork
         </Pressable>
       )}
     </View>
+  );
+}
+
+function QuickLink({ icon, label, onPress }: { icon: FeatherIconName; label: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label}
+      style={({ pressed }) => ({
+        flex: 1, minHeight: 48, borderRadius: R.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+        backgroundColor: pressed ? T.bgInputActive : T.bgInput, borderWidth: 1, borderColor: T.line,
+      })}>
+      <Feather name={icon} size={15} color={T.brand} />
+      <Text style={{ color: T.text, fontSize: 13, fontWeight: '700' }}>{label}</Text>
+    </Pressable>
   );
 }

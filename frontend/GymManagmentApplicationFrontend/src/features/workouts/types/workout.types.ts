@@ -69,28 +69,6 @@ export interface WorkoutPlanPayload {
 export type PlanListResponse   = ApiResponse<PaginatedData<WorkoutPlan>>;
 export type PlanCreateResponse = ApiResponse<WorkoutPlan>;
 
-// ─── Automation Rule ──────────────────────────────────────────────
-export interface AutomationRule {
-  id: number;
-  tenantId: number;
-  name: string;
-  triggerEvent: string;
-  conditions: Record<string, unknown> | null;
-  actions: Record<string, unknown>;
-  isActive: boolean;
-  createdAt: string;
-}
-
-export interface AutomationRulePayload {
-  tenantId: number;
-  name: string;
-  triggerEvent: string;
-  conditions?: Record<string, unknown>;
-  actions: Record<string, unknown>;
-}
-
-export type AutomationListResponse = ApiResponse<AutomationRule[]>;
-
 /** Enum name → numeric index the API expects (no string-enum converter server-side). */
 export function toEnumIndex<N extends string>(names: readonly N[], v: number | N | undefined): number | undefined {
   if (v === undefined || typeof v === 'number') return v;

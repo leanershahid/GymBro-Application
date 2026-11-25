@@ -18,6 +18,8 @@ public class WorkoutExercise
     public string? Notes { get; set; }
     public JsonDocument? ConditionRules { get; set; }
     public bool AiSubstitutionOk { get; set; } = true;
+    /// <summary>Optional per-set targets: [{setNo, type, repsMin, repsMax, weightKg, rpe, durationSec, distanceM, restSec}]. Null = use Sets/Reps/RestSeconds.</summary>
+    public JsonDocument? SetTargets { get; set; }
 
     public WorkoutSection Section { get; set; } = default!;
     public Exercise Exercise { get; set; } = default!;

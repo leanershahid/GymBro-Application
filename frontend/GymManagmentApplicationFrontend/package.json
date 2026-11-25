@@ -10,6 +10,7 @@
     "babel-preset-expo": "^56.0.15",
     "expo": "~56.0.12",
     "expo-asset": "~56.0.17",
+    "expo-camera": "~56.0.8",
     "expo-constants": "~56.0.27",
     "expo-font": "~56.0.7",
     "expo-image": "~56.0.13",

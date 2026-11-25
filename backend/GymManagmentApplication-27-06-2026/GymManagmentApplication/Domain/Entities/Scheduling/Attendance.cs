@@ -17,6 +17,10 @@ public class Attendance
     public int? CheckInDistanceM { get; set; }
     public AttendanceMethod Method { get; set; } = AttendanceMethod.Qr;
     public string? GateDevice { get; set; }
+    /// <summary>Self check-in with face verification: true when the selfie matched (null = no face check).</summary>
+    public bool? FaceVerified { get; set; }
+    /// <summary>Similarity 0–100 of the matching selfie.</summary>
+    public decimal? FaceScore { get; set; }
 
     public Core.Tenant Tenant { get; set; } = default!;
     public Core.Branch Branch { get; set; } = default!;

@@ -9,6 +9,9 @@ public static class ApiServicesRegistration
         services.AddScoped<Safety.SafetyGate>();
         services.AddScoped<Safety.SafetyService>();
         services.AddScoped<Safety.ConsentService>();
+        // Face check-in: enrolment, check-in verification, staff views; withdrawing "biometric_face" deletes the photos.
+        services.AddScoped<Attendance.Face.FaceCheckInService>();
+        services.AddScoped<Safety.IConsentWithdrawalHandler, Attendance.Face.FaceConsentWithdrawalHandler>();
         // Privacy controls: delete my account, download my data (jobs: Infrastructure/Jobs/PrivacyJobs).
         services.AddScoped<Privacy.PrivacyProcessor>();
         services.AddScoped<Privacy.PrivacyService>();

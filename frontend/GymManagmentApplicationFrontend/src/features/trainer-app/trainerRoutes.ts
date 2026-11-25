@@ -14,6 +14,10 @@ export type TrainerRoute =
   | { id: SimpleId }
   | { id: 'client'; clientId: number }
   | { id: 'support-request'; requestId: number }
+  /** The weekly plan builder for one plan (from Programs → Plans). */
+  | { id: 'plan-builder'; planId: number }
+  /** A client's own copy of a plan, by its assignment (from a client's page or a plan's members). */
+  | { id: 'client-plan'; assignmentId: number }
   /** Always open: messages with my clients (inbox, one thread). */
   | MessagingRoute;
 
@@ -31,13 +35,23 @@ export function trainerRouteFromPath([id, ...rest]: readonly string[]): TrainerR
     const requestId = idSegment(rest[0]);
     return requestId ? { id, requestId } : null;
   }
+  if (id === 'plan-builder') {
+    const planId = idSegment(rest[0]);
+    return planId ? { id, planId } : null;
+  }
+  if (id === 'client-plan') {
+    const assignmentId = idSegment(rest[0]);
+    return assignmentId ? { id, assignmentId } : null;
+  }
   return isSimple(id) ? { id } : null;
 }
 
 export function trainerRouteToPath(r: TrainerRoute): string[] {
   if (r.id === 'messages' || r.id === 'message-thread') return messagingRouteToPath(r);
+  if (r.id === 'plan-builder') return ['plan-builder', String(r.planId)];
+  if (r.id === 'client-plan') return ['client-plan', String(r.assignmentId)];
   return r.id === 'client' ? ['client', String(r.clientId)] : r.id === 'support-request' ? ['support-request', String(r.requestId)] : [r.id];
 }
 
 /** The menu module whose tab stays lit for a route. */
-export const trainerModuleOf = (r: TrainerRoute) => (r.id === 'client' ? 'clients' : r.id === 'security' ? 'profile' : r.id === 'support' || r.id === 'support-request' || r.id === 'report-problem' || isMessagingRouteId(r.id) ? 'home' : r.id);
+export const trainerModuleOf = (r: TrainerRoute) => (r.id === 'client' || r.id === 'client-plan' ? 'clients' : r.id === 'plan-builder' ? 'builder' : r.id === 'security' ? 'profile' : r.id === 'support' || r.id === 'support-request' || r.id === 'report-problem' || isMessagingRouteId(r.id) ? 'home' : r.id);

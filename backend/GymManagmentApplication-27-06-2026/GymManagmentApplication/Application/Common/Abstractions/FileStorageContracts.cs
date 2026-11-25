@@ -17,8 +17,10 @@ public sealed record FileUpload(string FileName, string? ContentType, long Lengt
 /// <see cref="Archive"/> = a ZIP the server generated (data exports): always stored privately
 /// (Cloudinary "authenticated" raw asset / private Supabase bucket) and opened only through
 /// <see cref="IFileStorage.GetSignedUrlAsync"/>.
+/// <see cref="FaceImage"/> = a face check-in photo (reference selfie or check-in selfie): JPEG/PNG up
+/// to 5 MB, always stored privately like archives.
 /// </summary>
-public enum FileKind { Image, Document, Video, Archive }
+public enum FileKind { Image, Document, Video, Archive, FaceImage }
 
 public interface IFileStorage
 {
@@ -37,4 +39,13 @@ public interface IFileStorage
     /// private document, or the URL itself for public files.
     /// </summary>
     Task<string> GetSignedUrlAsync(string url);
+
+    /// <summary>
+    /// True when private files (<see cref="FileKind.Archive"/>, <see cref="FileKind.FaceImage"/>) are really
+    /// private: Cloudinary or Supabase is configured. Local wwwroot/uploads is served publicly.
+    /// </summary>
+    bool SupportsPrivateFiles => false;
+
+    /// <summary>Reads back a file previously returned by <see cref="SaveAsync"/> (private ones included).</summary>
+    Task<Stream> OpenReadAsync(string url) => throw new NotSupportedException("This storage can't read files back.");
 }

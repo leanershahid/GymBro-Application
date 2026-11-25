@@ -13,10 +13,15 @@
     <!-- Unused packages removed (ARCH-079): FluentValidation.AspNetCore 11 (validation runs through
          Filters/FluentValidationFilter), Identity.EntityFrameworkCore, AutoMapper, Serilog x3 (logging is the
          built-in ILogger + Middleware/RequestContextMiddleware). -->
+    <PackageReference Include="AWSSDK.Rekognition" Version="4.0.101.12" />
+    <PackageReference Include="FaceAiSharp" Version="0.6.38" />
+    <PackageReference Include="FaceAiSharp.Models.ArcFace.LResNet100E-IR-int8" Version="0.20230419.1" />
+    <PackageReference Include="FaceAiSharp.Models.Scrfd.2dot5g_kps" Version="0.20230205.2" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
 
     <!-- Authentication -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.26.0" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.0" />
 

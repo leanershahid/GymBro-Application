@@ -12,7 +12,10 @@ public class WorkoutRepository(AppDbContext db) : IWorkoutRepository
 {
     public async Task<(List<WorkoutTemplate> Items, int Total)> GetAllAsync(WorkoutListRequest request)
     {
-        var q = db.WorkoutTemplates.AsQueryable();
+        // Plan day workouts are not library entries.
+        var q = db.WorkoutTemplates.Where(w => w.OwnerPlanDayId == null);
+        if (request.VisibleToMemberId is { } member)
+            q = q.Where(w => w.IsPublic || db.WorkoutAssignments.Any(a => a.TemplateId == w.Id && a.ClientId == member));
 
         if (request.Difficulty.HasValue)
             q = q.Where(w => w.Difficulty == request.Difficulty.Value);

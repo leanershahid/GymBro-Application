@@ -11,10 +11,5 @@ public interface IWorkoutPlanService
     Task<PlanResponse?> GetByIdAsync(ulong id);
     Task<PlanResponse?> UpdateAsync(ulong id, UpdatePlanRequest request);
     Task<bool> DeleteAsync(ulong id);
-    Task<PlanTreeResponse?> GetTreeAsync(ulong id);
-    Task<bool> AddBranchAsync(ulong id, AddBranchRequest request);
-    Task<bool> UpdateProgressionAsync(ulong id, UpdateProgressionRequest request);
-    Task<List<PlanMemberResponse>> AssignAsync(ulong id, AssignPlanRequest request);
-    Task<List<PlanMemberResponse>> GetMembersAsync(ulong id);
     Task<PlanAnalyticsResponse?> GetAnalyticsAsync(ulong id);
 }

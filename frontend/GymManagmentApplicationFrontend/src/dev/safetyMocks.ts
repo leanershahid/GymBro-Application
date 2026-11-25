@@ -131,7 +131,7 @@ const mapSig = (s: Sig, withBody = false) => ({ ...s, memberName: NAMES[s.userId
 function consentsOf(userId: number) {
   const rows = consents.filter(c => c.userId === userId).sort((a, b) => b.at.localeCompare(a.at));
   return {
-    current: ['health_data', 'marketing_email', 'marketing_push', 'photo_media', 'terms', 'privacy'].map(type => {
+    current: ['health_data', 'marketing_email', 'marketing_push', 'photo_media', 'terms', 'privacy', 'biometric_face'].map(type => {
       const l = rows.find(r => r.type === type);
       return { type, granted: l?.granted ?? false, version: l?.version ?? null, at: l?.at ?? null, source: l?.source ?? null };
     }),

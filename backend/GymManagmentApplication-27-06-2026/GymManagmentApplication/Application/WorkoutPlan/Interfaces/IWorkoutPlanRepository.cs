@@ -11,7 +11,4 @@ public interface IWorkoutPlanRepository
     Task<Plan?> GetByIdAsync(ulong id);
     Task<Plan?> UpdateAsync(Plan plan);
     Task<bool> DeleteAsync(ulong id);
-    Task<WorkoutPlanBranch> CreateBranchAsync(WorkoutPlanBranch branch);
-    Task<WorkoutPlanAssignment> CreateAssignmentAsync(WorkoutPlanAssignment assignment);
-    Task<List<WorkoutPlanAssignment>> GetAssignmentsAsync(ulong planId);
 }

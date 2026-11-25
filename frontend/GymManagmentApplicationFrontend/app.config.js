@@ -44,6 +44,17 @@ export default {
             'GymBro uses your location to check you in when you arrive at your gym, and to save a branch location.',
         },
       ],
+      [
+        'expo-camera',
+        {
+          // Face check-in: a live selfie at check-in (front camera, photos only, no gallery). Needs a new native build.
+          cameraPermission:
+            'GymBro uses the camera to take a selfie that confirms it is you when you check in at your gym.',
+          microphonePermission: false,
+          recordAudioAndroid: false,
+          barcodeScannerEnabled: false,
+        },
+      ],
     ],
   },
 };

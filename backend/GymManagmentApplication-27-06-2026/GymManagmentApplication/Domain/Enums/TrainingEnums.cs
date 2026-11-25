@@ -13,3 +13,6 @@ public enum TrainerAssignmentStatus { Active, Inactive, Paused }
 public enum PtSessionStatus { Booked, Confirmed, InProgress, Completed, Cancelled, NoShow }
 public enum TimeOffStatus { Pending, Approved, Rejected }
 public enum AutomationLogStatus { Success, Failed, Skipped }
+public enum SetType { Normal, Warmup, Drop, Failure }
+public enum PersonalRecordType { HeaviestWeight, EstimatedOneRepMax, MostReps, BestSetVolume }
+public enum PlanDayOverrideAction { Skip, Moved }

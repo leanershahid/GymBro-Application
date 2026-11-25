@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
-import { T, R } from '../../../theme';
+import { View, Text, ScrollView, Pressable } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { T, R, withAlpha } from '../../../theme';
 import { useMyTraining, useHealthToday } from '../api/memberAppQueries';
 import MetricBar from '../components/MetricBar';
 import EmptyState from '../../common/components/EmptyState';
@@ -12,9 +13,11 @@ interface Props {
   userId: number;
   /** Optional: makes plan cards open the Plans screen. */
   onOpenPlans?: () => void;
+  onOpenHistory?: () => void;
+  onOpenRecords?: () => void;
 }
 
-export default function ProgressScreen({ userId, onOpenPlans }: Props) {
+export default function ProgressScreen({ userId, onOpenPlans, onOpenHistory, onOpenRecords }: Props) {
   const healthQ   = useHealthToday(userId);
   const trainingQ = useMyTraining(userId);
   const health = healthQ.data;
@@ -42,6 +45,13 @@ export default function ProgressScreen({ userId, onOpenPlans }: Props) {
           </View>
         )}
 
+        {(onOpenHistory || onOpenRecords) && (
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
+            {onOpenHistory && <EntryCard icon="clock" tint={T.brand} title="Workout history" sub="Sessions, sets & volume" onPress={onOpenHistory} />}
+            {onOpenRecords && <EntryCard icon="award" tint={T.brandGold} title="Personal records" sub="Your best lifts" onPress={onOpenRecords} />}
+          </View>
+        )}
+
         <Text style={{ color: T.text, fontSize: 16, fontWeight: '700', marginBottom: 14 }}>My plans</Text>
         {trainingQ.isLoading ? (
           <Skeleton rows={2} height={120} borderRadius={R.xl} gap={12} />
@@ -54,5 +64,25 @@ export default function ProgressScreen({ userId, onOpenPlans }: Props) {
         )}
       </ScrollView>
     </Screen>
+  );
+}
+
+function EntryCard({ icon, tint, title, sub, onPress }: {
+  icon: React.ComponentProps<typeof Feather>['name']; tint: string; title: string; sub: string; onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${title}. ${sub}`}
+      style={({ pressed }) => ({
+        flex: 1, minHeight: 112, borderRadius: R.xl, padding: 14, justifyContent: 'space-between',
+        backgroundColor: pressed ? T.bgInputActive : T.bgInput, borderWidth: 1, borderColor: T.line,
+      })}>
+      <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: withAlpha(tint, 0.14) }}>
+        <Feather name={icon} size={17} color={tint} />
+      </View>
+      <View>
+        <Text style={{ color: T.text, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{title}</Text>
+        <Text style={{ color: T.textSub, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{sub}</Text>
+      </View>
+    </Pressable>
   );
 }

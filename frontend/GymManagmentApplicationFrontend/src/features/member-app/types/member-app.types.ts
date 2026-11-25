@@ -164,38 +164,5 @@ export interface PlanSchedule {
 }
 
 // ─── My training (GET /me/training) ───────────────────────────────
-/** Assigned | InProgress | Completed | Skipped | Expired */
-export type AssignmentStatus = string;
-
-export interface AssignedWorkout {
-  assignmentId: number;
-  workoutId: number;
-  workoutName: string;
-  trainerName: string | null;
-  /** yyyy-MM-dd */
-  assignedAt: string;
-  dueDate: string | null;
-  status: AssignmentStatus;
-  notes: string | null;
-}
-
-export interface AssignedPlan {
-  assignmentId: number;
-  planId: number;
-  planName: string;
-  durationWeeks: number;
-  /** yyyy-MM-dd */
-  startDate: string;
-  status: AssignmentStatus;
-  /** Position in the plan today; null before it starts / after it ends. */
-  currentWeek: number | null;
-  currentDay: number | null;
-  todayWorkoutId: number | null;
-  todayWorkoutName: string | null;
-  todayIsRest: boolean;
-}
-
-export interface MyTraining {
-  workouts: AssignedWorkout[];
-  plans: AssignedPlan[];
-}
+// The contract lives in features/training/api/training.types.ts (week strip, adherence, today's title…).
+export type { AssignmentStatus, AssignedWorkout, AssignedPlan, MyTraining, WeekStripDay, Adherence } from '../../training/api/training.types';

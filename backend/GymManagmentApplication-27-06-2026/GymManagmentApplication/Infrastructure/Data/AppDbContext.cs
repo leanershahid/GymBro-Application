@@ -127,6 +127,9 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<WorkoutPlanDay> WorkoutPlanDays => Set<WorkoutPlanDay>();
     public DbSet<WorkoutPlanAssignment> WorkoutPlanAssignments => Set<WorkoutPlanAssignment>();
     public DbSet<WorkoutPlanBranch> WorkoutPlanBranches => Set<WorkoutPlanBranch>();
+    public DbSet<WorkoutSetLog> WorkoutSetLogs => Set<WorkoutSetLog>();
+    public DbSet<PersonalRecord> PersonalRecords => Set<PersonalRecord>();
+    public DbSet<PlanDayOverride> PlanDayOverrides => Set<PlanDayOverride>();
     public DbSet<WorkoutAutomationRule> WorkoutAutomationRules => Set<WorkoutAutomationRule>();
     public DbSet<WorkoutAutomationLog> WorkoutAutomationLogs => Set<WorkoutAutomationLog>();
     public DbSet<TrainerProfile> TrainerProfiles => Set<TrainerProfile>();
@@ -141,6 +144,9 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<GymClass> GymClasses => Set<GymClass>();
     public DbSet<ClassBooking> ClassBookings => Set<ClassBooking>();
     public DbSet<Attendance> Attendances => Set<Attendance>();
+    // Face check-in (self check-in with a selfie) — FaceCheckInConfigurations.cs
+    public DbSet<FaceEnrollment> FaceEnrollments => Set<FaceEnrollment>();
+    public DbSet<FaceCheckInAttempt> FaceCheckInAttempts => Set<FaceCheckInAttempt>();
 
     // Health
     public DbSet<ClientProfile> ClientProfiles => Set<ClientProfile>();

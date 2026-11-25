@@ -26,5 +26,13 @@
     "CloudinaryApiKey": "",
     "CloudinaryApiSecret": "",
     "CloudinaryRootFolder": "gymbro"
+  },
+  "FaceMatching": {
+    "Provider": "local"
+  },
+  "Aws": {
+    "Region": "<e.g. ap-south-1>",
+    "AccessKeyId": "",
+    "SecretAccessKey": ""
   }
 }

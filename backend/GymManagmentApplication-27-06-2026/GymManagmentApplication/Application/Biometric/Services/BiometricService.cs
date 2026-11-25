@@ -11,7 +11,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.Biometric.Services;
 
-public class BiometricService(IAppDbContext db, ICurrentUser currentUser, GymManagmentApplication.Application.Attendance.IAttendanceService attendance) : IBiometricService
+public class BiometricService(IAppDbContext db, ICurrentUser currentUser, GymManagmentApplication.Application.Attendance.IAttendanceService attendance,
+    IFileStorage? storage = null) : IBiometricService
 {
     public async Task<BiometricEnrollResponse> EnrollFaceAsync(EnrollFaceRequest request)
     {
@@ -91,7 +92,11 @@ public class BiometricService(IAppDbContext db, ICurrentUser currentUser, GymMan
         user.FaceEncoding  = null;
         user.BiometricHash = null;
         user.UpdatedAt     = DateTime.UtcNow;
+        // Face check-in (self check-in selfies): the reference photo and kept selfies go too.
+        var files = new List<string>();
+        hadData |= await GymManagmentApplication.Application.Attendance.Face.FaceData.EraseAsync(db, user.TenantId, user.Id, files, deleteAttempts: false) > 0;
         await db.SaveChangesAsync();
+        if (storage is not null) foreach (var f in files) await storage.DeleteAsync(f);
         return hadData;
     }
 

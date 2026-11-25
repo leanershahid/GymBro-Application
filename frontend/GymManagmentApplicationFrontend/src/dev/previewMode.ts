@@ -8,7 +8,7 @@
  * Never active in production: guarded by __DEV__ and by Platform.OS === 'web'.
  */
 import { Platform } from 'react-native';
-import type { AxiosAdapter, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
+import { AxiosError, type AxiosAdapter, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import axiosInstance from '../api/axios';
 import { getSession, setSession } from '../api/session';
 import { shopAdminRoute } from './shopAdminMocks';
@@ -23,6 +23,9 @@ import { supportRoute } from './supportMocks';
 import { facilitiesRoute } from './facilitiesMocks';
 import { messagingRoute } from './messagingMocks';
 import { bookingRulesRoute } from './bookingRulesMocks';
+import { trainingBuilderRoute } from './trainingBuilderMocks';
+import { memberTrainingRoute } from './memberTrainingMocks';
+import { faceCheckInRoute, MockHttpError } from './faceCheckInMocks';
 
 export type PreviewRole = 'admin' | 'superadmin' | 'trainer' | 'member';
 
@@ -184,6 +187,9 @@ function route(method: string, url: string, body?: unknown): unknown {
   const path = url.replace(/^https?:\/\/[^/]+/, '').replace(/^\/api/, '').split('?')[0];
 
   const query = new URLSearchParams(url.split('?')[1] ?? '');
+  // ── Member training (week strip, calendar, player, history, records) — members only ──
+  if (getSession()?.role === 'client' && (path === '/me/training' || /^\/me\/(plans\/\d+\/|exercises\/|records|workout-history)/.test(path) || /^\/workouts\/\d+(\/structure|\/complete)?$/.test(path)))
+  { const r = memberTrainingRoute(method, path, body, query); if (r !== undefined) return r; }
   // ── Shop ──
   if (path.startsWith('/shop/admin/')) { const r = shopAdminRoute(method, path, body, query); if (r !== undefined) return r; }
   else if (path.startsWith('/shop/')) { const r = shopStoreRoute(method, path, body, query); if (r !== undefined) return r; }
@@ -226,6 +232,11 @@ function route(method: string, url: string, body?: unknown): unknown {
   if (path.startsWith('/announcements') || path.startsWith('/service-status') || path.startsWith('/operations/')
       || /^\/branches\/(\d+|mine)\/(hours|info|profile)/.test(path) || path === '/branches/directory')
   { const r = operationsRoute(method, path, body, query); if (r !== undefined) return r; }
+
+  // ── Training, staff side (plans, weekly builder, day workouts' structure, exercise library) ──
+  // Day-workout structure is answered for every role; plan / library lists only for staff.
+  if (/^\/workouts\/\d+\/structure$/.test(path) || (getSession()?.role !== 'client' && (path.startsWith('/plans') || path.startsWith('/workouts') || path === '/exercises')))
+  { const r = trainingBuilderRoute(method, path, body, query); if (r !== undefined) return r; }
 
   // ── Admin ──
   if (path === '/dashboard/overview')
@@ -350,6 +361,9 @@ function route(method: string, url: string, body?: unknown): unknown {
   if (path === '/plans')
     return page([{ id: 1, name: '12-Week Strength Base', goal: 'MuscleGain', difficulty: 'Intermediate', durationWeeks: 12, isActive: true }]);
 
+  // ── Face check-in (settings, selfie check-in, enrolment, staff views); falls through when it doesn't answer ──
+  if (path.startsWith('/attendance')) { const r = faceCheckInRoute(method, path, body); if (r !== undefined) return r; }
+
   // ── Attendance ──
   if (path === '/attendance/settings')
     return ok({
@@ -383,6 +397,11 @@ const mockAdapter: AxiosAdapter = async (config: InternalAxiosRequestConfig): Pr
   let body: unknown = config.data;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { /* form data or plain text */ } }
   const data = route((config.method ?? 'get').toLowerCase(), `${config.baseURL ?? ''}${config.url ?? ''}${config.params ? '?' + new URLSearchParams(config.params).toString() : ''}`, body);
+  if (data instanceof MockHttpError) {
+    // Mocks can answer with an HTTP error (e.g. 422 FACE_MISMATCH), as the real API does.
+    const response: AxiosResponse = { data: data.body, status: data.status, statusText: 'Error', headers: {}, config };
+    throw new AxiosError(`Request failed with status code ${data.status}`, AxiosError.ERR_BAD_REQUEST, config, null, response);
+  }
   return { data, status: 200, statusText: 'OK', headers: {}, config };
 };
 

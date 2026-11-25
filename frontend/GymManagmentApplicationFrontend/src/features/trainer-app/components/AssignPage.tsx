@@ -13,7 +13,7 @@ import { useToast } from '../../common/components/Toast';
 import EmptyState from '../../common/components/EmptyState';
 import { apiErrorText } from '../../../api/apiError';
 import { useMyClients, useClientProfiles } from '../api/trainerAppQueries';
-import { useAssignWorkout, useAssignPlan } from '../api/programQueries';
+import { useAssignWorkout } from '../api/programQueries';
 
 const todayISO = () => {
   const d = new Date();
@@ -21,20 +21,18 @@ const todayISO = () => {
 };
 
 interface Props {
-  kind: 'workout' | 'plan';
   id: number;
   name: string;
   trainerId: number;
   onBack: () => void;
 }
 
-/** Assign a workout or plan to one or more of the trainer's own clients. */
-export default function AssignPage({ kind, id, name, trainerId, onBack }: Props) {
+/** Assign a workout to one or more of the trainer's own clients (plans: training/builder AssignSheet). */
+export default function AssignPage({ id, name, trainerId, onBack }: Props) {
   const toast = useToast();
   const { data: clients = [], isLoading, isError, error, refetch } = useMyClients(trainerId);
   const profiles = useClientProfiles(clients.map(c => c.clientId));
   const { mutate: assignWorkout, isPending: aw } = useAssignWorkout();
-  const { mutate: assignPlan, isPending: ap } = useAssignPlan();
 
   const [selected, setSelected] = useState<number[]>([]);
   const [search, setSearch] = useState('');
@@ -66,7 +64,7 @@ export default function AssignPage({ kind, id, name, trainerId, onBack }: Props)
   const submit = () => {
     const errs: typeof errors = {};
     if (selected.length === 0) errs.clients = 'Pick at least one client.';
-    if (kind === 'workout' && due && due < start) errs.due = 'Due date must be on or after the start date.';
+    if (due && due < start) errs.due = 'Due date must be on or after the start date.';
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
@@ -77,24 +75,20 @@ export default function AssignPage({ kind, id, name, trainerId, onBack }: Props)
     };
     const onError = (e: unknown) => showAlert('Could not assign', apiErrorText(e));
 
-    if (kind === 'workout') {
-      assignWorkout({ workoutId: id, memberIds: selected, assignedAt: start, dueDate: due || null, notes: notes.trim() || null }, { onSuccess, onError });
-    } else {
-      assignPlan({ planId: id, payload: { memberIds: selected, startDate: start } }, { onSuccess, onError });
-    }
+    assignWorkout({ workoutId: id, memberIds: selected, assignedAt: start, dueDate: due || null, notes: notes.trim() || null }, { onSuccess, onError });
   };
 
   return (
     <FormPage
-      eyebrow={kind === 'workout' ? 'Assign workout' : 'Assign plan'}
+      eyebrow="Assign workout"
       title={name}
       onBack={onBack}
       submitLabel={selected.length ? `Assign to ${selected.length} client${selected.length === 1 ? '' : 's'}` : 'Assign'}
       onSubmit={submit}
-      submitting={aw || ap}
+      submitting={aw}
     >
-      <DateField label={kind === 'workout' ? 'Start date' : 'Plan start date'} value={start} onChange={setStart} />
-      {kind === 'workout' && (
+      <DateField label="Start date" value={start} onChange={setStart} />
+      {(
         <>
           <DateField label="Due date (optional)" value={due} onChange={v => { setDue(v); setErrors(e => ({ ...e, due: undefined })); }} placeholder="No due date" error={errors.due} />
           {!!due && (

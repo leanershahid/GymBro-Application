@@ -18,6 +18,8 @@ public class WorkoutTemplate : BaseEntity
     public JsonDocument? BranchingRules { get; set; }
     public JsonDocument? Tags { get; set; }
     public ushort Version { get; set; } = 1;
+    /// <summary>Set on a plan day's own workout ("day workout"); such rows are hidden from the library.</summary>
+    public ulong? OwnerPlanDayId { get; set; }
 
     public Core.Tenant Tenant { get; set; } = default!;
     public Identity.User Creator { get; set; } = default!;

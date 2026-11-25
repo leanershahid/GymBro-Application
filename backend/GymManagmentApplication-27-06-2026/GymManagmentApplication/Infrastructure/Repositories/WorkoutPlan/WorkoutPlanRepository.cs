@@ -21,6 +21,8 @@ public class WorkoutPlanRepository(AppDbContext db) : IWorkoutPlanRepository
             q = q.Where(p => p.Goal == request.Goal.Value);
         if (request.AssignedToUserId is { } memberId)
             q = q.Where(p => db.WorkoutPlanAssignments.Any(a => a.PlanId == p.Id && a.ClientId == memberId));
+        else if (!request.IncludeClientCopies)
+            q = q.Where(p => p.IsTemplate); // the plan library: masters only; members' copies are opened per assignment
 
         var total = await q.CountAsync();
         var items = await q
@@ -42,7 +44,6 @@ public class WorkoutPlanRepository(AppDbContext db) : IWorkoutPlanRepository
 
     public async Task<Plan?> GetByIdAsync(ulong id) =>
         await db.WorkoutPlans
-            .Include(p => p.Branches)
             .FirstOrDefaultAsync(p => p.Id == id);
 
     public async Task<Plan?> UpdateAsync(Plan plan)
@@ -64,24 +65,4 @@ public class WorkoutPlanRepository(AppDbContext db) : IWorkoutPlanRepository
         await db.SaveChangesAsync();
         return true;
     }
-
-    public async Task<WorkoutPlanBranch> CreateBranchAsync(WorkoutPlanBranch branch)
-    {
-        db.WorkoutPlanBranches.Add(branch);
-        await db.SaveChangesAsync();
-        return branch;
-    }
-
-    public async Task<WorkoutPlanAssignment> CreateAssignmentAsync(WorkoutPlanAssignment assignment)
-    {
-        assignment.CreatedAt = DateTime.UtcNow;
-        db.WorkoutPlanAssignments.Add(assignment);
-        await db.SaveChangesAsync();
-        return assignment;
-    }
-
-    public async Task<List<WorkoutPlanAssignment>> GetAssignmentsAsync(ulong planId) =>
-        await db.WorkoutPlanAssignments
-            .Where(a => a.PlanId == planId)
-            .ToListAsync();
 }

@@ -18,12 +18,19 @@ export function ProgressBar({ pct, color = T.brand }: { pct: number; color?: str
   );
 }
 
-/** "Today in <plan>": today's workout (tap to open) or a rest day. */
+/** "Today in <plan>": today's workout (tap to open), a recovery day, or done / skipped. */
 export function PlanTodayCard({ plan, onOpenWorkout }: { plan: AssignedPlan; onOpenWorkout?: (id: number) => void }) {
   const workoutId = plan.todayIsRest ? null : plan.todayWorkoutId;
-  const canOpen = workoutId != null && !!onOpenWorkout;
-  const title = workoutId == null ? 'Rest day' : (plan.todayWorkoutName ?? 'Workout');
-  const sub = `Week ${plan.currentWeek} of ${plan.durationWeeks} · Day ${plan.currentDay}`;
+  const done = !!plan.todayDone;
+  const skipped = !done && !!plan.todaySkipped;
+  const canOpen = workoutId != null && !!onOpenWorkout && !done && !skipped;
+  const name = plan.todayTitle || plan.todayWorkoutName || 'Workout';
+  const title = workoutId == null ? 'Recovery day' : done ? 'Done ✓ — nice work' : skipped ? `Skipped · ${name}` : name;
+  const sub = done ? `${name} · logged today`
+    : workoutId == null ? 'Rest, hydrate and stretch'
+    : `Week ${plan.todayWeekNumber ?? plan.currentWeek} of ${plan.durationWeeks} · Day ${plan.todayDayNumber ?? plan.currentDay}`;
+  const icon = done ? 'check' : skipped ? 'x' : workoutId != null ? 'zap' : 'moon';
+  const tint = done ? T.brand : skipped ? T.textSub : workoutId != null ? T.brand : T.sky;
 
   return (
     <Pressable
@@ -34,20 +41,20 @@ export function PlanTodayCard({ plan, onOpenWorkout }: { plan: AssignedPlan; onO
       style={({ pressed }) => ({
         backgroundColor: pressed ? T.bgInputActive : T.bgInput,
         borderRadius: R.xl, padding: 16, marginBottom: 12,
-        borderWidth: 1, borderColor: canOpen ? T.brandBorder : T.line,
+        borderWidth: 1, borderColor: canOpen || done ? T.brandBorder : T.line,
         flexDirection: 'row', alignItems: 'center',
       })}>
       <View style={{
         width: 44, height: 44, borderRadius: 14, marginRight: 14, alignItems: 'center', justifyContent: 'center',
-        backgroundColor: canOpen ? T.brandDim : withAlpha(T.sky, 0.12),
+        backgroundColor: done ? T.brand : withAlpha(tint, 0.12),
       }}>
-        <Feather name={workoutId != null ? 'zap' : 'moon'} size={20} color={workoutId != null ? T.brand : T.sky} />
+        <Feather name={icon} size={20} color={done ? T.onBrand : tint} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ color: T.textSub, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 }} numberOfLines={1}>
           Today in {plan.planName}
         </Text>
-        <Text style={{ color: T.text, fontSize: 16, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>{title}</Text>
+        <Text style={{ color: done ? T.brand : T.text, fontSize: 16, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>{title}</Text>
         <Text style={{ color: T.textFaint, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{sub}</Text>
       </View>
       {canOpen && (
@@ -102,7 +109,7 @@ export function AssignedPlanCard({ plan, onPress }: { plan: AssignedPlan; onPres
     ? `Week ${plan.currentWeek} · Day ${plan.currentDay}`
     : notStarted ? `Starts ${fmtDay(start, true)}` : 'Finished';
   const today = plan.currentWeek != null
-    ? (plan.todayIsRest || plan.todayWorkoutId == null ? 'Rest day' : (plan.todayWorkoutName ?? 'Workout'))
+    ? (plan.todayIsRest || plan.todayWorkoutId == null ? 'Rest day' : (plan.todayTitle || plan.todayWorkoutName || 'Workout'))
     : null;
 
   return (

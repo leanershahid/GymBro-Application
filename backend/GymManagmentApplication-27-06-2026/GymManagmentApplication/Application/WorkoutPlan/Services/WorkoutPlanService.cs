@@ -4,10 +4,11 @@ using GymManagmentApplication.Application.WorkoutPlan.Requests;
 using GymManagmentApplication.Application.WorkoutPlan.Responses;
 using GymManagmentApplication.Domain.Entities.Training;
 using GymManagmentApplication.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
 
 namespace GymManagmentApplication.Application.WorkoutPlan.Services;
 
-public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser currentUser, IAppDbContext db, GymManagmentApplication.Application.Engagement.Notifier notifier) : IWorkoutPlanService
+public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser currentUser, IAppDbContext db) : IWorkoutPlanService
 {
     public async Task<PagedResponse<PlanResponse>> GetAllAsync(PlanListRequest request)
     {
@@ -34,7 +35,9 @@ public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser 
             Description = request.Description,
             DurationWeeks = request.DurationWeeks,
             Goal = request.Goal,
-            Difficulty = request.Difficulty
+            Difficulty = request.Difficulty,
+            DaysPerWeekHint = request.DaysPerWeekHint,
+            IsTemplate = true,
         };
         return Map(await repository.CreateAsync(plan));
     }
@@ -42,27 +45,26 @@ public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser 
     public async Task<PlanResponse?> GetByIdAsync(ulong id)
     {
         var p = await repository.GetByIdAsync(id);
-        return p is null ? null : Map(p);
+        if (p is null) return null;
+        if (currentUser.IsClient() && !await Training.PlanAccess.MemberIsAssignedAsync(db, currentUser.UserId ?? 0, p.Id)) return null;
+        return Map(p);
     }
 
-    /// <summary>Trainers may only change plans they created; admins/staff any in their gym.</summary>
-    private void EnsureCanEdit(Domain.Entities.Training.WorkoutPlan p)
-    {
-        if (currentUser.IsTrainer() && p.CreatedBy != currentUser.UserId)
-            throw new UnauthorizedAccessException("You can only edit plans you created.");
-    }
+    /// <summary>Trainers: plans they created or their own clients' copies; admins/staff any in their gym.</summary>
+    private Task EnsureCanEdit(Domain.Entities.Training.WorkoutPlan p) => Training.PlanAccess.EnsureCanEditAsync(db, currentUser, p);
 
     public async Task<PlanResponse?> UpdateAsync(ulong id, UpdatePlanRequest request)
     {
         var p = await repository.GetByIdAsync(id);
         if (p is null) return null;
-        EnsureCanEdit(p);
+        await EnsureCanEdit(p);
         if (request.Name is not null) p.Name = request.Name;
         if (request.Description is not null) p.Description = request.Description;
         if (request.DurationWeeks.HasValue) p.DurationWeeks = request.DurationWeeks.Value;
         if (request.Goal.HasValue) p.Goal = request.Goal.Value;
         if (request.Difficulty.HasValue) p.Difficulty = request.Difficulty.Value;
         if (request.IsActive.HasValue) p.IsActive = request.IsActive.Value;
+        if (request.DaysPerWeekHint.HasValue) p.DaysPerWeekHint = request.DaysPerWeekHint is 0 ? null : request.DaysPerWeekHint;
         await repository.UpdateAsync(p);
         return Map(p);
     }
@@ -71,108 +73,14 @@ public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser 
     {
         var p = await repository.GetByIdAsync(id);
         if (p is null) return false;
-        EnsureCanEdit(p);
+        await EnsureCanEdit(p);
         return await repository.DeleteAsync(id);
-    }
-
-    public async Task<PlanTreeResponse?> GetTreeAsync(ulong id)
-    {
-        var p = await repository.GetByIdAsync(id);
-        if (p is null) return null;
-        var nodes = p.Weeks.Select(w => new PlanTreeNode
-        {
-            Id = w.Id,
-            Name = $"Week {w.WeekNumber}",
-            Type = "week",
-            Children = w.Days.Select(d => new PlanTreeNode
-            {
-                Id = d.Id,
-                Name = d.IsRestDay ? "Rest Day" : $"Day {d.DayNumber}",
-                Type = d.IsRestDay ? "rest" : "workout"
-            }).ToList()
-        }).ToList();
-        return new PlanTreeResponse { PlanId = id, Nodes = nodes };
-    }
-
-    public async Task<bool> AddBranchAsync(ulong id, AddBranchRequest request)
-    {
-        // WorkoutPlanBranch has no TenantId: verify both plans through the tenant-filtered set.
-        var plan = await repository.GetByIdAsync(id);
-        if (plan is null) return false;
-        EnsureCanEdit(plan);
-        if (request.NextPlanId is { } next && await repository.GetByIdAsync(next) is null)
-            throw new ArgumentException($"Plan {next} not found in this gym.");
-        var branch = new WorkoutPlanBranch
-        {
-            PlanId = id,
-            Name = request.Name,
-            Condition = request.Condition,
-            NextPlanId = request.NextPlanId,
-            SortOrder = request.SortOrder
-        };
-        await repository.CreateBranchAsync(branch);
-        return true;
-    }
-
-    public async Task<bool> UpdateProgressionAsync(ulong id, UpdateProgressionRequest request)
-    {
-        var p = await repository.GetByIdAsync(id);
-        if (p is null) return false;
-        EnsureCanEdit(p);
-        p.ProgressionRules = request.Rules;
-        await repository.UpdateAsync(p);
-        return true;
-    }
-
-    public async Task<List<PlanMemberResponse>> AssignAsync(ulong id, AssignPlanRequest request)
-    {
-        var plan = await repository.GetByIdAsync(id) ?? throw new KeyNotFoundException($"Plan {id} not found.");
-        var memberIds = request.MemberIds.Distinct().ToList();
-        foreach (var memberId in memberIds)
-            await db.EnsureUserAsync(memberId, plan.TenantId);
-        await db.EnsureCanActOnAllAsync(currentUser, memberIds); // trainers: assigned clients only
-        var trainerId = await db.ResolveAssigningTrainerAsync(currentUser, request.TrainerId);
-
-        var results = new List<PlanMemberResponse>();
-        foreach (var memberId in memberIds)
-        {
-            var assignment = new WorkoutPlanAssignment
-            {
-                TenantId = plan.TenantId,
-                PlanId = id,
-                ClientId = memberId,
-                TrainerId = trainerId,
-                StartDate = request.StartDate
-            };
-            notifier.Add(plan.TenantId, memberId, "New training plan",
-                $"{plan.Name} starts {request.StartDate:dd MMM}.", "training", plan.Id);
-            var created = await repository.CreateAssignmentAsync(assignment);
-            results.Add(new PlanMemberResponse
-            {
-                AssignmentId = created.Id,
-                ClientId = memberId,
-                StartDate = created.StartDate,
-                Status = created.Status.ToString()
-            });
-        }
-        return results;
-    }
-
-    public async Task<List<PlanMemberResponse>> GetMembersAsync(ulong id)
-    {
-        var assignments = await repository.GetAssignmentsAsync(id);
-        return assignments.Select(a => new PlanMemberResponse
-        {
-            AssignmentId = a.Id,
-            ClientId = a.ClientId,
-            StartDate = a.StartDate,
-            Status = a.Status.ToString()
-        }).ToList();
     }
 
     public async Task<PlanAnalyticsResponse?> GetAnalyticsAsync(ulong id)
     {
-        var assignments = await repository.GetAssignmentsAsync(id);
+        var assignments = await db.WorkoutPlanAssignments
+            .Where(a => a.PlanId == id || db.WorkoutPlans.Any(c => c.Id == a.PlanId && c.SourcePlanId == id && !c.IsTemplate)).ToListAsync();
         var total = assignments.Count;
         var completed = assignments.Count(a => a.Status == AssignmentStatus.Completed);
         var inProgress = assignments.Count(a => a.Status == AssignmentStatus.InProgress);
@@ -196,6 +104,11 @@ public class WorkoutPlanService(IWorkoutPlanRepository repository, ICurrentUser 
         Goal = p.Goal.ToString(),
         Difficulty = p.Difficulty.ToString(),
         IsActive = p.IsActive,
+        IsTemplate = p.IsTemplate,
+        SourcePlanId = p.SourcePlanId,
+        OwnerClientId = p.OwnerClientId,
+        DaysPerWeekHint = p.DaysPerWeekHint,
+        CreatedBy = p.CreatedBy,
         CreatedAt = p.CreatedAt
     };
 }

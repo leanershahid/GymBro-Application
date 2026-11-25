@@ -9,7 +9,6 @@ import ViewExercisesPage from '../../exercises/pages/ViewExercisesPage';
 import AddExercisePage   from '../../exercises/pages/AddExercisePage';
 import ViewWorkoutsPage  from '../../workouts/pages/ViewWorkoutsPage';
 import AddWorkoutPage    from '../../workouts/pages/AddWorkoutPage';
-import ViewPlansPage     from '../../workouts/pages/ViewPlansPage';
 import AddPlanPage       from '../../workouts/pages/AddPlanPage';
 import ViewBranchesPage  from '../../branches/pages/ViewBranchesPage';
 import AddBranchPage     from '../../branches/pages/AddBranchPage';
@@ -48,6 +47,7 @@ import { MessagesReviewPage, MessagesReviewThreadPage } from '../../messaging/ro
 import {
   FacilitiesPage, FacilityAssetPage, FacilityReportPage, FacilityReportsPage, IncidentFormPage, IncidentPage, IncidentsPage,
 } from '../../facilities/routes';
+import { PlanBuilderScreen, PlansList, DayEditor } from '../../training/builder';
 import { AnnouncementsAdminPage, AnnouncementEditorPage, ServiceStatusAdminPage, BranchHoursPage } from '../../operations/routes';
 import type { OpenRequest } from '../../access/types/access.types';
 import type { PathChange } from '../../../navigation/useAreaRoute';
@@ -130,11 +130,22 @@ const ROUTES: Record<AdminScreen, Render> = {
   'exercises': ({ access: a, go, goHome }) => gated(a.exercises.canView,
     <ViewExercisesPage onBack={goHome} onAddExercise={a.exercises.canCreate ? () => go('add-exercise') : undefined} />, goHome),
   'add-exercise': ({ access: a, go }) => gated(a.exercises.canCreate, <AddExercisePage onBack={() => go('exercises')} />, () => go('exercises')),
-  'workouts': ({ access: a, go, goHome }) => gated(a.workouts.canView,
-    <ViewWorkoutsPage onBack={goHome} onAddWorkout={a.workouts.canCreate ? () => go('add-workout') : undefined} />, goHome),
+  'workouts': ({ access: a, go, open, goHome }) => gated(a.workouts.canView,
+    <ViewWorkoutsPage onBack={goHome} onAddWorkout={a.workouts.canCreate ? () => go('add-workout') : undefined}
+      onEditWorkout={a.workouts.canEdit ? (id) => open('workout-editor', id) : undefined} canDelete={a.workouts.canDelete} />, goHome),
+  // The workout's blocks / exercises / set targets (the same editor as a plan day).
+  'workout-editor': ({ access: a, selectedId, go }) => gated(a.workouts.canView,
+    <DayEditor key={selectedId} workoutId={selectedId} readOnly={!a.workouts.canEdit} onBack={() => go('workouts')} />, () => go('workouts')),
   'add-workout': ({ access: a, go }) => gated(a.workouts.canCreate, <AddWorkoutPage onBack={() => go('workouts')} />, () => go('workouts')),
-  'plans': ({ access: a, go, goHome }) => gated(a.plans.canView,
-    <ViewPlansPage onBack={goHome} onAddPlan={a.plans.canCreate ? () => go('add-plan') : undefined} />, goHome),
+  // Weekly plan builder: the master plans, one plan, and a member's own copy (by assignment).
+  'plans': ({ access: a, open, goHome }) => gated(a.plans.canView,
+    <PlansList onBack={goHome} onOpenPlan={(id) => open('plan-builder', id)} canCreate={a.plans.canCreate} canDelete={a.plans.canDelete} />, goHome),
+  'plan-builder': ({ access: a, selectedId, open, go }) => gated(a.plans.canView,
+    <PlanBuilderScreen key={selectedId} planId={selectedId} onBack={() => go('plans')} canEdit={a.plans.canEdit} canAssign={a.plans.canCreate}
+      assigner={{ kind: 'admin' }} onOpenClientCopy={(aid) => open('plan-client', aid)} onOpenPlan={(id) => open('plan-builder', id)} />, () => go('plans')),
+  'plan-client': ({ access: a, selectedId, open, go }) => gated(a.plans.canView,
+    <PlanBuilderScreen key={selectedId} assignmentId={selectedId} onBack={() => go('plans')} canEdit={a.plans.canEdit} canAssign={false}
+      onOpenPlan={(id) => open('plan-builder', id)} />, () => go('plans')),
   'add-plan': ({ access: a, go }) => gated(a.plans.canCreate, <AddPlanPage onBack={() => go('plans')} />, () => go('plans')),
 
   // Shop / social

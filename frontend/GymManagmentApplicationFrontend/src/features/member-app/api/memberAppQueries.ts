@@ -10,7 +10,7 @@ import {
   fetchWorkoutStructure, fetchPlanSchedule, fetchMyTraining,
 } from './memberAppApi';
 import { isBookmarked, setBookmarked, bookmarkStateFrom } from './bookmarkStore';
-import { WorkoutCompletePayload } from '../types/member-app.types';
+import { MyTraining, WorkoutCompletePayload } from '../types/member-app.types';
 import { queryKeys } from '../../../api/queryKeys';
 
 const K = queryKeys.memberApp;
@@ -69,7 +69,7 @@ export const useBookmarkWorkout = () =>
 
 /** GET /me/training — keyed by user so a different sign-in never sees stale assignments. */
 export const useMyTraining = (userId = 0) =>
-  useQuery({ queryKey: trainingKeys.mine(userId), queryFn: fetchMyTraining, select: r => r.data ?? { workouts: [], plans: [] } });
+  useQuery({ queryKey: trainingKeys.mine(userId), queryFn: fetchMyTraining, select: (r): MyTraining => r.data ?? { activePlanAssignmentId: null, workouts: [], plans: [] } });
 
 export const useWorkoutStructure = (id: number) =>
   useQuery({ queryKey: trainingKeys.structure(id), queryFn: () => fetchWorkoutStructure(id), select: r => r.data, enabled: id > 0 });

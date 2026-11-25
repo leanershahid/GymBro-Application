@@ -19,6 +19,7 @@ import EmptyState from '../../common/components/EmptyState';
 import { Field, RowGrid, GridCell } from '../../common/components/FormFields';
 import ChangePasswordSheet from '../../auth/components/ChangePasswordSheet';
 import { SafetyProfileSection } from '../../safety/routes';
+import FaceProfileSection from '../../attendance/components/FaceProfileSection';
 import { PickedFile } from '../../../api/upload';
 import { apiErrorText } from '../../../api/apiError';
 
@@ -239,6 +240,8 @@ export default function ProfileScreen({ userId, onLogout, onOpenBilling, onOpenN
             {/* Waiver & health status, emergency contact, consents */}
             <View style={{ marginTop: 24 }}>
               <SafetyProfileSection />
+              {/* Face check-in: status, re-enrol, remove my face data (only when the gym uses it) */}
+              <FaceProfileSection />
             </View>
 
             {onOpenBilling && (

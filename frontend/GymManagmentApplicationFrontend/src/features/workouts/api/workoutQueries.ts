@@ -2,9 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchWorkouts, fetchWorkout, createWorkout, deleteWorkout,
   fetchPlans, fetchPlan, createPlan, deletePlan,
-  fetchAutomationRules, createAutomationRule,
 } from './workoutApi';
-import { WorkoutPayload, WorkoutPlanPayload, AutomationRulePayload } from '../types/workout.types';
+import { WorkoutPayload, WorkoutPlanPayload } from '../types/workout.types';
 import { queryKeys } from '../../../api/queryKeys';
 
 export const useWorkouts = (pageNumber = 1, pageSize = 20) =>
@@ -68,14 +67,3 @@ export const useDeletePlan = () => {
     onSuccess:  () => qc.invalidateQueries({ queryKey: queryKeys.plans.all }),
   });
 };
-
-export const useAutomationRules = (tenantId: number) =>
-  useQuery({
-    queryKey: [...queryKeys.automation.all, tenantId],
-    queryFn:  () => fetchAutomationRules(tenantId),
-    select:   (res) => res.data ?? [],
-    enabled:  tenantId > 0,
-  });
-
-export const useCreateAutomationRule = () =>
-  useMutation({ mutationFn: (p: AutomationRulePayload) => createAutomationRule(p) });

@@ -136,8 +136,10 @@ public static class ConsentTypes
     public const string PhotoMedia = "photo_media";
     public const string Terms = "terms";
     public const string Privacy = "privacy";
+    /// <summary>Face check-in: a reference selfie is stored and compared with a selfie at each self check-in.</summary>
+    public const string BiometricFace = "biometric_face";
 
-    public static readonly string[] All = [HealthData, MarketingEmail, MarketingPush, PhotoMedia, Terms, Privacy];
+    public static readonly string[] All = [HealthData, MarketingEmail, MarketingPush, PhotoMedia, Terms, Privacy, BiometricFace];
 }
 
 /// <summary>Staff let a member through a safety gate (desk check-in) despite a missing waiver/health check. Immutable.</summary>

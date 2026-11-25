@@ -8,8 +8,11 @@ import LoadingState from '../../common/components/LoadingState';
 import StatusPill from '../../common/components/StatusPill';
 import EmptyState from '../../common/components/EmptyState';
 import { useAttendanceLog } from '../api/attendanceQueries';
-import { AttendanceRecord } from '../types/attendance.types';
+import { useFaceAttempts } from '../api/faceQueries';
+import { AttendanceRecord, FaceAttempt } from '../types/attendance.types';
 import { formatDistance } from '../utils/location';
+import { attemptBadge, faceBadge } from '../utils/faceCheck';
+import FacePhotosSheet from '../components/FacePhotosSheet';
 
 const METHOD_LABEL: Record<string, string> = {
   Location: 'Location', Face: 'Face', Biometric: 'Fingerprint', Qr: 'QR', Pin: 'PIN', Card: 'Card', Manual: 'Manual',
@@ -34,6 +37,10 @@ export default function AttendanceLogPage({ onBack, onCheckIn, onOpenSettings, o
   const [day, setDay] = useState(() => new Date());
   const date = isoDate(day);
   const { data, isLoading, isError, refetch, isRefetching } = useAttendanceLog(date);
+  // Failed face checks of the day (self check-in with face verification); empty when the gym doesn't use it.
+  const failed = useFaceAttempts(date);
+  const failedItems = failed.data?.items ?? [];
+  const [photos, setPhotos] = useState<{ id: number; name: string | null } | null>(null);
   const isToday = date === isoDate(new Date());
 
   const shift = (days: number) => setDay(d => new Date(d.getTime() + days * 86_400_000));
@@ -42,24 +49,59 @@ export default function AttendanceLogPage({ onBack, onCheckIn, onOpenSettings, o
     [day, isToday],
   );
 
-  const renderItem = ({ item }: { item: AttendanceRecord }) => (
-    <Pressable
-      disabled={!onOpenMember}
-      onPress={() => onOpenMember?.(item.userId)}
-      accessibilityRole={onOpenMember ? 'button' : undefined}
-      accessibilityLabel={`${item.userName ?? 'Member'}, ${item.branchName ?? ''}, checked in ${time(item.checkInAt)}${item.checkOutAt ? `, out ${time(item.checkOutAt)}` : ', still in'}, ${METHOD_LABEL[item.method] ?? item.method}`}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: R.lg, backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line }}
-    >
-      <View style={{ flex: 1, minWidth: 0 }}>
+  const renderItem = ({ item }: { item: AttendanceRecord }) => {
+    const face = faceBadge(item);
+    // Row and badge are siblings (not nested buttons): the row opens the member, the badge the photos.
+    return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: R.lg, backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line }}>
+      <Pressable
+        disabled={!onOpenMember}
+        onPress={() => onOpenMember?.(item.userId)}
+        accessibilityRole={onOpenMember ? 'button' : undefined}
+        accessibilityLabel={`${item.userName ?? 'Member'}, ${item.branchName ?? ''}, checked in ${time(item.checkInAt)}${item.checkOutAt ? `, out ${time(item.checkOutAt)}` : ', still in'}, ${METHOD_LABEL[item.method] ?? item.method}${face ? `, ${face.label}` : ''}`}
+        style={{ flex: 1, minWidth: 0 }}
+      >
         <Text numberOfLines={1} style={{ color: T.text, fontSize: 15, fontWeight: '700' }}>{item.userName || '—'}</Text>
         <Text numberOfLines={1} style={{ color: T.textSub, fontSize: 12, marginTop: 2 }}>
           {[item.branchName, `${time(item.checkInAt)} – ${item.checkOutAt ? time(item.checkOutAt) : 'still in'}`,
             item.distanceM != null ? formatDistance(item.distanceM) + ' from branch' : null].filter(Boolean).join(' · ')}
         </Text>
+      </Pressable>
+      <View style={{ alignItems: 'flex-end', gap: 6 }}>
+        <StatusPill label={METHOD_LABEL[item.method] ?? item.method} tone={item.method === 'Location' ? 'info' : 'brand'} />
+        {face && (
+          item.hasFaceSelfie && item.faceAttemptId ? (
+            <Pressable onPress={() => setPhotos({ id: item.faceAttemptId!, name: item.userName })} hitSlop={6}
+              accessibilityRole="button" accessibilityLabel={`${face.label}. Show the check-in selfie next to the reference photo`}>
+              <StatusPill label={face.label} tone={face.tone} />
+            </Pressable>
+          ) : <StatusPill label={face.label} tone={face.tone} />
+        )}
       </View>
-      <StatusPill label={METHOD_LABEL[item.method] ?? item.method} tone={item.method === 'Location' ? 'info' : 'brand'} />
-    </Pressable>
-  );
+    </View>
+    );
+  };
+
+  const renderFailed = (a: FaceAttempt) => {
+    const b = attemptBadge(a);
+    return (
+      <Pressable
+        key={a.id}
+        disabled={!a.hasSelfie}
+        onPress={() => setPhotos({ id: a.id, name: a.userName })}
+        accessibilityRole={a.hasSelfie ? 'button' : undefined}
+        accessibilityLabel={`Failed face check: ${a.userName ?? 'Member'}, ${time(a.at)}, ${b.label}${a.hasSelfie ? '. Show selfie and reference photo' : ''}`}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 14, borderRadius: R.lg, backgroundColor: T.bgInput, borderWidth: 1, borderColor: T.line }}
+      >
+        <Feather name="user-x" size={16} color={T.textFaint} />
+        <Text numberOfLines={1} style={{ flex: 1, color: T.text, fontSize: 14 }}>
+          {a.userName || '—'}<Text style={{ color: T.textSub, fontSize: 12 }}>{`  ${time(a.at)}${a.branchName ? ` · ${a.branchName}` : ''}`}</Text>
+        </Text>
+        <StatusPill label={b.label} tone={b.tone} />
+        {a.hasSelfie && <Feather name="image" size={16} color={T.textFaint} />}
+      </Pressable>
+    );
+  };
 
   return (
     <Screen>
@@ -116,8 +158,17 @@ export default function AttendanceLogPage({ onBack, onCheckIn, onOpenSettings, o
           onRefresh={refetch}
           contentContainerStyle={{ paddingHorizontal: SP.xl, paddingBottom: 32, gap: 10, flexGrow: 1 }}
           ListEmptyComponent={<EmptyState icon="calendar" title="No check-ins" subtitle="Nobody checked in on this day." />}
+          ListFooterComponent={failedItems.length > 0 ? (
+            <View style={{ gap: 8, marginTop: 12 }}>
+              <Text accessibilityRole="header" style={{ color: T.textSub, fontSize: 12, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+                Failed face checks · {failed.data?.totalRecords ?? failedItems.length}
+              </Text>
+              {failedItems.map(renderFailed)}
+            </View>
+          ) : null}
         />
       )}
+      <FacePhotosSheet attemptId={photos?.id ?? null} memberName={photos?.name} onClose={() => setPhotos(null)} />
     </Screen>
   );
 }

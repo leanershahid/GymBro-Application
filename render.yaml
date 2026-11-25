@@ -55,6 +55,21 @@ services:
         sync: false
       - key: Storage__PrivateDocuments    # true = documents need GET api/uploads/signed-url to open
         value: "false"
+      # ── Face check-in (optional per gym; off until a gym switches it on) ────────────
+      # Provider: local (default) = FaceAiSharp / ONNX Runtime on this server, no keys, no per-check cost,
+      #   but the models need roughly 200-300 MB of extra RAM: too much for the 512 MB free plan (use a
+      #   1 GB+ instance, or Provider=aws). Default model weights (InsightFace) are NON-COMMERCIAL only.
+      # aws = AWS Rekognition (also set the three Aws__* keys; IAM user limited to rekognition:CompareFaces
+      #   and rekognition:DetectFaces). disabled = face check-in can't be switched on.
+      # Either way reference photos need private storage (Cloudinary or Supabase above).
+      - key: FaceMatching__Provider       # local | aws | disabled
+        value: local
+      - key: Aws__Region                  # aws only, e.g. ap-south-1 (Mumbai)
+        sync: false
+      - key: Aws__AccessKeyId             # aws only
+        sync: false
+      - key: Aws__SecretAccessKey         # aws only
+        sync: false
       # ── Push notifications (Expo) ─────────────────────────────────────────────────
       - key: EXPO_ACCESS_TOKEN            # optional; only if "Enhanced push security" is on for the Expo project
         sync: false

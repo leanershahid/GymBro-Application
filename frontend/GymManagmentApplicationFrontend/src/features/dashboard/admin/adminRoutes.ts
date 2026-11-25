@@ -10,8 +10,8 @@ export const ADMIN_SCREENS = [
   'tenants', 'add-tenant', 'edit-tenant',
   'leads', 'add-lead',
   'exercises', 'add-exercise',
-  'workouts', 'add-workout',
-  'plans', 'add-plan',
+  'workouts', 'add-workout', 'workout-editor',
+  'plans', 'add-plan', 'plan-builder', 'plan-client',
   'roles',
   'billing', 'new-invoice', 'new-membership',
   'classes', 'pt-sessions', 'booking-rules',
@@ -50,8 +50,8 @@ export const OWNER_ROUTE: Partial<Record<AdminScreen, string>> = {
   'add-tenant': 'tenants', 'edit-tenant': 'tenants',
   'add-lead': 'leads',
   'add-exercise': 'exercises',
-  'add-workout': 'workouts',
-  'add-plan': 'plans',
+  'add-workout': 'workouts', 'workout-editor': 'workouts',
+  'add-plan': 'plans', 'plan-builder': 'plans', 'plan-client': 'plans',
   'new-invoice': 'billing',
   'module-access': 'roles',
   'attendance-log': 'attendance', 'attendance-settings': 'attendance',
@@ -71,10 +71,12 @@ export const ownerOf = (screen: AdminScreen) => OWNER_ROUTE[screen] ?? screen;
 /** Screens about one record (`selectedId`): their URL carries the id, e.g. /admin/member-detail/12. */
 const ID_SCREENS = new Set<AdminScreen>(['membership-requests', 'member-detail', 'edit-member', 'new-membership', 'edit-branch', 'edit-tenant', 'module-access',
   'announcement-editor', 'branch-hours', 'support-request', 'messages-review-thread',
-  'facility-asset', 'facility-report', 'incident', 'incident-new']);
+  'facility-asset', 'facility-report', 'incident', 'incident-new',
+  // Training: a plan in the builder, a member's copy (by assignment id), a workout's structure.
+  'plan-builder', 'plan-client', 'workout-editor']);
 /** ...and the ones that make no sense without it (module-access then just opens on the first role). */
 const NEEDS_ID = new Set<AdminScreen>(['member-detail', 'edit-member', 'new-membership', 'edit-branch', 'edit-tenant', 'support-request', 'messages-review-thread',
-  'facility-asset', 'facility-report', 'incident']);
+  'facility-asset', 'facility-report', 'incident', 'plan-builder', 'plan-client', 'workout-editor']);
 
 /** Where the admin area is: the screen, its record, and the shop's own path when in the shop. */
 export interface AdminLocation {

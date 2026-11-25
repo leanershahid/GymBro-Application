@@ -7,9 +7,9 @@ import {
 import { showAlert } from '../../common/components/dialogs';
 import { Feather } from '@expo/vector-icons';
 import { useExerciseLibrary } from '../../exercises/api/exerciseQueries';
-import { useWorkouts, useCreateWorkout, usePlans, useCreatePlan, useDeleteWorkout } from '../../workouts/api/workoutQueries';
+import { useWorkouts, useCreateWorkout, useDeleteWorkout } from '../../workouts/api/workoutQueries';
 import {
-  Workout, WorkoutPlan, WorkoutPayload, WorkoutPlanPayload, WorkoutGoal, WorkoutDifficulty,
+  Workout, WorkoutPayload, WorkoutGoal, WorkoutDifficulty,
 } from '../../workouts/types/workout.types';
 import { T, R, SP, withAlpha } from '../../../theme';
 import Screen from '../../common/components/Screen';
@@ -28,8 +28,7 @@ import { humanize } from '../../common/components/ChipSelect';
 import { difficultyTone, goalTone } from '../../common/constants/statusColors';
 import { apiErrorText } from '../../../api/apiError';
 import { useCloneWorkout } from '../api/programQueries';
-import WorkoutEditor from '../components/WorkoutEditor';
-import PlanScheduleEditor from '../components/PlanScheduleEditor';
+import { DayEditor, PlansList, workoutInUseFrom, workoutInUseText } from '../../training/builder';
 import AssignPage from '../components/AssignPage';
 import DetailsPage from '../components/DetailsPage';
 import IconButton from '../components/IconButton';
@@ -37,9 +36,6 @@ import { usePageTabs } from '../../access/context/AccessContext';
 
 type FeatherIconName = React.ComponentProps<typeof Feather>['name'];
 
-const GOAL_COLOR: Record<string, string> = {
-  general: T.textSub, weightloss: T.sky, musclegain: T.brand, endurance: T.brandGold,
-};
 const CAT_ICON: Record<string, FeatherIconName> = {
   strength: 'zap', cardio: 'activity', flexibility: 'wind', balance: 'target',
 };
@@ -56,23 +52,24 @@ type Tab = 'workouts' | 'plans' | 'exercises';
 /** Sub-screens opened from the builder lists. */
 type Sub =
   | { v: 'workout'; id: number; name: string }
-  | { v: 'plan'; id: number; name: string; weeks: number }
-  | { v: 'assign'; kind: 'workout' | 'plan'; id: number; name: string }
-  | { v: 'details-workout'; item: Workout }
-  | { v: 'details-plan'; item: WorkoutPlan };
+  | { v: 'assign'; id: number; name: string }
+  | { v: 'details-workout'; item: Workout };
 
-type Menu = { kind: 'workout'; item: Workout } | { kind: 'plan'; item: WorkoutPlan };
+type Menu = { kind: 'workout'; item: Workout };
 
-interface Props { trainerId: number; onBack?: () => void; }
+interface Props {
+  trainerId: number;
+  onBack?: () => void;
+  /** Opens a plan in the weekly plan builder (its own route). */
+  onOpenPlan: (planId: number) => void;
+}
 
 interface WorkoutForm { open: boolean; name: string; goal: WorkoutGoal; diff: WorkoutDifficulty; duration: string }
-interface PlanForm { open: boolean; name: string; weeks: string; goal: WorkoutGoal }
 const WORKOUT_FORM: WorkoutForm = { open: false, name: '', goal: 'General', diff: 'Intermediate', duration: '' };
-const PLAN_FORM: PlanForm = { open: false, name: '', weeks: '', goal: 'General' };
 /** Reducer that merges a partial update into a form object. */
 function patch<F>(state: F, update: Partial<F>): F { return { ...state, ...update }; }
 
-export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
+export default function ProgramBuilderScreen({ trainerId, onBack, onOpenPlan }: Props) {
   const toast = useToast();
   // Tabs come from the access list (trainer.programs.*).
   const { items: tabs, tab: pageTab, setTab } = usePageTabs('trainer.programs');
@@ -83,35 +80,27 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
   const [exFilter, setExFilter] = useState('All');
   const [exSearch, setExSearch] = useState('');
   const [wPage, setWPage]       = useState(1);
-  const [pPage, setPPage]       = useState(1);
 
   // Create-workout and create-plan forms: one state object each (ARCH-116).
   const [wForm, patchW] = useReducer(patch<WorkoutForm>, WORKOUT_FORM);
-  const [pForm, patchP] = useReducer(patch<PlanForm>, PLAN_FORM);
   const { open: showWForm, name: wName, goal: wGoal, diff: wDiff, duration: wDuration } = wForm;
-  const { open: showPForm, name: pName, weeks: pWeeks, goal: pGoal } = pForm;
 
   const tagParam = exFilter !== 'All' ? exFilter.toLowerCase() : undefined;
   const ex = useExerciseLibrary(exPage, tagParam);
   const wq = useWorkouts(wPage, 20);
-  const pq = usePlans(pPage, 20);
   const { mutate: createWorkout, isPending: creating } = useCreateWorkout();
-  const { mutate: createPlan,    isPending: creatingPlan } = useCreatePlan();
   const { mutate: deleteWorkout } = useDeleteWorkout();
   const { mutate: cloneWorkout } = useCloneWorkout();
 
   const exercises = ex.data?.items ?? [];
   const workouts  = wq.data?.items ?? [];
-  const plans     = pq.data?.items ?? [];
 
   const filteredEx = exSearch.trim() ? exercises.filter(e => e.name.toLowerCase().includes(exSearch.toLowerCase())) : exercises;
 
   // ── Sub-screens ──
-  if (sub?.v === 'workout') return <WorkoutEditor workoutId={sub.id} workoutName={sub.name} onBack={() => setSub(null)} />;
-  if (sub?.v === 'plan') return <PlanScheduleEditor planId={sub.id} planName={sub.name} durationWeeks={sub.weeks} onBack={() => setSub(null)} />;
-  if (sub?.v === 'assign') return <AssignPage kind={sub.kind} id={sub.id} name={sub.name} trainerId={trainerId} onBack={() => setSub(null)} />;
+  if (sub?.v === 'workout') return <DayEditor workoutId={sub.id} title={sub.name} onBack={() => setSub(null)} />;
+  if (sub?.v === 'assign') return <AssignPage id={sub.id} name={sub.name} trainerId={trainerId} onBack={() => setSub(null)} />;
   if (sub?.v === 'details-workout') return <DetailsPage kind="workout" item={sub.item} onBack={() => setSub(null)} />;
-  if (sub?.v === 'details-plan') return <DetailsPage kind="plan" item={sub.item} onBack={() => setSub(null)} />;
 
   const handleCreateWorkout = () => {
     if (!wName.trim()) return;
@@ -127,20 +116,6 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
     });
   };
 
-  const handleCreatePlan = () => {
-    if (!pName.trim() || !pWeeks) return;
-    const payload: WorkoutPlanPayload = { tenantId: currentTenantId(), name: pName.trim(), durationWeeks: Number(pWeeks), goal: pGoal };
-    createPlan(payload, {
-      onSuccess: res => {
-        if (!res.success || !res.data) { showAlert('Could not create plan', res.message || 'Please try again.'); return; }
-        patchP({ open: false, name: '', weeks: '' });
-        toast.show({ type: 'success', message: 'Plan created — now fill in its schedule.' });
-        setSub({ v: 'plan', id: res.data.id, name: res.data.name, weeks: res.data.durationWeeks });
-      },
-      onError: e => showAlert('Could not create plan', apiErrorText(e)),
-    });
-  };
-
   const confirmDeleteWorkout = (w: Workout) => {
     showAlert('Delete workout?', `"${w.name}" will be deleted. Clients it was assigned to will no longer see it.`, [
       { text: 'Cancel', style: 'cancel' },
@@ -148,10 +123,15 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
         text: 'Delete', style: 'destructive',
         onPress: () => deleteWorkout(w.id, {
           onSuccess: (res: { success?: boolean; message?: string }) => {
+            const inUse = workoutInUseFrom(res);
+            if (inUse) { showAlert('Workout in use', workoutInUseText(inUse)); return; }
             if (res && res.success === false) { showAlert('Could not delete', res.message || 'The workout was not deleted.'); return; }
             toast.show({ type: 'success', message: res?.message || 'Workout deleted.' });
           },
-          onError: e => showAlert('Could not delete', apiErrorText(e)),
+          onError: e => {
+            const inUse = workoutInUseFrom(e);
+            showAlert(inUse ? 'Workout in use' : 'Could not delete', inUse ? workoutInUseText(inUse) : apiErrorText(e));
+          },
         }),
       },
     ]);
@@ -172,13 +152,9 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
     menu?.kind === 'workout' ? [
       { icon: 'list',       label: 'Edit exercises',     onPress: () => runMenu(() => setSub({ v: 'workout', id: menu.item.id, name: menu.item.name })) },
       { icon: 'edit-2',     label: 'Edit details',       onPress: () => runMenu(() => setSub({ v: 'details-workout', item: menu.item })) },
-      { icon: 'user-plus',  label: 'Assign to clients',  onPress: () => runMenu(() => setSub({ v: 'assign', kind: 'workout', id: menu.item.id, name: menu.item.name })) },
+      { icon: 'user-plus',  label: 'Assign to clients',  onPress: () => runMenu(() => setSub({ v: 'assign', id: menu.item.id, name: menu.item.name })) },
       { icon: 'copy',       label: 'Clone',              onPress: () => runMenu(() => doClone(menu.item)) },
       { icon: 'trash-2',    label: 'Delete',             danger: true, onPress: () => runMenu(() => confirmDeleteWorkout(menu.item)) },
-    ] : menu?.kind === 'plan' ? [
-      { icon: 'calendar',   label: 'Edit schedule',      onPress: () => runMenu(() => setSub({ v: 'plan', id: menu.item.id, name: menu.item.name, weeks: menu.item.durationWeeks })) },
-      { icon: 'edit-2',     label: 'Edit details',       onPress: () => runMenu(() => setSub({ v: 'details-plan', item: menu.item })) },
-      { icon: 'user-plus',  label: 'Assign to clients',  onPress: () => runMenu(() => setSub({ v: 'assign', kind: 'plan', id: menu.item.id, name: menu.item.name })) },
     ] : [];
 
   return (
@@ -252,58 +228,8 @@ export default function ProgramBuilderScreen({ trainerId, onBack }: Props) {
         </ScrollView>
       )}
 
-      {/* ── Plans ── */}
-      {tab === 'plans' && (
-        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
-          <PrimaryButton
-            label="New Plan"
-            icon={showPForm ? 'chevron-up' : 'plus'}
-            onPress={() => patchP({ open: !showPForm })}
-            accessibilityHint={showPForm ? 'Hides the new plan form' : 'Shows the new plan form'}
-            style={{ alignSelf: 'flex-start', marginBottom: 16 }}
-          />
-
-          {showPForm && (
-            <View style={{ backgroundColor: T.bgInput, borderRadius: R.xl, padding: 16, borderWidth: 1, borderColor: T.bgInputActive, marginBottom: 16 }}>
-              <Field label="Plan name" value={pName} onChangeText={name => patchP({ name })} placeholder="Plan name…" />
-              <Field label="Duration (weeks)" value={pWeeks} onChangeText={weeks => patchP({ weeks })} placeholder="Duration (weeks)…" keyboardType="numeric" />
-              <Text style={{ color: T.textSub, fontSize: 13, marginBottom: 7 }}>Goal</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                {GOALS.map(g => <Chip key={g} label={humanize(g)} a11y={`Goal: ${g}`} active={pGoal === g} onPress={() => patchP({ goal: g })} />)}
-              </View>
-              <PrimaryButton label="Create & build schedule" onPress={handleCreatePlan} loading={creatingPlan} disabled={!pName.trim() || !pWeeks} />
-            </View>
-          )}
-
-          {pq.isLoading && <Skeleton rows={3} height={90} />}
-          {pq.isError && (
-            <EmptyState icon="wifi-off" tone="error" title="Couldn't load plans" subtitle={apiErrorText(pq.error)} action={{ label: 'Retry', onPress: () => pq.refetch() }} />
-          )}
-          {!pq.isLoading && !pq.isError && plans.length === 0 && (
-            <EmptyState icon="calendar" title="No plans yet" subtitle="Create a plan, then schedule a workout for each day." />
-          )}
-          {!pq.isLoading && !pq.isError && plans.map(plan => {
-            const gc = GOAL_COLOR[plan.goal?.toLowerCase() ?? 'general'] ?? T.textSub;
-            return (
-              <ItemCard
-                key={plan.id}
-                title={plan.name}
-                accent={gc}
-                a11yHint="Opens the plan schedule"
-                onPress={() => setSub({ v: 'plan', id: plan.id, name: plan.name, weeks: plan.durationWeeks })}
-                onMore={() => setMenu({ kind: 'plan', item: plan })}
-              >
-                <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-                  <MetaPill icon="calendar" label={`${plan.durationWeeks} wk${plan.durationWeeks === 1 ? '' : 's'}`} />
-                  {plan.goal && <StatusPill label={humanize(plan.goal)} tone={goalTone(plan.goal)} />}
-                  {plan.difficulty && <StatusPill label={plan.difficulty} tone={difficultyTone(plan.difficulty)} />}
-                </View>
-              </ItemCard>
-            );
-          })}
-          {!pq.isLoading && !pq.isError && <PaginationFooter page={pPage} totalPages={pq.data?.totalPages ?? 1} onChange={setPPage} />}
-        </ScrollView>
-      )}
+      {/* ── Plans: the shared weekly plan builder list ── */}
+      {tab === 'plans' && <PlansList embedded onOpenPlan={onOpenPlan} />}
 
       {/* ── Exercise Library (browse; add exercises from inside the workout editor) ── */}
       {tab === 'exercises' && (

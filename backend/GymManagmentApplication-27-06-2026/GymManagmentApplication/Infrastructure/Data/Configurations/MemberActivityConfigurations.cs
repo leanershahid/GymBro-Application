@@ -38,6 +38,7 @@ public sealed class AttendanceConfiguration : IEntityTypeConfiguration<Attendanc
         b.HasOne(a => a.Tenant).WithMany().HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Restrict);
         b.Property(e => e.CheckInLat).HasPrecision(10, 7);
         b.Property(e => e.CheckInLng).HasPrecision(10, 7);
+        b.Property(e => e.FaceScore).HasPrecision(5, 2);
         b.HasIndex(a => new { a.UserId, a.CheckInAt });
     }
 }

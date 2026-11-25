@@ -11,16 +11,9 @@ using GymManagmentApplication.Application.Workout.Validators;
 using GymManagmentApplication.Application.WorkoutPlan.Interfaces;
 using GymManagmentApplication.Application.WorkoutPlan.Services;
 using GymManagmentApplication.Application.WorkoutPlan.Validators;
-using GymManagmentApplication.Application.WorkoutBuilder.Interfaces;
-using GymManagmentApplication.Application.WorkoutBuilder.Services;
-using GymManagmentApplication.Application.WorkoutBuilder.Validators;
-using GymManagmentApplication.Application.WorkoutAutomation.Interfaces;
-using GymManagmentApplication.Application.WorkoutAutomation.Services;
-using GymManagmentApplication.Application.WorkoutAutomation.Validators;
 using GymManagmentApplication.Infrastructure.Repositories.Exercise;
 using GymManagmentApplication.Infrastructure.Repositories.Workout;
 using GymManagmentApplication.Infrastructure.Repositories.WorkoutPlan;
-using GymManagmentApplication.Infrastructure.Repositories.WorkoutAutomation;
 using GymManagmentApplication.Infrastructure.Repositories;
 using GymManagmentApplication.Application.Auth.Interfaces;
 using GymManagmentApplication.Application.Auth.Services;
@@ -190,6 +183,16 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "Gym Management API", Version = "v1" });
     c.OperationFilter<GymManagmentApplication.Filters.SwaggerConventionsFilter>();
+    // Two features define a class with the same short name (e.g. EmergencyContactRequest in Trainer
+    // and Safety), which made /swagger/v1/swagger.json fail with a duplicate schemaId.
+    static string SchemaId(Type t)
+    {
+        var name = (t.IsGenericType ? t.GetGenericTypeDefinition().FullName! : t.FullName ?? t.Name)
+            .Replace("GymManagmentApplication.", "").Replace("Application.", "").Replace('+', '.');
+        if (!t.IsGenericType) return name;
+        return name[..name.IndexOf('`')] + "Of" + string.Join("And", t.GetGenericArguments().Select(SchemaId));
+    }
+    c.CustomSchemaIds(SchemaId);
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Description = "JWT Authorization header. Enter: Bearer {token}",
@@ -290,8 +293,6 @@ builder.Services.AddScoped<IRolesService, RolesService>();
 builder.Services.AddScoped<IExerciseService, ExerciseService>();
 builder.Services.AddScoped<IWorkoutService, WorkoutService>();
 builder.Services.AddScoped<IWorkoutPlanService, WorkoutPlanService>();
-builder.Services.AddScoped<IWorkoutBuilderService, WorkoutBuilderService>();
-builder.Services.AddScoped<IWorkoutAutomationService, WorkoutAutomationService>();
 builder.Services.AddScoped<IAccessService, AccessService>();
 GymManagmentApplication.Application.Common.DataServicesRegistration.AddDataServices(builder.Services);
 GymManagmentApplication.Application.Common.ApiServicesRegistration.AddApiServices(builder.Services);
@@ -327,6 +328,9 @@ builder.Services.AddScoped<IMyBillingService, MyBillingService>();
 builder.Services.AddScoped<GymManagmentApplication.Application.Scheduling.ClassService>();
 builder.Services.AddScoped<GymManagmentApplication.Application.Scheduling.PtService>();
 builder.Services.AddScoped<GymManagmentApplication.Application.Workout.WorkoutStructureService>();
+// Weekly plan builder, member training (calendar, overrides, history, records).
+builder.Services.AddScoped<GymManagmentApplication.Application.Training.PlanBuilderService>();
+builder.Services.AddScoped<GymManagmentApplication.Application.Training.MemberTrainingService>();
 builder.Services.AddScoped<GymManagmentApplication.Application.Engagement.Notifier>();
 builder.Services.AddScoped<GymManagmentApplication.Application.Challenges.Services.ChallengeParticipationService>();
 builder.Services.AddScoped<GymManagmentApplication.Application.Health.Services.ProgressService>();
@@ -339,6 +343,10 @@ builder.Services.AddScoped<IHealthService, HealthService>();
 builder.Services.AddScoped<IChallengesService, ChallengesService>();
 builder.Services.AddScoped<IAiCoachSettingsService, AiCoachSettingsService>();
 builder.Services.AddScoped<GymManagmentApplication.Application.Attendance.IAttendanceService, GymManagmentApplication.Application.Attendance.AttendanceService>();
+// Face check-in (optional per gym): AWS Rekognition when FaceMatching:Provider=aws and Aws:* keys are set,
+// otherwise a "not configured" matcher (face check-in can't be switched on). Daily selfie retention job.
+GymManagmentApplication.Infrastructure.FaceMatching.FaceMatchingRegistration.AddFaceMatching(builder.Services, builder.Configuration);
+builder.Services.AddHostedService<GymManagmentApplication.Infrastructure.Jobs.FaceCheckInJob>();
 
 // Infrastructure Repositories
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
@@ -350,7 +358,6 @@ builder.Services.AddScoped<ICorporateRepository, CorporateRepository>();
 builder.Services.AddScoped<IExerciseRepository, ExerciseRepository>();
 builder.Services.AddScoped<IWorkoutRepository, WorkoutRepository>();
 builder.Services.AddScoped<IWorkoutPlanRepository, WorkoutPlanRepository>();
-builder.Services.AddScoped<IWorkoutAutomationRepository, WorkoutAutomationRepository>();
 
 var app = builder.Build();
 

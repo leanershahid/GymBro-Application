@@ -159,7 +159,7 @@ public class PushOutboxTests : IDisposable
             n.Add(1, 100, "New invoice", "Due soon", "billing", null);                                 // sent
             n.Add(1, 101, "New invoice", "Due soon", "billing", null);                                 // opted out
             n.Add(1, 100, "Promo", "20% off", "marketing", null);                                      // marketing default off
-            n.Add(1, 100, "Spin starts in 2 hours", null, "class_reminder", 5, expiresAt: DateTime.UtcNow.AddMinutes(-1)); // too late
+            n.Add(1, 100, "Spin starts in 2 hours", null, "class_reminder", 5, expiresAt: NoonInKolkata().AddMinutes(-1)); // too late (relative to the test's fixed clock)
             db.SaveChanges();
         }
 

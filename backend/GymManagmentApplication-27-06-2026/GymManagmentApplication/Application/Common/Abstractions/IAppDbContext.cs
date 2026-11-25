@@ -71,6 +71,9 @@ public interface IAppDbContext
     DbSet<WorkoutPlanDay> WorkoutPlanDays { get; }
     DbSet<WorkoutPlanAssignment> WorkoutPlanAssignments { get; }
     DbSet<WorkoutPlanBranch> WorkoutPlanBranches { get; }
+    DbSet<WorkoutSetLog> WorkoutSetLogs { get; }
+    DbSet<PersonalRecord> PersonalRecords { get; }
+    DbSet<PlanDayOverride> PlanDayOverrides { get; }
     DbSet<WorkoutAutomationRule> WorkoutAutomationRules { get; }
     DbSet<WorkoutAutomationLog> WorkoutAutomationLogs { get; }
     DbSet<TrainerProfile> TrainerProfiles { get; }
@@ -83,6 +86,9 @@ public interface IAppDbContext
     DbSet<GymClass> GymClasses { get; }
     DbSet<ClassBooking> ClassBookings { get; }
     DbSet<Domain.Entities.Scheduling.Attendance> Attendances { get; }
+    // Face check-in (self check-in with a selfie) — FaceCheckInConfigurations.cs
+    DbSet<Domain.Entities.Scheduling.FaceEnrollment> FaceEnrollments { get; }
+    DbSet<Domain.Entities.Scheduling.FaceCheckInAttempt> FaceCheckInAttempts { get; }
     DbSet<ClientProfile> ClientProfiles { get; }
     DbSet<HealthMetric> HealthMetrics { get; }
     DbSet<HabitTracker> HabitTrackers { get; }

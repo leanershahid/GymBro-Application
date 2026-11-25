@@ -5,7 +5,6 @@ import {
   Workout, WorkoutPlan,
   WorkoutPayload, WorkoutCreateResponse, WorkoutListResponse,
   WorkoutPlanPayload, PlanCreateResponse, PlanListResponse,
-  AutomationRulePayload, AutomationListResponse,
   WORKOUT_GOALS, WORKOUT_DIFFICULTIES, toEnumIndex,
 } from '../types/workout.types';
 
@@ -60,18 +59,5 @@ export const fetchPlan = async (id: number): Promise<ApiResponse<WorkoutPlan>> =
 /** Admin only on the API. */
 export const deletePlan = async (id: number) => {
   const { data } = await axiosInstance.delete(`${ENDPOINTS.PLANS}/${id}`);
-  return data;
-};
-
-// ─── Automation ───────────────────────────────────────────────────
-export const fetchAutomationRules = async (tenantId: number): Promise<AutomationListResponse> => {
-  const { data } = await axiosInstance.get<AutomationListResponse>(ENDPOINTS.AUTOMATION_RULES, {
-    params: { tenantId },
-  });
-  return data;
-};
-
-export const createAutomationRule = async (payload: AutomationRulePayload) => {
-  const { data } = await axiosInstance.post(ENDPOINTS.AUTOMATION_RULES, payload);
   return data;
 };

@@ -113,6 +113,12 @@ namespace GymManagmentApplication.Migrations
             modelBuilder.HasSequence("Exercises_Id_hilo_seq")
                 .IncrementsBy(10);
 
+            modelBuilder.HasSequence("FaceCheckInAttempts_Id_hilo_seq")
+                .IncrementsBy(10);
+
+            modelBuilder.HasSequence("FaceEnrollments_Id_hilo_seq")
+                .IncrementsBy(10);
+
             modelBuilder.HasSequence("FacilityAssets_Id_hilo_seq")
                 .IncrementsBy(10);
 
@@ -198,6 +204,12 @@ namespace GymManagmentApplication.Migrations
                 .IncrementsBy(10);
 
             modelBuilder.HasSequence("Permissions_Id_hilo_seq")
+                .IncrementsBy(10);
+
+            modelBuilder.HasSequence("PersonalRecords_Id_hilo_seq")
+                .IncrementsBy(10);
+
+            modelBuilder.HasSequence("PlanDayOverrides_Id_hilo_seq")
                 .IncrementsBy(10);
 
             modelBuilder.HasSequence("PricingRules_Id_hilo_seq")
@@ -390,6 +402,9 @@ namespace GymManagmentApplication.Migrations
                 .IncrementsBy(10);
 
             modelBuilder.HasSequence("WorkoutSections_Id_hilo_seq")
+                .IncrementsBy(10);
+
+            modelBuilder.HasSequence("WorkoutSetLogs_Id_hilo_seq")
                 .IncrementsBy(10);
 
             modelBuilder.HasSequence("WorkoutTemplates_Id_hilo_seq")
@@ -4332,6 +4347,13 @@ namespace GymManagmentApplication.Migrations
                     b.Property<short?>("DurationMin")
                         .HasColumnType("smallint");
 
+                    b.Property<decimal?>("FaceScore")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<bool?>("FaceVerified")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("GateDevice")
                         .HasColumnType("text");
 
@@ -4553,6 +4575,109 @@ namespace GymManagmentApplication.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("ClassTypes");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Scheduling.FaceCheckInAttempt", b =>
+                {
+                    b.Property<decimal>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("AttendanceId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal?>("BranchId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime?>("CapturedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("SelfieUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<decimal?>("Similarity")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<decimal>("TenantId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<int>("Threshold")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("UserId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TenantId", "At");
+
+                    b.HasIndex("TenantId", "UserId", "At");
+
+                    b.ToTable("FaceCheckInAttempts", (string)null);
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Scheduling.FaceEnrollment", b =>
+                {
+                    b.Property<decimal>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("EnrolledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("EnrolledByUserId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<string>("PhotoUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("TenantId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("UserId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TenantId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("FaceEnrollments", (string)null);
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Scheduling.GymClass", b =>
@@ -5949,6 +6074,99 @@ namespace GymManagmentApplication.Migrations
                     b.ToTable("MuscleGroups");
                 });
 
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.PersonalRecord", b =>
+                {
+                    b.Property<decimal>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime>("AchievedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("ClientId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal>("ExerciseId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<int?>("Reps")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("TenantId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<decimal?>("WeightKg")
+                        .HasPrecision(7, 2)
+                        .HasColumnType("numeric(7,2)");
+
+                    b.Property<decimal?>("WorkoutLogId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal?>("WorkoutSetLogId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExerciseId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("WorkoutLogId");
+
+                    b.HasIndex("WorkoutSetLogId");
+
+                    b.HasIndex("ClientId", "ExerciseId", "Type")
+                        .IsUnique();
+
+                    b.ToTable("PersonalRecords");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.PlanDayOverride", b =>
+                {
+                    b.Property<decimal>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("ByUserId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("MovedToDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("PlanAssignmentId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal>("TenantId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ByUserId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("PlanAssignmentId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("PlanDayOverrides");
+                });
+
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.PtSession", b =>
                 {
                     b.Property<decimal>("Id")
@@ -6468,6 +6686,9 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal>("SectionId")
                         .HasColumnType("numeric(20,0)");
 
+                    b.Property<string>("SetTargets")
+                        .HasColumnType("jsonb");
+
                     b.Property<byte?>("Sets")
                         .HasColumnType("smallint");
 
@@ -6510,6 +6731,9 @@ namespace GymManagmentApplication.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<byte?>("DayNumber")
+                        .HasColumnType("smallint");
+
                     b.Property<short?>("DurationMin")
                         .HasColumnType("smallint");
 
@@ -6528,12 +6752,18 @@ namespace GymManagmentApplication.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("PlanAssignmentId")
+                        .HasColumnType("numeric(20,0)");
+
                     b.Property<string>("PostureData")
                         .HasColumnType("jsonb");
 
                     b.Property<decimal?>("Score")
                         .HasPrecision(10, 4)
                         .HasColumnType("numeric(10,4)");
+
+                    b.Property<byte?>("SessionRpe")
+                        .HasColumnType("smallint");
 
                     b.Property<DateTime>("StartedAt")
                         .HasColumnType("timestamp with time zone");
@@ -6543,6 +6773,9 @@ namespace GymManagmentApplication.Migrations
 
                     b.Property<decimal>("TenantId")
                         .HasColumnType("numeric(20,0)");
+
+                    b.Property<byte?>("WeekNumber")
+                        .HasColumnType("smallint");
 
                     b.HasKey("Id");
 
@@ -6555,6 +6788,8 @@ namespace GymManagmentApplication.Migrations
                     b.HasIndex("TemplateId");
 
                     b.HasIndex("TenantId");
+
+                    b.HasIndex("PlanAssignmentId", "WeekNumber", "DayNumber");
 
                     b.ToTable("WorkoutLogs");
                 });
@@ -6571,6 +6806,9 @@ namespace GymManagmentApplication.Migrations
                     b.Property<decimal>("CreatedBy")
                         .HasColumnType("numeric(20,0)");
 
+                    b.Property<byte?>("DaysPerWeekHint")
+                        .HasColumnType("smallint");
+
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
@@ -6586,12 +6824,21 @@ namespace GymManagmentApplication.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsTemplate")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("OwnerClientId")
+                        .HasColumnType("numeric(20,0)");
+
                     b.Property<string>("ProgressionRules")
                         .HasColumnType("jsonb");
+
+                    b.Property<decimal?>("SourcePlanId")
+                        .HasColumnType("numeric(20,0)");
 
                     b.Property<string>("Tags")
                         .HasColumnType("jsonb");
@@ -6606,7 +6853,11 @@ namespace GymManagmentApplication.Migrations
 
                     b.HasIndex("CreatedBy");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("OwnerClientId");
+
+                    b.HasIndex("SourcePlanId");
+
+                    b.HasIndex("TenantId", "IsTemplate");
 
                     b.ToTable("WorkoutPlans");
                 });
@@ -6693,8 +6944,16 @@ namespace GymManagmentApplication.Migrations
                     b.Property<bool>("IsRestDay")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<decimal?>("TemplateId")
                         .HasColumnType("numeric(20,0)");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<decimal>("WeekId")
                         .HasColumnType("numeric(20,0)");
@@ -6761,6 +7020,72 @@ namespace GymManagmentApplication.Migrations
                     b.ToTable("WorkoutSections");
                 });
 
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutSetLog", b =>
+                {
+                    b.Property<decimal>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal>("ClientId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<bool>("Completed")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal?>("DistanceM")
+                        .HasPrecision(9, 2)
+                        .HasColumnType("numeric(9,2)");
+
+                    b.Property<int?>("DurationSec")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("ExerciseId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<DateTime>("PerformedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("Reps")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("Rpe")
+                        .HasPrecision(3, 1)
+                        .HasColumnType("numeric(3,1)");
+
+                    b.Property<byte>("SetNo")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("SetType")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("TenantId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal?>("WeightKg")
+                        .HasPrecision(7, 2)
+                        .HasColumnType("numeric(7,2)");
+
+                    b.Property<decimal?>("WorkoutExerciseId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<decimal>("WorkoutLogId")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExerciseId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("WorkoutExerciseId");
+
+                    b.HasIndex("WorkoutLogId");
+
+                    b.HasIndex("ClientId", "ExerciseId", "PerformedAt");
+
+                    b.ToTable("WorkoutSetLogs");
+                });
+
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutTemplate", b =>
                 {
                     b.Property<decimal>("Id")
@@ -6801,6 +7126,9 @@ namespace GymManagmentApplication.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("OwnerPlanDayId")
+                        .HasColumnType("numeric(20,0)");
+
                     b.Property<string>("Tags")
                         .HasColumnType("jsonb");
 
@@ -6816,6 +7144,8 @@ namespace GymManagmentApplication.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedBy");
+
+                    b.HasIndex("OwnerPlanDayId");
 
                     b.HasIndex("TenantId");
 
@@ -8210,6 +8540,36 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Tenant");
                 });
 
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Scheduling.FaceCheckInAttempt", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Scheduling.FaceEnrollment", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Scheduling.GymClass", b =>
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Branch", "Branch")
@@ -8733,6 +9093,61 @@ namespace GymManagmentApplication.Migrations
                     b.Navigation("Muscle");
                 });
 
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.PersonalRecord", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.Exercise", "Exercise")
+                        .WithMany()
+                        .HasForeignKey("ExerciseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.WorkoutLog", null)
+                        .WithMany()
+                        .HasForeignKey("WorkoutLogId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.WorkoutSetLog", null)
+                        .WithMany()
+                        .HasForeignKey("WorkoutSetLogId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Exercise");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.PlanDayOverride", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("ByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.WorkoutPlanAssignment", "PlanAssignment")
+                        .WithMany()
+                        .HasForeignKey("PlanAssignmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PlanAssignment");
+                });
+
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.PtSession", b =>
                 {
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Branch", null)
@@ -8990,6 +9405,11 @@ namespace GymManagmentApplication.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.WorkoutPlanAssignment", "PlanAssignment")
+                        .WithMany()
+                        .HasForeignKey("PlanAssignmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("GymManagmentApplication.Domain.Entities.Training.WorkoutTemplate", "Template")
                         .WithMany()
                         .HasForeignKey("TemplateId");
@@ -9004,6 +9424,8 @@ namespace GymManagmentApplication.Migrations
 
                     b.Navigation("Client");
 
+                    b.Navigation("PlanAssignment");
+
                     b.Navigation("Template");
 
                     b.Navigation("Tenant");
@@ -9016,6 +9438,16 @@ namespace GymManagmentApplication.Migrations
                         .HasForeignKey("CreatedBy")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerClientId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.WorkoutPlan", null)
+                        .WithMany()
+                        .HasForeignKey("SourcePlanId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", "Tenant")
                         .WithMany()
@@ -9110,6 +9542,42 @@ namespace GymManagmentApplication.Migrations
                         .IsRequired();
 
                     b.Navigation("Template");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutSetLog", b =>
+                {
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.Exercise", "Exercise")
+                        .WithMany()
+                        .HasForeignKey("ExerciseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Core.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.WorkoutExercise", null)
+                        .WithMany()
+                        .HasForeignKey("WorkoutExerciseId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("GymManagmentApplication.Domain.Entities.Training.WorkoutLog", "WorkoutLog")
+                        .WithMany("Sets")
+                        .HasForeignKey("WorkoutLogId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Exercise");
+
+                    b.Navigation("WorkoutLog");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutTemplate", b =>
@@ -9340,6 +9808,11 @@ namespace GymManagmentApplication.Migrations
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutAutomationRule", b =>
                 {
                     b.Navigation("Logs");
+                });
+
+            modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutLog", b =>
+                {
+                    b.Navigation("Sets");
                 });
 
             modelBuilder.Entity("GymManagmentApplication.Domain.Entities.Training.WorkoutPlan", b =>

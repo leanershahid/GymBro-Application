@@ -17,6 +17,7 @@ import { humanize } from '../../common/components/ChipSelect';
 import PrimaryButton from '../../common/components/PrimaryButton';
 import { useToast } from '../../common/components/Toast';
 import { apiErrorText } from '../../../api/apiError';
+import { workoutInUseFrom, workoutInUseText } from '../../training/builder';
 import { T, R, SP } from '../../../theme';
 
 function WorkoutCard({ workout, onOpen }: { workout: Workout; onOpen: (id: number) => void }) {
@@ -70,9 +71,13 @@ interface Props {
   onAddWorkout?: () => void;
   /** Override the built-in read-only detail sheet. */
   onOpenWorkout?: (id: number) => void;
+  /** Opens the structure editor (blocks, exercises, set targets). */
+  onEditWorkout?: (id: number) => void;
+  /** Shows the Delete button in the detail sheet (default true). */
+  canDelete?: boolean;
 }
 
-export default function ViewWorkoutsPage({ onBack, onAddWorkout, onOpenWorkout }: Props) {
+export default function ViewWorkoutsPage({ onBack, onAddWorkout, onOpenWorkout, onEditWorkout, canDelete = true }: Props) {
   const toast = useToast();
   const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState<number | null>(null);
@@ -88,8 +93,17 @@ export default function ViewWorkoutsPage({ onBack, onAddWorkout, onOpenWorkout }
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () =>
         del(id, {
-          onSuccess: () => { setOpenId(null); toast.show({ type: 'success', message: 'Workout deleted.' }); },
-          onError: (e) => showAlert('Delete failed', apiErrorText(e)),
+          onSuccess: (res: { success?: boolean; message?: string }) => {
+            // Preview mocks answer conflicts with a 200 + success:false envelope.
+            const inUse = workoutInUseFrom(res);
+            if (inUse) { showAlert('Workout in use', workoutInUseText(inUse)); return; }
+            if (res && res.success === false) { showAlert('Delete failed', res.message || 'The workout was not deleted.'); return; }
+            setOpenId(null); toast.show({ type: 'success', message: 'Workout deleted.' });
+          },
+          onError: (e) => {
+            const inUse = workoutInUseFrom(e);
+            showAlert(inUse ? 'Workout in use' : 'Delete failed', inUse ? workoutInUseText(inUse) : apiErrorText(e));
+          },
         })
       },
     ]);
@@ -161,8 +175,11 @@ export default function ViewWorkoutsPage({ onBack, onAddWorkout, onOpenWorkout }
           { label: 'Tags',        value: w.tags?.join(', ') },
           { label: 'Created',     value: fmtDate(w.createdAt) },
         ] : []}
-        footer={w ? (
-          <PrimaryButton label="Delete workout" icon="trash-2" variant="danger" loading={deleting} onPress={() => handleDelete(w.id, w.name)} />
+        footer={w && (onEditWorkout || canDelete) ? (
+          <View style={{ gap: SP.sm }}>
+            {onEditWorkout && <PrimaryButton label="Edit exercises" icon="list" onPress={() => { setOpenId(null); onEditWorkout(w.id); }} />}
+            {canDelete && <PrimaryButton label="Delete workout" icon="trash-2" variant="danger" loading={deleting} onPress={() => handleDelete(w.id, w.name)} />}
+          </View>
         ) : null}
       />
     </Screen>

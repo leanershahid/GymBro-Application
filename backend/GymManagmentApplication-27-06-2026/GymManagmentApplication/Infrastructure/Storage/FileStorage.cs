@@ -77,6 +77,8 @@ public class FileStorage(
         [FileKind.Document] = (10 * 1024 * 1024, [Pdf, Jpeg, Png, Webp]),
         [FileKind.Video] = (100 * 1024 * 1024, [Mp4, Mov, Webm]),
         [FileKind.Archive] = (50 * 1024 * 1024, [Zip]),
+        // Face check-in photos: the AWS Rekognition image limits (5 MB, JPEG/PNG).
+        [FileKind.FaceImage] = (5 * 1024 * 1024, [Jpeg, Png]),
     };
 
     public async Task<string> SaveAsync(FileUpload file, string folder, FileKind kind)
@@ -100,8 +102,8 @@ public class FileStorage(
             .Select(p => new string(p.Where(c => char.IsLetterOrDigit(c) || c is '-' or '_').ToArray()))
             .Where(p => p.Length > 0));
         var path = $"{safeFolder}/{Guid.NewGuid():N}{type.Extension}";
-        // Generated archives (data exports) are personal data: always private, whatever PrivateDocuments says.
-        var isPrivate = kind == FileKind.Archive || (_s.PrivateDocuments && kind == FileKind.Document);
+        // Generated archives (data exports) and face photos are personal data: always private, whatever PrivateDocuments says.
+        var isPrivate = kind is FileKind.Archive or FileKind.FaceImage || (_s.PrivateDocuments && kind == FileKind.Document);
 
         await using var stream = file.OpenReadStream();
         if (_s.UseCloudinary) return await SaveToCloudinaryAsync(stream, safeFolder, type, kind, isPrivate);
@@ -192,6 +194,40 @@ public class FileStorage(
         }
 
         return url;
+    }
+
+    public bool SupportsPrivateFiles => _s.UseCloudinary || _s.UseSupabase;
+
+    public async Task<Stream> OpenReadAsync(string url)
+    {
+        if (string.IsNullOrEmpty(url)) throw new ArgumentException("No file.");
+        if (_s.UseCloudinary && url.Contains("res.cloudinary.com/", StringComparison.Ordinal))
+            return await DownloadAsync(await GetSignedUrlAsync(url), authorize: false);
+        if (_s.UseSupabase && url.StartsWith(Base + "/storage/v1/object/", StringComparison.Ordinal))
+            return await DownloadAsync(url.Split('?')[0], authorize: true); // service key reads private buckets too
+
+        var i = url.IndexOf("/uploads/", StringComparison.Ordinal);
+        if (i >= 0)
+        {
+            var full = Path.GetFullPath(Path.Combine(WebRoot, url[(i + 1)..].Split('?')[0]));
+            if (full.StartsWith(WebRoot, StringComparison.Ordinal) && File.Exists(full))
+                return new MemoryStream(await File.ReadAllBytesAsync(full), writable: false);
+        }
+        throw new FileNotFoundException("The stored file was not found.");
+    }
+
+    private async Task<Stream> DownloadAsync(string url, bool authorize)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        if (authorize) Authorize(req);
+        using var res = await Client.SendAsync(req);
+        if (!res.IsSuccessStatusCode)
+        {
+            // Never log the URL's query (signatures) or the content.
+            logger.LogWarning("Reading a stored file failed ({Status}).", (int)res.StatusCode);
+            throw new FileNotFoundException("The stored file could not be read.");
+        }
+        return new MemoryStream(await res.Content.ReadAsByteArrayAsync(), writable: false);
     }
 
     private HttpClient Client => httpFactory.CreateClient(HttpClientName);

@@ -7,32 +7,32 @@ import ScreenHeader from '../../common/components/ScreenHeader';
 import Skeleton from '../../common/components/Skeleton';
 import EmptyState from '../../common/components/EmptyState';
 import { AssignedPlanCard } from '../components/TrainingCards';
-import PlanDetailScreen from './PlanDetailScreen';
+import PlanWeekScreen from './PlanWeekScreen';
+import type { WorkoutContext } from '../memberRoutes';
 
 interface Props {
   onBack?: () => void;
   /** Optional: scopes the cached /me/training data to the signed-in user. */
   userId?: number;
-  /** Optional: lets schedule days open a workout. Without it, days are read-only. */
-  onOpenWorkout?: (id: number, planId: number) => void;
-  /** Optional: reopens this plan's detail (assignmentId), e.g. when returning from a workout. */
+  /** Opens a plan day's workout (from the inline week view of `plans/{id}`). */
+  onOpenWorkout: (id: number, ctx: WorkoutContext) => void;
+  /** Opens a plan's week view (plan-week/{assignmentId}). */
+  onOpenPlan: (assignmentId: number) => void;
+  /** `plans/{id}` (older links): an assignment id or a plan id; shows that plan's week view. */
   initialPlanId?: number;
 }
 
 /** The member's assigned plans (GET /me/training); tap one for its week-by-week schedule. */
-export default function PlansScreen({ onBack, userId, onOpenWorkout, initialPlanId }: Props) {
+export default function PlansScreen({ onBack, userId, onOpenWorkout, onOpenPlan, initialPlanId }: Props) {
   const { data, isLoading, isError, refetch } = useMyTraining(userId);
   const [selectedId, setSelectedId] = useState<number | null>(initialPlanId ?? null);
   const plans = data?.plans ?? [];
-  const selected = plans.find(p => p.assignmentId === selectedId);
+  const selected = plans.find(p => p.assignmentId === selectedId) ?? plans.find(p => p.planId === selectedId);
 
-  if (selected) {
+  if (selected && userId) {
     return (
-      <PlanDetailScreen
-        plan={selected}
-        onBack={() => setSelectedId(null)}
-        onOpenWorkout={onOpenWorkout && ((id) => onOpenWorkout(id, selected.assignmentId))}
-      />
+      <PlanWeekScreen assignmentId={selected.assignmentId} userId={userId}
+        onBack={() => setSelectedId(null)} onOpenWorkout={onOpenWorkout} />
     );
   }
 
@@ -52,7 +52,7 @@ export default function PlansScreen({ onBack, userId, onOpenWorkout, initialPlan
         )}
 
         {!isLoading && !isError && plans.map(p => (
-          <AssignedPlanCard key={p.assignmentId} plan={p} onPress={() => setSelectedId(p.assignmentId)} />
+          <AssignedPlanCard key={p.assignmentId} plan={p} onPress={() => onOpenPlan(p.assignmentId)} />
         ))}
       </ScrollView>
     </Screen>

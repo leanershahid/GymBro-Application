@@ -104,14 +104,6 @@ public class WorkoutController(
         return result is null ? NotFound(ApiResponse<object>.Fail("No score found.")) : Ok(ApiResponse<object>.Ok(result));
     }
 
-    [HttpPost("{id:long}/share")]
-    [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
-    public async Task<ActionResult<ApiResponse<object>>> Share(ulong id)
-    {
-        await service.ShareAsync(id, UserId);
-        return Ok(ApiResponse<object>.Ok((object)null!, "Workout shared."));
-    }
-
     [HttpPost("{id:long}/bookmark")]
     [AuthorizeRoles(RoleNames.Admin, RoleNames.Trainer, RoleNames.Client)]
     public async Task<ActionResult<ApiResponse<object>>> Bookmark(ulong id)
